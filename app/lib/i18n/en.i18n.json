@@ -1,0 +1,64 @@
+{
+  "app": {
+    "name": "Aether"
+  },
+  "common": {
+    "connect": "Connect",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "retry": "Retry"
+  },
+  "serverSelection": {
+    "title": "Select Server",
+    "subtitle": "Choose a saved server or add a new one",
+    "addNew": "Add New Server",
+    "lastLogin": "Last login",
+    "deleteServer": "Delete Server",
+    "deleteConfirm": "Are you sure you want to delete @$serverName?"
+  },
+  "login": {
+    "title": "Connect to Server",
+    "serverUrl": "Server URL",
+    "serverUrlHint": "http://your-server:8096",
+    "username": "Username",
+    "password": "Password",
+    "signIn": "Sign In",
+    "connectFirst": "Please connect to server first",
+    "connectionFailed": "Connection failed",
+    "loginFailed": "Login failed",
+    "loginSuccess": "Login successful",
+    "rememberMe": "Remember this server"
+  },
+  "home": {
+    "title": "Home",
+    "welcome": "Welcome back, @$name",
+    "continueWatching": "Continue Watching",
+    "recentlyAdded": "Recently Added",
+    "favorites": "Favorites",
+    "noItems": "No items yet"
+  },
+  "library": {
+    "title": "Library",
+    "movies": "Movies",
+    "tvShows": "TV Shows",
+    "music": "Music",
+    "all": "All"
+  },
+  "settings": {
+    "title": "Settings",
+    "server": "Server",
+    "serverInfo": "Server Info",
+    "language": "Language",
+    "theme": "Theme",
+    "darkMode": "Dark Mode",
+    "logout": "Logout",
+    "logoutConfirm": "Are you sure you want to logout?",
+    "chinese": "中文",
+    "english": "English"
+  }
+}

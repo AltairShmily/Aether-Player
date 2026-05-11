@@ -1,0 +1,64 @@
+{
+  "app": {
+    "name": "Aether"
+  },
+  "common": {
+    "connect": "连接",
+    "save": "保存",
+    "cancel": "取消",
+    "delete": "删除",
+    "confirm": "确认",
+    "loading": "加载中...",
+    "error": "错误",
+    "success": "成功",
+    "retry": "重试"
+  },
+  "serverSelection": {
+    "title": "选择服务器",
+    "subtitle": "选择一个已保存的服务器或添加新服务器",
+    "addNew": "添加新服务器",
+    "lastLogin": "上次登录",
+    "deleteServer": "删除服务器",
+    "deleteConfirm": "确定要删除服务器 @$serverName 吗？"
+  },
+  "login": {
+    "title": "连接服务器",
+    "serverUrl": "服务器地址",
+    "serverUrlHint": "http://your-server:8096",
+    "username": "用户名",
+    "password": "密码",
+    "signIn": "登录",
+    "connectFirst": "请先连接服务器",
+    "connectionFailed": "连接失败",
+    "loginFailed": "登录失败",
+    "loginSuccess": "登录成功",
+    "rememberMe": "记住此服务器"
+  },
+  "home": {
+    "title": "首页",
+    "welcome": "欢迎回来, @$name",
+    "continueWatching": "继续观看",
+    "recentlyAdded": "最近添加",
+    "favorites": "收藏",
+    "noItems": "暂无内容"
+  },
+  "library": {
+    "title": "媒体库",
+    "movies": "电影",
+    "tvShows": "电视剧",
+    "music": "音乐",
+    "all": "全部"
+  },
+  "settings": {
+    "title": "设置",
+    "server": "服务器",
+    "serverInfo": "服务器信息",
+    "language": "语言",
+    "theme": "主题",
+    "darkMode": "深色模式",
+    "logout": "退出登录",
+    "logoutConfirm": "确定要退出登录吗？",
+    "chinese": "中文",
+    "english": "English"
+  }
+}
