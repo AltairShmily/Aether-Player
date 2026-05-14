@@ -37,9 +37,11 @@ class _MediaDetailScreenState extends ConsumerState<MediaDetailScreen> {
 
     setState(() => _loadingStream = true);
     try {
+      final userId = ref.read(authProvider).authResult?.user.id ?? '';
       final info = await ref.read(apiClientProvider).getPlaybackInfo(
             serverUrl: serverUrl,
             token: token,
+            userId: userId,
             itemId: widget.item.id,
           );
       if (mounted) setState(() => _streamInfo = info);
@@ -56,9 +58,11 @@ class _MediaDetailScreenState extends ConsumerState<MediaDetailScreen> {
 
     setState(() => _loadingSeasons = true);
     try {
+      final userId = ref.read(authProvider).authResult?.user.id ?? '';
       final result = await ref.read(apiClientProvider).getSeasons(
             serverUrl: serverUrl,
             token: token,
+            userId: userId,
             seriesId: widget.item.id,
           );
       if (mounted) {
@@ -85,9 +89,11 @@ class _MediaDetailScreenState extends ConsumerState<MediaDetailScreen> {
       _selectedSeasonId = seasonId;
     });
     try {
+      final userId = ref.read(authProvider).authResult?.user.id ?? '';
       final result = await ref.read(apiClientProvider).getEpisodes(
             serverUrl: serverUrl,
             token: token,
+            userId: userId,
             seriesId: widget.item.id,
             seasonId: seasonId,
           );

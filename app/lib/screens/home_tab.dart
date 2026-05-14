@@ -4,6 +4,8 @@ import '../i18n/strings.g.dart';
 import '../providers/auth_provider.dart';
 import '../providers/home_provider.dart';
 import '../models/media_models.dart';
+import 'series_detail_screen.dart';
+import 'episode_detail_screen.dart';
 import 'media_detail_screen.dart';
 import 'server_selection_screen.dart';
 
@@ -15,12 +17,20 @@ class HomeTab extends ConsumerStatefulWidget {
 }
 
 class _HomeTabState extends ConsumerState<HomeTab> {
+  String? _serverUrl;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadServerUrl();
       ref.read(homeProvider.notifier).loadAll();
     });
+  }
+
+  Future<void> _loadServerUrl() async {
+    final url = await ref.read(storageServiceProvider).getServerUrl();
+    if (mounted) setState(() => _serverUrl = url);
   }
 
   @override
@@ -135,10 +145,10 @@ class _HomeTabState extends ConsumerState<HomeTab> {
             ),
           ),
 
-        // Per-library rows
+        // Per-library rows (only show libraries with items)
         for (final lib in homeState.libraries) ...[
           if (homeState.libraryItems.containsKey(lib.id) &&
-              homeState.libraryItems[lib.id]!.isNotEmpty)
+              homeState.libraryItems[lib.id]!.isNotEmpty) ...[
             SliverToBoxAdapter(
               child: _MediaRow(
                 title: lib.name,
@@ -147,7 +157,8 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                 token: _token,
               ),
             ),
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+            const SliverToBoxAdapter(child: SizedBox(height: 16)),
+          ],
         ],
 
         // Account section at the bottom
@@ -221,7 +232,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
     );
   }
 
-  String? get _serverUrl => ref.read(storageServiceProvider).toString();
+  // _serverUrl is now loaded in initState and stored in state
   String? get _token => ref.read(authProvider).authResult?.token;
 
   void _switchAccount(BuildContext context, WidgetRef ref) {
@@ -330,10 +341,16 @@ class _ItemCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: () {
+            Widget destination;
+            if (item.isSeries) {
+              destination = SeriesDetailScreen(item: item);
+            } else if (item.isEpisode) {
+              destination = EpisodeDetailScreen(item: item);
+            } else {
+              destination = MediaDetailScreen(item: item);
+            }
             Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => MediaDetailScreen(item: item),
-              ),
+              MaterialPageRoute(builder: (_) => destination),
             );
           },
           child: Column(
