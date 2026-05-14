@@ -132,15 +132,15 @@ type PlaybackInfoRequest struct {
 }
 
 type DeviceProfile struct {
-	Name    string   `json:"Name"`
-	Id      string   `json:"Id"`
-	Type    string   `json:"Type"`
-	AlbumPolicies []DirectPlayProfile `json:"DirectPlayProfiles,omitempty"`
-	DirectStreamingProfiles []DirectPlayProfile `json:"DirectStreamingProfiles,omitempty"`
-	TranscodingProfiles    []TranscodingProfile `json:"TranscodingProfiles,omitempty"`
-	CodecProfiles          []CodecProfile       `json:"CodecProfiles,omitempty"`
-	ContainerProfiles      []ContainerProfile   `json:"ContainerProfiles,omitempty"`
-	SubtitleProfiles       []SubtitleProfile    `json:"SubtitleProfiles,omitempty"`
+	Name                    string               `json:"Name"`
+	Id                      string               `json:"Id"`
+	Type                    string               `json:"Type"`
+	DirectPlayProfiles      []DirectPlayProfile  `json:"DirectPlayProfiles,omitempty"`
+	DirectStreamingProfiles []DirectPlayProfile  `json:"DirectStreamingProfiles,omitempty"`
+	TranscodingProfiles     []TranscodingProfile `json:"TranscodingProfiles,omitempty"`
+	CodecProfiles           []CodecProfile       `json:"CodecProfiles,omitempty"`
+	ContainerProfiles       []ContainerProfile   `json:"ContainerProfiles,omitempty"`
+	SubtitleProfiles        []SubtitleProfile    `json:"SubtitleProfiles,omitempty"`
 }
 
 type DirectPlayProfile struct {
@@ -229,8 +229,13 @@ func (c *Client) Authenticate(serverURL, username, password string) (*AuthResult
 	serverURL = strings.TrimRight(serverURL, "/")
 	url := fmt.Sprintf("%s/Users/AuthenticateByName", serverURL)
 
-	body := strings.NewReader(fmt.Sprintf(`{"Username": %q, "Pw": %q}`, username, password))
-	req, err := http.NewRequest("POST", url, body)
+	authBody := map[string]string{"Username": username, "Pw": password}
+	jsonBody, err := json.Marshal(authBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal auth body: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", url, strings.NewReader(string(jsonBody)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -351,6 +356,7 @@ func (c *Client) GetItemImage(serverURL, token, itemID, imageType string, maxWid
 	}
 
 	req.Header.Set("X-Emby-Token", token)
+	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Dev-001", Version="0.0.1"`)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {

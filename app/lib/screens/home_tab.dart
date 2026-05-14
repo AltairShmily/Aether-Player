@@ -343,7 +343,7 @@ class _ItemCard extends StatelessWidget {
           onTap: () {
             Widget destination;
             if (item.isSeries) {
-              destination = SeriesDetailScreen(item: item);
+              destination = SeriesDetailScreen(series: item);
             } else if (item.isEpisode) {
               destination = EpisodeDetailScreen(item: item);
             } else {

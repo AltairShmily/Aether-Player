@@ -40,7 +40,7 @@ func main() {
 	// Playback routes
 	mux.HandleFunc("/api/playback/", playbackRouter(playbackHandler))
 
-	h := middleware.Logger(middleware.CORS(methodRouter(mux)))
+	h := middleware.Logger(middleware.CORS(mux))
 
 	log.Println("Starting Aether Server on :19800")
 	if err := http.ListenAndServe(":19800", h); err != nil {
@@ -48,29 +48,37 @@ func main() {
 	}
 }
 
-func methodRouter(mux *http.ServeMux) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/api/library/items/") && r.Method == "GET" {
-			mux.ServeHTTP(w, r)
-			return
-		}
-		mux.ServeHTTP(w, r)
-	})
-}
-
 // playbackRouter dispatches /api/playback/ sub-routes
-func playbackRouter(h *PlaybackHandler) http.HandlerFunc {
+func playbackRouter(h *handler.PlaybackHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path[len("/api/playback/"):]
 
-		// /api/playback/{itemId}/info
-		if strings.HasSuffix(path, "/info") {
+		// POST /api/playback/started
+		if path == "started" && r.Method == "POST" {
+			h.HandleReportPlaybackStarted(w, r)
+			return
+		}
+
+		// POST /api/playback/progress
+		if path == "progress" && r.Method == "POST" {
+			h.HandleReportPlaybackProgress(w, r)
+			return
+		}
+
+		// POST /api/playback/stopped
+		if path == "stopped" && r.Method == "POST" {
+			h.HandleReportPlaybackStopped(w, r)
+			return
+		}
+
+		// GET /api/playback/{itemId}/info
+		if strings.HasSuffix(path, "/info") && r.Method == "GET" {
 			h.HandleGetPlaybackInfo(w, r)
 			return
 		}
 
-		// /api/playback/{itemId}/stream
-		if strings.HasSuffix(path, "/stream") {
+		// GET /api/playback/{itemId}/stream
+		if strings.HasSuffix(path, "/stream") && r.Method == "GET" {
 			h.HandleGetVideoStreamURL(w, r)
 			return
 		}

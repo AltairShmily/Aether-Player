@@ -106,6 +106,7 @@ class HomeNotifier extends StateNotifier<HomeState> {
         limit: _libraryLimit,
         sortBy: 'DateCreated',
         sortOrder: 'Descending',
+        parentId: library.id,
         includeItemTypes: library.itemType,
         recursive: true,
       );
