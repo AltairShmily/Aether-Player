@@ -56,6 +56,8 @@ func (h *LibraryHandler) HandleGetItems(w http.ResponseWriter, r *http.Request) 
 		"includeItemTypes": r.URL.Query().Get("includeItemTypes"),
 		"recursive":        r.URL.Query().Get("recursive"),
 		"searchTerm":       r.URL.Query().Get("searchTerm"),
+		"parentId":         r.URL.Query().Get("parentId"),
+		"fields":           r.URL.Query().Get("fields"),
 	}
 
 	if params["limit"] == "" {
@@ -84,14 +86,15 @@ func (h *LibraryHandler) HandleGetItems(w http.ResponseWriter, r *http.Request) 
 func (h *LibraryHandler) HandleGetItemDetail(w http.ResponseWriter, r *http.Request) {
 	serverURL := r.Header.Get("X-Emby-Server")
 	token := r.Header.Get("X-Emby-Token")
+	userID := r.Header.Get("X-Emby-User")
 	itemID := r.URL.Path[len("/api/library/items/"):]
 
-	if serverURL == "" || token == "" {
+	if serverURL == "" || token == "" || userID == "" {
 		http.Error(w, "Missing Emby headers", http.StatusBadRequest)
 		return
 	}
 
-	item, err := h.EmbyClient.GetItemDetail(serverURL, token, itemID)
+	item, err := h.EmbyClient.GetItemDetail(serverURL, token, userID, itemID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
@@ -156,14 +159,15 @@ func (h *LibraryHandler) HandleGetResumeItems(w http.ResponseWriter, r *http.Req
 func (h *LibraryHandler) HandleGetSeasons(w http.ResponseWriter, r *http.Request) {
 	serverURL := r.Header.Get("X-Emby-Server")
 	token := r.Header.Get("X-Emby-Token")
+	userID := r.Header.Get("X-Emby-User")
 	seriesID := r.URL.Query().Get("seriesId")
 
-	if serverURL == "" || token == "" || seriesID == "" {
+	if serverURL == "" || token == "" || userID == "" || seriesID == "" {
 		http.Error(w, "Missing parameters", http.StatusBadRequest)
 		return
 	}
 
-	result, err := h.EmbyClient.GetSeasons(serverURL, token, seriesID)
+	result, err := h.EmbyClient.GetSeasons(serverURL, token, userID, seriesID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return

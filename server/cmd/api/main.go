@@ -14,6 +14,7 @@ func main() {
 	embyClient := emby.NewClient()
 	authHandler := handler.NewAuthHandler(embyClient)
 	libraryHandler := handler.NewLibraryHandler(embyClient)
+	playbackHandler := handler.NewPlaybackHandler(embyClient)
 
 	mux := http.NewServeMux()
 
@@ -22,9 +23,11 @@ func main() {
 		w.Write([]byte(`{"status": "ok", "service": "Aether Server"}`))
 	})
 
+	// Auth routes
 	mux.HandleFunc("/api/auth/connect", authHandler.HandleConnect)
 	mux.HandleFunc("/api/auth/login", authHandler.HandleLogin)
 
+	// Library routes
 	mux.HandleFunc("/api/library/views", libraryHandler.HandleGetUserViews)
 	mux.HandleFunc("/api/library/items", libraryHandler.HandleGetItems)
 	mux.HandleFunc("/api/library/items/", libraryHandler.HandleGetItemDetail)
@@ -33,6 +36,9 @@ func main() {
 	mux.HandleFunc("/api/library/episodes", libraryHandler.HandleGetEpisodes)
 	mux.HandleFunc("/api/images/", libraryHandler.HandleGetItemImage)
 	mux.HandleFunc("/api/search", libraryHandler.HandleSearch)
+
+	// Playback routes
+	mux.HandleFunc("/api/playback/", playbackRouter(playbackHandler))
 
 	h := middleware.Logger(middleware.CORS(methodRouter(mux)))
 
@@ -50,4 +56,25 @@ func methodRouter(mux *http.ServeMux) http.Handler {
 		}
 		mux.ServeHTTP(w, r)
 	})
+}
+
+// playbackRouter dispatches /api/playback/ sub-routes
+func playbackRouter(h *PlaybackHandler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path[len("/api/playback/"):]
+
+		// /api/playback/{itemId}/info
+		if strings.HasSuffix(path, "/info") {
+			h.HandleGetPlaybackInfo(w, r)
+			return
+		}
+
+		// /api/playback/{itemId}/stream
+		if strings.HasSuffix(path, "/stream") {
+			h.HandleGetVideoStreamURL(w, r)
+			return
+		}
+
+		http.NotFound(w, r)
+	}
 }
