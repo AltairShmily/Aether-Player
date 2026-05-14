@@ -17,6 +17,11 @@ class MediaItem {
   final String seriesId;
   final String seasonId;
   final UserData? userData;
+  final List<Person> people;
+  final Map<String, String> providerIds;
+  final int? childCount;        // 剧集的季数
+  final String? status;         // Series状态: Continuing, Ended
+  final String? officialRatingForSort; // 用于排序的评级
 
   MediaItem({
     required this.id,
@@ -37,6 +42,11 @@ class MediaItem {
     this.seriesId = '',
     this.seasonId = '',
     this.userData,
+    this.people = const [],
+    this.providerIds = const {},
+    this.childCount,
+    this.status,
+    this.officialRatingForSort,
   });
 
   factory MediaItem.fromJson(Map<String, dynamic> json) {
@@ -72,6 +82,16 @@ class MediaItem {
       seriesId: json['SeriesId'] as String? ?? '',
       seasonId: json['SeasonId'] as String? ?? '',
       userData: json['UserData'] != null ? UserData.fromJson(json['UserData'] as Map<String, dynamic>) : null,
+      people: (json['People'] as List<dynamic>?)
+              ?.map((e) => Person.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      providerIds: (json['ProviderIds'] as Map<String, dynamic>?)
+              ?.map((k, v) => MapEntry(k, v?.toString() ?? '')) ??
+          {},
+      childCount: json['ChildCount'] as int?,
+      status: json['Status'] as String?,
+      officialRatingForSort: json['OfficialRatingForSortName'] as String?,
     );
   }
 
@@ -96,6 +116,22 @@ class MediaItem {
     }
     return '';
   }
+
+  String get durationFormatted {
+    if (runTimeTicks == 0) return '';
+    final totalSeconds = (runTimeTicks / 10000000).round();
+    final minutes = totalSeconds ~/ 60;
+    final seconds = totalSeconds % 60;
+    return '${minutes}分${seconds.toString().padLeft(2, '0')}秒';
+  }
+
+  List<Person> get directors => people.where((p) => p.type == 'Director').toList();
+  List<Person> get actors => people.where((p) => p.type == 'Actor').toList();
+  List<Person> get writers => people.where((p) => p.type == 'Writer').toList();
+
+  String? get imdbId => providerIds['Imdb'];
+  String? get tmdbId => providerIds['Tmdb'];
+  String? get tvdbId => providerIds['Tvdb'];
 }
 
 class UserData {
@@ -127,6 +163,34 @@ class UserData {
     if (playedPercentage > 0) return playedPercentage / 100.0;
     return 0;
   }
+}
+
+class Person {
+  final String name;
+  final String type;       // Actor, Director, Writer, etc.
+  final String? role;      // 角色名
+  final String? id;
+  final String? primaryImageTag;
+
+  Person({
+    required this.name,
+    this.type = '',
+    this.role,
+    this.id,
+    this.primaryImageTag,
+  });
+
+  factory Person.fromJson(Map<String, dynamic> json) {
+    return Person(
+      name: json['Name'] as String? ?? '',
+      type: json['Type'] as String? ?? json['Type'] as String? ?? '',
+      role: json['Role'] as String?,
+      id: json['Id'] as String?,
+      primaryImageTag: json['PrimaryImageTag'] as String?,
+    );
+  }
+
+  bool get hasImage => primaryImageTag != null && primaryImageTag!.isNotEmpty;
 }
 
 class ItemListResponse {
@@ -205,8 +269,9 @@ class SearchResult {
 
 class MediaStreamInfo {
   final List<MediaSource> mediaSources;
+  final String playSessionId;
 
-  MediaStreamInfo({required this.mediaSources});
+  MediaStreamInfo({required this.mediaSources, this.playSessionId = ''});
 
   factory MediaStreamInfo.fromJson(Map<String, dynamic> json) {
     return MediaStreamInfo(
@@ -214,6 +279,7 @@ class MediaStreamInfo {
               ?.map((e) => MediaSource.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
+      playSessionId: json['PlaySessionId'] as String? ?? '',
     );
   }
 }

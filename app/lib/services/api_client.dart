@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import '../models/auth_models.dart';
 import '../models/media_models.dart';
+
 class ApiClient {
   final Dio _dio;
 
@@ -18,7 +19,7 @@ class ApiClient {
       );
       return ServerInfo.fromJson(response.data);
     } on DioException catch (e) {
-      throw Exception('Failed to connect: ${e.message}');
+      throw Exception('Failed to connect: \${e.message}');
     }
   }
 
@@ -34,7 +35,7 @@ class ApiClient {
       );
       return AuthResult.fromJson(response.data);
     } on DioException catch (e) {
-      throw Exception('Login failed: ${e.message}');
+      throw Exception('Login failed: \${e.message}');
     }
   }
 
@@ -62,7 +63,7 @@ class ApiClient {
           [];
       return items;
     } on DioException catch (e) {
-      throw Exception('Failed to get user views: ${e.message}');
+      throw Exception('Failed to get user views: \${e.message}');
     }
   }
 
@@ -86,13 +87,14 @@ class ApiClient {
       );
       return ItemListResponse.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
-      throw Exception('Failed to get resume items: ${e.message}');
+      throw Exception('Failed to get resume items: \${e.message}');
     }
   }
 
   Future<ItemListResponse> getSeasons({
     required String serverUrl,
     required String token,
+    required String userId,
     required String seriesId,
   }) async {
     try {
@@ -103,18 +105,20 @@ class ApiClient {
           headers: {
             'X-Emby-Server': serverUrl,
             'X-Emby-Token': token,
+            'X-Emby-User': userId,
           },
         ),
       );
       return ItemListResponse.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
-      throw Exception('Failed to get seasons: ${e.message}');
+      throw Exception('Failed to get seasons: \${e.message}');
     }
   }
 
   Future<ItemListResponse> getEpisodes({
     required String serverUrl,
     required String token,
+    required String userId,
     required String seriesId,
     required String seasonId,
     int limit = 50,
@@ -131,12 +135,13 @@ class ApiClient {
           headers: {
             'X-Emby-Server': serverUrl,
             'X-Emby-Token': token,
+            'X-Emby-User': userId,
           },
         ),
       );
       return ItemListResponse.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
-      throw Exception('Failed to get episodes: ${e.message}');
+      throw Exception('Failed to get episodes: \${e.message}');
     }
   }
 
@@ -151,6 +156,8 @@ class ApiClient {
     String? includeItemTypes,
     bool recursive = true,
     String? searchTerm,
+    String? parentId,
+    String? fields,
   }) async {
     try {
       final queryParams = <String, dynamic>{
@@ -162,6 +169,8 @@ class ApiClient {
       };
       if (includeItemTypes != null) queryParams['includeItemTypes'] = includeItemTypes;
       if (searchTerm != null && searchTerm.isNotEmpty) queryParams['searchTerm'] = searchTerm;
+      if (parentId != null && parentId.isNotEmpty) queryParams['parentId'] = parentId;
+      if (fields != null && fields.isNotEmpty) queryParams['fields'] = fields;
 
       final response = await _dio.get(
         '/api/library/items',
@@ -176,13 +185,14 @@ class ApiClient {
       );
       return ItemListResponse.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
-      throw Exception('Failed to get items: ${e.message}');
+      throw Exception('Failed to get items: \${e.message}');
     }
   }
 
   Future<MediaItem> getItemDetail({
     required String serverUrl,
     required String token,
+    required String userId,
     required String itemId,
   }) async {
     try {
@@ -192,15 +202,18 @@ class ApiClient {
           headers: {
             'X-Emby-Server': serverUrl,
             'X-Emby-Token': token,
+            'X-Emby-User': userId,
           },
         ),
       );
       return MediaItem.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
-      throw Exception('Failed to get item detail: ${e.message}');
+      throw Exception('Failed to get item detail: \${e.message}');
     }
   }
 
+  /// Build image URL for the given item.
+  /// Uses the Go backend proxy at the same base URL as the API client.
   String getImageUrl({
     required String serverUrl,
     required String token,
@@ -208,7 +221,7 @@ class ApiClient {
     String imageType = 'Primary',
     int? maxWidth,
   }) {
-    var url = 'http://localhost:8080/api/images/$itemId/$imageType';
+    var url = 'http://localhost:19800/api/images/$itemId/$imageType';
     if (maxWidth != null) url += '?maxWidth=$maxWidth';
     return url;
   }
@@ -234,13 +247,14 @@ class ApiClient {
       );
       return SearchResult.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
-      throw Exception('Search failed: ${e.message}');
+      throw Exception('Search failed: \${e.message}');
     }
   }
 
   Future<MediaStreamInfo> getPlaybackInfo({
     required String serverUrl,
     required String token,
+    required String userId,
     required String itemId,
   }) async {
     try {
@@ -250,12 +264,129 @@ class ApiClient {
           headers: {
             'X-Emby-Server': serverUrl,
             'X-Emby-Token': token,
+            'X-Emby-User': userId,
           },
         ),
       );
       return MediaStreamInfo.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
-      throw Exception('Failed to get playback info: ${e.message}');
+      throw Exception('Failed to get playback info: \${e.message}');
+    }
+  }
+
+  // --- Playback Reporting ---
+
+  /// Get the direct play / transcode stream URL for an item.
+  Future<String> getVideoStreamUrl({
+    required String serverUrl,
+    required String token,
+    required String itemId,
+    String container = 'mp4',
+  }) async {
+    try {
+      final response = await _dio.get(
+        '/api/playback/$itemId/stream',
+        queryParameters: {'container': container},
+        options: Options(
+          headers: {
+            'X-Emby-Server': serverUrl,
+            'X-Emby-Token': token,
+          },
+        ),
+      );
+      return response.data['streamUrl'] as String;
+    } on DioException catch (e) {
+      throw Exception('Failed to get stream URL: \${e.message}');
+    }
+  }
+
+  /// Report playback started to Emby server.
+  Future<void> reportPlaybackStarted({
+    required String serverUrl,
+    required String token,
+    required String itemId,
+    String mediaSourceId = '',
+    String playSessionId = '',
+  }) async {
+    try {
+      await _dio.post(
+        '/api/playback/started',
+        data: {
+          'itemId': itemId,
+          'mediaSourceId': mediaSourceId,
+          'playSessionId': playSessionId,
+        },
+        options: Options(
+          headers: {
+            'X-Emby-Server': serverUrl,
+            'X-Emby-Token': token,
+          },
+        ),
+      );
+    } on DioException catch (e) {
+      throw Exception('Failed to report playback started: \${e.message}');
+    }
+  }
+
+  /// Report playback progress to Emby server.
+  Future<void> reportPlaybackProgress({
+    required String serverUrl,
+    required String token,
+    required String itemId,
+    required int positionTicks,
+    bool isPaused = false,
+    String mediaSourceId = '',
+    String playSessionId = '',
+  }) async {
+    try {
+      await _dio.post(
+        '/api/playback/progress',
+        data: {
+          'itemId': itemId,
+          'mediaSourceId': mediaSourceId,
+          'playSessionId': playSessionId,
+          'positionTicks': positionTicks,
+          'isPaused': isPaused,
+        },
+        options: Options(
+          headers: {
+            'X-Emby-Server': serverUrl,
+            'X-Emby-Token': token,
+          },
+        ),
+      );
+    } on DioException catch (e) {
+      throw Exception('Failed to report playback progress: \${e.message}');
+    }
+  }
+
+  /// Report playback stopped to Emby server.
+  Future<void> reportPlaybackStopped({
+    required String serverUrl,
+    required String token,
+    required String itemId,
+    required int positionTicks,
+    String mediaSourceId = '',
+    String playSessionId = '',
+  }) async {
+    try {
+      await _dio.post(
+        '/api/playback/stopped',
+        data: {
+          'itemId': itemId,
+          'mediaSourceId': mediaSourceId,
+          'playSessionId': playSessionId,
+          'positionTicks': positionTicks,
+        },
+        options: Options(
+          headers: {
+            'X-Emby-Server': serverUrl,
+            'X-Emby-Token': token,
+          },
+        ),
+      );
+    } on DioException catch (e) {
+      throw Exception('Failed to report playback stopped: \${e.message}');
     }
   }
 }
