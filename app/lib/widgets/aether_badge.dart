@@ -74,7 +74,7 @@ class AetherBadge extends StatelessWidget {
         backgroundColor = null;
 
   /// 角标计数
-  AetherBadge.count({
+  const AetherBadge.count({
     super.key,
     required int count,
     this.size = 20,

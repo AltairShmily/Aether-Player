@@ -122,7 +122,7 @@ class MediaItem {
     final totalSeconds = (runTimeTicks / 10000000).round();
     final minutes = totalSeconds ~/ 60;
     final seconds = totalSeconds % 60;
-    return '${minutes}分${seconds.toString().padLeft(2, '0')}秒';
+    return '$minutes分${seconds.toString().padLeft(2, '0')}秒';
   }
 
   List<Person> get directors => people.where((p) => p.type == 'Director').toList();

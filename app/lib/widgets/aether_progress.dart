@@ -57,13 +57,12 @@ class AetherProgress extends StatefulWidget {
   /// 视频播放进度条（带时间标签）
   const AetherProgress.video({
     super.key,
-    required double value,
+    required this.value,
     this.height = 4,
     this.onChanged,
     this.elapsed,
     this.remaining,
-  })  : this.value = value,
-        interactive = true,
+  })  : interactive = true,
         gradient = AppColors.progressGradient,
         trackColor = null,
         showLabels = true,
@@ -72,10 +71,9 @@ class AetherProgress extends StatefulWidget {
   /// 卡片底部迷你进度条
   const AetherProgress.mini({
     super.key,
-    required double value,
+    required this.value,
     this.height = 3,
-  })  : this.value = value,
-        interactive = false,
+  })  : interactive = false,
         gradient = AppColors.progressGradient,
         trackColor = null,
         showLabels = false,
@@ -87,11 +85,10 @@ class AetherProgress extends StatefulWidget {
   /// 圆形进度指示器
   const AetherProgress.circular({
     super.key,
-    required double value,
+    required this.value,
     this.height = 4,
     this.gradient,
-  })  : this.value = value,
-        interactive = false,
+  })  : interactive = false,
         trackColor = null,
         showLabels = false,
         elapsed = null,
