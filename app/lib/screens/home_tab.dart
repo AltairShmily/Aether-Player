@@ -11,8 +11,6 @@ import '../widgets/aether_button.dart';
 import '../widgets/aether_hero.dart';
 import '../widgets/aether_progress.dart';
 import '../widgets/aether_badge.dart';
-import '../widgets/aether_chip.dart';
-import '../widgets/glass_panel.dart';
 import 'series_detail_screen.dart';
 import 'episode_detail_screen.dart';
 import 'media_detail_screen.dart';

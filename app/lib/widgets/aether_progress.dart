@@ -245,7 +245,7 @@ class _AetherProgressState extends State<AetherProgress>
                             child: Container(
                               height: double.infinity,
                               decoration: BoxDecoration(
-                                gradient: gradient,
+                                gradient: widget.gradient,
                                 borderRadius: BorderRadius.circular(100),
                                 boxShadow: [
                                   if (_isHovered || _isDragging)

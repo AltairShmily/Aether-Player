@@ -7,7 +7,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_breakpoints.dart';
 import '../widgets/aether_card.dart';
 import '../widgets/aether_button.dart';
-import '../widgets/glass_panel.dart';
+import '../widgets/aether_badge.dart';
 import 'server_selection_screen.dart';
 
 class SettingsTab extends ConsumerWidget {

@@ -103,7 +103,6 @@ class _AetherButtonState extends State<AetherButton>
 
   @override
   Widget build(BuildContext context) {
-    final v = widget.variant;
     final pad = widget.compact
         ? const EdgeInsets.symmetric(horizontal: 16, vertical: 10)
         : const EdgeInsets.symmetric(horizontal: 24, vertical: 14);
@@ -162,8 +161,6 @@ class _AetherButtonState extends State<AetherButton>
   }
 
   BoxDecoration _buildDecoration() {
-    final v = widget.variant;
-
     switch (widget.variant) {
       case AetherButtonVariant.primary:
         return BoxDecoration(
