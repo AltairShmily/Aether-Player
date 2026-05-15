@@ -712,3 +712,126 @@ func (c *Client) GetEpisodes(serverURL, token, seriesID, seasonID string, limit 
 
 	return &result, nil
 }
+
+// ══════════════════════════════════════════════════
+//  Favorites
+// ══════════════════════════════════════════════════
+
+// ToggleFavorite toggles the favorite status of an item.
+func (c *Client) ToggleFavorite(serverURL, token, userID, itemID string, isFavorite bool) (bool, error) {
+	serverURL = strings.TrimRight(serverURL, "/")
+	var embyURL string
+	if isFavorite {
+		embyURL = fmt.Sprintf("%s/Users/%s/Items/%s/UnmarkFavorite", serverURL, userID, itemID)
+	} else {
+		embyURL = fmt.Sprintf("%s/Users/%s/Items/%s/MarkFavorite", serverURL, userID, itemID)
+	}
+
+	req, err := http.NewRequest("POST", embyURL, nil)
+	if err != nil {
+		return false, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Emby-Token", token)
+	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Dev-001", Version="0.0.1"`)
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return false, fmt.Errorf("failed to toggle favorite: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		return false, fmt.Errorf("server returned status: %d", resp.StatusCode)
+	}
+	return !isFavorite, nil
+}
+
+// GetFavoriteItems returns all favorited items for a user.
+func (c *Client) GetFavoriteItems(serverURL, token, userID string, limit int) (*ItemListResponse, error) {
+	serverURL = strings.TrimRight(serverURL, "/")
+	embyURL := fmt.Sprintf("%s/Users/%s/Items?Filters=IsFavorite&Limit=%d&Recursive=true&Fields=UserData", serverURL, userID, limit)
+
+	req, err := http.NewRequest("GET", embyURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("X-Emby-Token", token)
+	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Dev-001", Version="0.0.1"`)
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get favorites: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("server returned status: %d", resp.StatusCode)
+	}
+	var result ItemListResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	return &result, nil
+}
+
+// ══════════════════════════════════════════════════
+//  Audio Stream URL
+// ══════════════════════════════════════════════════
+
+// GetAudioStreamURL returns the direct play / transcode audio URL.
+func (c *Client) GetAudioStreamURL(serverURL, token, itemID string) string {
+	serverURL = strings.TrimRight(serverURL, "/")
+	return fmt.Sprintf("%s/Audio/%s/stream?Static=true&api_key=%s",
+		serverURL, itemID, token)
+}
+
+// ══════════════════════════════════════════════════
+//  User Profile
+// ══════════════════════════════════════════════════
+
+// UserProfile holds detailed user information from Emby.
+type UserProfile struct {
+	ID               string      `json:"Id"`
+	Name             string      `json:"Name"`
+	ServerID         string      `json:"ServerId,omitempty"`
+	HasPassword      bool        `json:"HasPassword,omitempty"`
+	PrimaryImageTag  string      `json:"PrimaryImageTag,omitempty"`
+	LastActivityDate string      `json:"LastActivityDate,omitempty"`
+	LastLoginDate    string      `json:"LastLoginDate,omitempty"`
+	IsAdministrator  bool        `json:"IsAdministrator,omitempty"`
+	IsDisabled       bool        `json:"IsDisabled,omitempty"`
+	Policy           *UserPolicy `json:"Policy,omitempty"`
+}
+
+// UserPolicy holds user access policy from Emby.
+type UserPolicy struct {
+	IsAdministrator   bool `json:"IsAdministrator"`
+	IsDisabled        bool `json:"IsDisabled"`
+	MaxParentalRating int  `json:"MaxParentalRating,omitempty"`
+}
+
+// GetUserProfile returns detailed user profile information.
+func (c *Client) GetUserProfile(serverURL, token, userID string) (*UserProfile, error) {
+	serverURL = strings.TrimRight(serverURL, "/")
+	embyURL := fmt.Sprintf("%s/Users/%s", serverURL, userID)
+
+	req, err := http.NewRequest("GET", embyURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("X-Emby-Token", token)
+	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Dev-001", Version="0.0.1"`)
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user profile: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("server returned status: %d", resp.StatusCode)
+	}
+	var profile UserProfile
+	if err := json.NewDecoder(resp.Body).Decode(&profile); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	return &profile, nil
+}

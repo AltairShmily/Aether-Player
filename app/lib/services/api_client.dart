@@ -389,4 +389,109 @@ class ApiClient {
       throw Exception('Failed to report playback stopped: \${e.message}');
     }
   }
+
+  // --- Audio ---
+
+  /// Get audio stream URL for the given item.
+  Future<String> getAudioStreamUrl({
+    required String serverUrl,
+    required String token,
+    required String itemId,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '/api/playback/$itemId/audio/stream',
+        options: Options(
+          headers: {
+            'X-Emby-Server': serverUrl,
+            'X-Emby-Token': token,
+          },
+        ),
+      );
+      return response.data['streamUrl'] as String;
+    } on DioException catch (e) {
+      throw Exception('Failed to get audio stream URL: \${e.message}');
+    }
+  }
+
+  // --- Favorites ---
+
+  /// Toggle favorite status of an item.
+  Future<bool> toggleFavorite({
+    required String serverUrl,
+    required String token,
+    required String userId,
+    required String itemId,
+    required bool isFavorite,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/api/users/favorites/toggle',
+        data: {
+          'itemId': itemId,
+          'isFavorite': isFavorite,
+        },
+        options: Options(
+          headers: {
+            'X-Emby-Server': serverUrl,
+            'X-Emby-Token': token,
+            'X-Emby-User': userId,
+          },
+        ),
+      );
+      return response.data['isFavorite'] as bool;
+    } on DioException catch (e) {
+      throw Exception('Failed to toggle favorite: \${e.message}');
+    }
+  }
+
+  /// Get all favorite items for the user.
+  Future<ItemListResponse> getFavoriteItems({
+    required String serverUrl,
+    required String token,
+    required String userId,
+    int limit = 50,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '/api/users/favorites',
+        queryParameters: {'limit': limit},
+        options: Options(
+          headers: {
+            'X-Emby-Server': serverUrl,
+            'X-Emby-Token': token,
+            'X-Emby-User': userId,
+          },
+        ),
+      );
+      return ItemListResponse.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw Exception('Failed to get favorites: \${e.message}');
+    }
+  }
+
+  // --- User Profile ---
+
+  /// Get detailed user profile information.
+  Future<Map<String, dynamic>> getUserProfile({
+    required String serverUrl,
+    required String token,
+    required String userId,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '/api/users/profile',
+        options: Options(
+          headers: {
+            'X-Emby-Server': serverUrl,
+            'X-Emby-Token': token,
+            'X-Emby-User': userId,
+          },
+        ),
+      );
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw Exception('Failed to get user profile: \${e.message}');
+    }
+  }
 }

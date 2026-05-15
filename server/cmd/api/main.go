@@ -15,6 +15,7 @@ func main() {
 	authHandler := handler.NewAuthHandler(embyClient)
 	libraryHandler := handler.NewLibraryHandler(embyClient)
 	playbackHandler := handler.NewPlaybackHandler(embyClient)
+	userHandler := handler.NewUserHandler(embyClient)
 
 	mux := http.NewServeMux()
 
@@ -39,6 +40,11 @@ func main() {
 
 	// Playback routes
 	mux.HandleFunc("/api/playback/", playbackRouter(playbackHandler))
+
+	// User routes
+	mux.HandleFunc("/api/users/favorites/toggle", userHandler.HandleToggleFavorite)
+	mux.HandleFunc("/api/users/favorites", userHandler.HandleGetFavorites)
+	mux.HandleFunc("/api/users/profile", userHandler.HandleGetUserProfile)
 
 	h := middleware.Logger(middleware.CORS(mux))
 
@@ -77,7 +83,14 @@ func playbackRouter(h *handler.PlaybackHandler) http.HandlerFunc {
 			return
 		}
 
-		// GET /api/playback/{itemId}/stream
+		// GET /api/playback/{itemId}/audio/stream (must check before /stream)
+		if strings.HasSuffix(path, "/audio/stream") && r.Method == "GET" {
+			userHandler := handler.NewUserHandler(h.EmbyClient)
+			userHandler.HandleGetAudioStreamURL(w, r)
+			return
+		}
+
+		// GET /api/playback/{itemId}/stream (video)
 		if strings.HasSuffix(path, "/stream") && r.Method == "GET" {
 			h.HandleGetVideoStreamURL(w, r)
 			return
