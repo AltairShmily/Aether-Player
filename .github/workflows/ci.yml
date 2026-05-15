@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  # ──────────────────────────────────────────────
+  #  Go Backend — Build & Vet
+  # ──────────────────────────────────────────────
+  go-build:
+    name: Go Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: server/go.sum
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        run: go build -o /dev/null ./cmd/api/
+
+  # ──────────────────────────────────────────────
+  #  Flutter App — Analyze & Build
+  # ──────────────────────────────────────────────
+  flutter-build:
+    name: Flutter App
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.29.x"
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate i18n
+        run: dart run slang
+
+      - name: Analyze
+        run: flutter analyze --no-pub
+
+      - name: Build (web release)
+        run: flutter build web --release
