@@ -12,7 +12,6 @@ class AppTheme {
   // ══════════════════════════════════════════════════
   //  深空色板 (当 dynamicColor 不可用时使用)
   // ══════════════════════════════════════════════════
-  static const _seed = AppColors.celestialCyan;
 
   static final ColorScheme _aetherColorScheme = ColorScheme.dark(
     primary: AppColors.celestialCyan,
@@ -90,7 +89,6 @@ class AppTheme {
           fontSize: 12,
         ),
         indicatorColor: colorScheme.primary.withValues(alpha: 0.12),
-        indicatorSize: NavigationRailIndicatorSize.all,
       ),
 
       navigationBarTheme: NavigationBarThemeData(

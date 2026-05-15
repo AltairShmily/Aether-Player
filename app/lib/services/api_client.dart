@@ -18,7 +18,7 @@ class ApiClient {
         data: {'server_url': serverUrl},
       );
       return ServerInfo.fromJson(response.data);
-    } on DioException catch (e) {
+    } on DioException catch (_) {
       throw Exception('Failed to connect: \${e.message}');
     }
   }
@@ -34,7 +34,7 @@ class ApiClient {
         },
       );
       return AuthResult.fromJson(response.data);
-    } on DioException catch (e) {
+    } on DioException catch (_) {
       throw Exception('Login failed: \${e.message}');
     }
   }
@@ -62,7 +62,7 @@ class ApiClient {
               .toList() ??
           [];
       return items;
-    } on DioException catch (e) {
+    } on DioException catch (_) {
       throw Exception('Failed to get user views: \${e.message}');
     }
   }
@@ -86,7 +86,7 @@ class ApiClient {
         ),
       );
       return ItemListResponse.fromJson(response.data as Map<String, dynamic>);
-    } on DioException catch (e) {
+    } on DioException catch (_) {
       throw Exception('Failed to get resume items: \${e.message}');
     }
   }
@@ -110,7 +110,7 @@ class ApiClient {
         ),
       );
       return ItemListResponse.fromJson(response.data as Map<String, dynamic>);
-    } on DioException catch (e) {
+    } on DioException catch (_) {
       throw Exception('Failed to get seasons: \${e.message}');
     }
   }
@@ -140,7 +140,7 @@ class ApiClient {
         ),
       );
       return ItemListResponse.fromJson(response.data as Map<String, dynamic>);
-    } on DioException catch (e) {
+    } on DioException catch (_) {
       throw Exception('Failed to get episodes: \${e.message}');
     }
   }
@@ -184,7 +184,7 @@ class ApiClient {
         ),
       );
       return ItemListResponse.fromJson(response.data as Map<String, dynamic>);
-    } on DioException catch (e) {
+    } on DioException catch (_) {
       throw Exception('Failed to get items: \${e.message}');
     }
   }
@@ -207,7 +207,7 @@ class ApiClient {
         ),
       );
       return MediaItem.fromJson(response.data as Map<String, dynamic>);
-    } on DioException catch (e) {
+    } on DioException catch (_) {
       throw Exception('Failed to get item detail: \${e.message}');
     }
   }
@@ -246,7 +246,7 @@ class ApiClient {
         ),
       );
       return SearchResult.fromJson(response.data as Map<String, dynamic>);
-    } on DioException catch (e) {
+    } on DioException catch (_) {
       throw Exception('Search failed: \${e.message}');
     }
   }
@@ -269,7 +269,7 @@ class ApiClient {
         ),
       );
       return MediaStreamInfo.fromJson(response.data as Map<String, dynamic>);
-    } on DioException catch (e) {
+    } on DioException catch (_) {
       throw Exception('Failed to get playback info: \${e.message}');
     }
   }
@@ -295,7 +295,7 @@ class ApiClient {
         ),
       );
       return response.data['streamUrl'] as String;
-    } on DioException catch (e) {
+    } on DioException catch (_) {
       throw Exception('Failed to get stream URL: \${e.message}');
     }
   }
@@ -323,7 +323,7 @@ class ApiClient {
           },
         ),
       );
-    } on DioException catch (e) {
+    } on DioException catch (_) {
       throw Exception('Failed to report playback started: \${e.message}');
     }
   }
@@ -355,7 +355,7 @@ class ApiClient {
           },
         ),
       );
-    } on DioException catch (e) {
+    } on DioException catch (_) {
       throw Exception('Failed to report playback progress: \${e.message}');
     }
   }
@@ -385,7 +385,7 @@ class ApiClient {
           },
         ),
       );
-    } on DioException catch (e) {
+    } on DioException catch (_) {
       throw Exception('Failed to report playback stopped: \${e.message}');
     }
   }
@@ -409,7 +409,7 @@ class ApiClient {
         ),
       );
       return response.data['streamUrl'] as String;
-    } on DioException catch (e) {
+    } on DioException catch (_) {
       throw Exception('Failed to get audio stream URL: \${e.message}');
     }
   }
@@ -440,7 +440,7 @@ class ApiClient {
         ),
       );
       return response.data['isFavorite'] as bool;
-    } on DioException catch (e) {
+    } on DioException catch (_) {
       throw Exception('Failed to toggle favorite: \${e.message}');
     }
   }
@@ -465,7 +465,7 @@ class ApiClient {
         ),
       );
       return ItemListResponse.fromJson(response.data as Map<String, dynamic>);
-    } on DioException catch (e) {
+    } on DioException catch (_) {
       throw Exception('Failed to get favorites: \${e.message}');
     }
   }
@@ -490,7 +490,7 @@ class ApiClient {
         ),
       );
       return response.data as Map<String, dynamic>;
-    } on DioException catch (e) {
+    } on DioException catch (_) {
       throw Exception('Failed to get user profile: \${e.message}');
     }
   }

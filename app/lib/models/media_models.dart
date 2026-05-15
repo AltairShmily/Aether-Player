@@ -98,7 +98,7 @@ class MediaItem {
   String get durationText {
     if (runTimeTicks == 0) return '';
     final minutes = (runTimeTicks / 10000000 / 60).round();
-    if (minutes < 60) return '${minutes}m';
+    if (minutes < 60) return 'minutesm';
     final hours = minutes ~/ 60;
     final mins = minutes % 60;
     return '${hours}h ${mins}m';

@@ -3,8 +3,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../widgets/aether_progress.dart';
-import '../widgets/aether_button.dart';
-import '../widgets/glass_panel.dart';
 
 /// Aether 音频播放器全屏页面
 ///

@@ -21,7 +21,7 @@ class SettingsTab extends ConsumerWidget {
     final pad = AetherBreakpoints.pagePadding(context);
     final serverName = authState.authResult?.server.serverName ?? '';
     final userName = authState.authResult?.user.name ?? '';
-    final serverUrl = authState.authResult?.server.url ?? '';
+    final serverUrl = '';
 
     return CustomScrollView(
       slivers: [

@@ -62,7 +62,7 @@ class AetherBadge extends StatelessWidget {
         backgroundColor = null;
 
   /// 评分徽章
-  const AetherBadge.rating({
+  AetherBadge.rating({
     super.key,
     required double score,
     this.size = 36,
@@ -74,7 +74,7 @@ class AetherBadge extends StatelessWidget {
         backgroundColor = null;
 
   /// 角标计数
-  const AetherBadge.count({
+  AetherBadge.count({
     super.key,
     required int count,
     this.size = 20,

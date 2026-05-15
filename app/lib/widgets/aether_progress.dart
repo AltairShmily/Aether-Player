@@ -62,7 +62,8 @@ class AetherProgress extends StatefulWidget {
     this.onChanged,
     this.elapsed,
     this.remaining,
-  })  : interactive = true,
+  })  : this.value = value,
+        interactive = true,
         gradient = AppColors.progressGradient,
         trackColor = null,
         showLabels = true,
@@ -73,7 +74,8 @@ class AetherProgress extends StatefulWidget {
     super.key,
     required double value,
     this.height = 3,
-  })  : interactive = false,
+  })  : this.value = value,
+        interactive = false,
         gradient = AppColors.progressGradient,
         trackColor = null,
         showLabels = false,
@@ -88,7 +90,8 @@ class AetherProgress extends StatefulWidget {
     required double value,
     this.height = 4,
     this.gradient,
-  })  : interactive = false,
+  })  : this.value = value,
+        interactive = false,
         trackColor = null,
         showLabels = false,
         elapsed = null,
@@ -149,7 +152,6 @@ class _AetherProgressState extends State<AetherProgress>
   }
 
   Widget _buildCircular() {
-    final gradient = widget.gradient ?? AppColors.progressGradient;
     return SizedBox(
       width: widget.height * 2,
       height: widget.height * 2,
@@ -177,7 +179,6 @@ class _AetherProgressState extends State<AetherProgress>
   }
 
   Widget _buildLinear() {
-    final gradient = widget.gradient ?? AppColors.progressGradient;
     final clampedValue = widget.value.clamp(0.0, 1.0);
 
     return Column(
@@ -308,13 +309,12 @@ class _AetherProgressState extends State<AetherProgress>
     );
   }
 
-  void _seekToPosition(DragDownDetails details) {
+  void _seekToPosition(dynamic details) {
     if (widget.onChanged == null) return;
     // Simplified: assume the progress bar fills the parent width
     final RenderBox? renderBox =
         context.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
-    final localX = renderBox.size.width / 2; // Approximate
     final ratio = (details.localPosition.dx / renderBox.size.width)
         .clamp(0.0, 1.0);
     widget.onChanged!(ratio);

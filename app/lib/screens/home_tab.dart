@@ -7,6 +7,7 @@ import '../models/media_models.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_breakpoints.dart';
 import '../widgets/aether_card.dart';
+import '../widgets/aether_button.dart';
 import '../widgets/aether_hero.dart';
 import '../widgets/aether_progress.dart';
 import '../widgets/aether_badge.dart';

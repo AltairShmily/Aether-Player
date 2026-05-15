@@ -164,7 +164,7 @@ class _AetherButtonState extends State<AetherButton>
   BoxDecoration _buildDecoration() {
     final v = widget.variant;
 
-    switch (v) {
+    switch (widget.variant) {
       case AetherButtonVariant.primary:
         return BoxDecoration(
           gradient: AppColors.accentGradient,
