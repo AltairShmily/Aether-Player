@@ -31,17 +31,24 @@ class SeriesDetailScreen extends ConsumerStatefulWidget {
 
 class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
   List<MediaItem> _seasons = [];
-  List<MediaItem> _episodes = [];
+  List<MergedEpisode> _episodes = [];
   String? _selectedSeasonId;
   bool _loadingSeasons = false;
   bool _loadingEpisodes = false;
 
-  static const _serverUrl = 'http://localhost:19800';
+  static const _proxyUrl = 'http://localhost:19800';
+  String? _serverUrl;
 
   @override
   void initState() {
     super.initState();
+    _loadServerUrl();
     _loadSeasons();
+  }
+
+  Future<void> _loadServerUrl() async {
+    final url = await ref.read(storageServiceProvider).getServerUrl();
+    if (mounted) setState(() => _serverUrl = url);
   }
 
   // ── Data loading ──────────────────────────────────────────────
@@ -92,8 +99,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
             seasonId: seasonId,
           );
       if (!mounted) return;
+      final merged = _mergeEpisodes(result.items);
       setState(() {
-        _episodes = result.items;
+        _episodes = merged;
         _loadingEpisodes = false;
       });
     } catch (_) {
@@ -101,12 +109,38 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
     }
   }
 
+  // ── Version merging ──────────────────────────────────────────────
+
+  /// Merge episodes with the same IndexNumber (episode number) into a single
+  /// MergedEpisode with multiple versions.
+  List<MergedEpisode> _mergeEpisodes(List<MediaItem> raw) {
+    final Map<int, List<MediaItem>> grouped = {};
+    for (final ep in raw) {
+      final key = ep.indexNumber > 0 ? ep.indexNumber : raw.indexOf(ep);
+      grouped.putIfAbsent(key, () => []).add(ep);
+    }
+
+    final keys = grouped.keys.toList()..sort();
+    return keys.map((key) {
+      final items = grouped[key]!;
+      // Pick the primary version: prefer the one with an image, then the first
+      final primary = items.firstWhere(
+        (e) => e.hasPrimaryImage,
+        orElse: () => items.first,
+      );
+      final versions = items.map((e) =>
+        EpisodeVersion(id: e.id, name: e.name),
+      ).toList();
+      return MergedEpisode(primary: primary, versions: versions);
+    }).toList();
+  }
+
   // ── Navigation ────────────────────────────────────────────────
 
-  void _onEpisodeTap(MediaItem episode) {
+  void _onEpisodeTap(MergedEpisode episode) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => EpisodeDetailScreen(item: episode),
+        builder: (_) => EpisodeDetailScreen(item: episode.primary),
       ),
     );
   }
@@ -157,16 +191,16 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
           children: [
             if (series.hasBackdrop)
               Image.network(
-                '$_serverUrl/api/images/${series.id}/Backdrop?maxWidth=800',
+                '$_proxyUrl/api/images/${series.id}/Backdrop?maxWidth=800',
                 fit: BoxFit.cover,
-                headers: {'Accept': 'image/*', 'X-Emby-Token': token ?? ''},
+                headers: {'Accept': 'image/*', 'X-Emby-Server': _serverUrl ?? '', 'X-Emby-Token': token ?? ''},
                 errorBuilder: (_, __, ___) => _heroFallback(),
               )
             else if (series.hasPrimaryImage)
               Image.network(
-                '$_serverUrl/api/images/${series.id}/Primary?maxWidth=600',
+                '$_proxyUrl/api/images/${series.id}/Primary?maxWidth=600',
                 fit: BoxFit.cover,
-                headers: {'Accept': 'image/*', 'X-Emby-Token': token ?? ''},
+                headers: {'Accept': 'image/*', 'X-Emby-Server': _serverUrl ?? '', 'X-Emby-Token': token ?? ''},
                 errorBuilder: (_, __, ___) => _heroFallback(),
               )
             else
@@ -482,16 +516,18 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                 itemCount: _episodes.length.clamp(0, 10),
                 separatorBuilder: (_, __) => const SizedBox(width: 12),
                 itemBuilder: (context, index) {
-                  final ep = _episodes[index];
+                  final merged = _episodes[index];
+                  final ep = merged.primary;
                   return EpisodeCard(
                     imageUrl: ep.hasPrimaryImage
-                        ? '$_serverUrl/api/images/${ep.id}/Primary?maxWidth=200'
+                        ? '$_proxyUrl/api/images/${ep.id}/Primary?maxWidth=200'
                         : null,
                     title: ep.episodeLabel.isNotEmpty ? ep.episodeLabel : ep.name,
                     subtitle: ep.name,
                     progress: ep.userData?.progressPercent,
                     token: token,
-                    onTap: () => _onEpisodeTap(ep),
+                    serverUrl: _serverUrl,
+                    onTap: () => _onEpisodeTap(merged),
                   );
                 },
               ),
@@ -499,11 +535,12 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
 
           // Full episode list
           const SizedBox(height: 16),
-          ..._episodes.map((ep) => _EpisodeTile(
-                episode: ep,
-                serverUrl: _serverUrl,
+          ..._episodes.map((merged) => _EpisodeTile(
+                merged: merged,
+                proxyUrl: _proxyUrl,
+                serverUrl: _serverUrl ?? '',
                 token: token,
-                onTap: () => _onEpisodeTap(ep),
+                onTap: () => _onEpisodeTap(merged),
               )),
         ],
       ),
@@ -541,7 +578,8 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                   name: actor.name,
                   role: actor.role,
                   personId: actor.id,
-                  serverUrl: _serverUrl,
+                  proxyUrl: _proxyUrl,
+                  serverUrl: _serverUrl ?? '',
                   token: token,
                 );
               },
@@ -595,27 +633,38 @@ class _MetaChip extends StatelessWidget {
 }
 
 /// Episode tile for the full list view
-class _EpisodeTile extends StatelessWidget {
-  final MediaItem episode;
+class _EpisodeTile extends StatefulWidget {
+  final MergedEpisode merged;
+  final String proxyUrl;
   final String serverUrl;
   final String? token;
   final VoidCallback? onTap;
 
   const _EpisodeTile({
-    required this.episode,
+    required this.merged,
+    required this.proxyUrl,
     required this.serverUrl,
     this.token,
     this.onTap,
   });
 
   @override
+  State<_EpisodeTile> createState() => _EpisodeTileState();
+}
+
+class _EpisodeTileState extends State<_EpisodeTile> {
+  bool _showVersions = false;
+
+  @override
   Widget build(BuildContext context) {
-    final imageUrl = '$serverUrl/api/images/${episode.id}/Primary?maxWidth=200';
+    final merged = widget.merged;
+    final episode = merged.primary;
+    final imageUrl = '${widget.proxyUrl}/api/images/${merged.selectedVersion.id}/Primary?maxWidth=200';
     final hasProgress = episode.userData != null && episode.userData!.playedPercentage > 0;
     final isWatched = episode.userData?.played == true;
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
         padding: const EdgeInsets.all(10),
@@ -623,109 +672,206 @@ class _EpisodeTile extends StatelessWidget {
           color: AppColors.cardBg,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Row(
+        child: Column(
           children: [
-            // Thumbnail
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Stack(
-                children: [
-                  SizedBox(
-                    width: 100,
-                    height: 56,
-                    child: episode.hasPrimaryImage
-                        ? Image.network(
-                            imageUrl,
-                            fit: BoxFit.cover,
-                            headers: token != null ? {'X-Emby-Token': token!} : null,
-                            errorBuilder: (_, __, ___) => _thumbPlaceholder(),
-                          )
-                        : _thumbPlaceholder(),
-                  ),
-                  // Play icon overlay
-                  const Positioned.fill(
-                    child: Center(
-                      child: Icon(
-                        Icons.play_circle_outline,
-                        color: AppColors.textSecondary,
-                        size: 24,
+            Row(
+              children: [
+                // Thumbnail
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Stack(
+                    children: [
+                      SizedBox(
+                        width: 100,
+                        height: 56,
+                        child: episode.hasPrimaryImage
+                            ? Image.network(
+                                imageUrl,
+                                fit: BoxFit.cover,
+                                headers: widget.token != null
+                                    ? {'X-Emby-Token': widget.token!, 'X-Emby-Server': widget.serverUrl}
+                                    : null,
+                                errorBuilder: (_, __, ___) => _thumbPlaceholder(),
+                              )
+                            : _thumbPlaceholder(),
                       ),
-                    ),
-                  ),
-                  // Progress bar
-                  if (hasProgress)
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      child: LinearProgressIndicator(
-                        value: episode.userData!.progressPercent,
-                        backgroundColor: Colors.black45,
-                        valueColor: const AlwaysStoppedAnimation<Color>(AppColors.playMint),
-                        minHeight: 3,
-                      ),
-                    ),
-                  // Watched badge
-                  if (isWatched)
-                    Positioned(
-                      top: 4,
-                      right: 4,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: AppColors.playMint,
-                          borderRadius: BorderRadius.circular(4),
+                      // Play icon overlay
+                      const Positioned.fill(
+                        child: Center(
+                          child: Icon(
+                            Icons.play_circle_outline,
+                            color: AppColors.textSecondary,
+                            size: 24,
+                          ),
                         ),
-                        child: const Icon(Icons.check, size: 10, color: AppColors.seriesBg),
                       ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            // Info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Episode label + title
-                  Text(
-                    '${episode.episodeLabel} ${episode.name}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: isWatched ? AppColors.textWarmGray : AppColors.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+                      // Progress bar
+                      if (hasProgress)
+                        Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          child: LinearProgressIndicator(
+                            value: episode.userData!.progressPercent,
+                            backgroundColor: Colors.black45,
+                            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.playMint),
+                            minHeight: 3,
+                          ),
+                        ),
+                      // Watched badge
+                      if (isWatched)
+                        Positioned(
+                          top: 4,
+                          right: 4,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: AppColors.playMint,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Icon(Icons.check, size: 10, color: AppColors.seriesBg),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Episode label + title
+                      Text(
+                        '${episode.episodeLabel} ${episode.name}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isWatched ? AppColors.textWarmGray : AppColors.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      if (episode.overview.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          episode.overview,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.textWarmGray,
+                            fontSize: 12,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                // Duration / Version badge
+                if (merged.hasMultipleVersions) ...[
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => setState(() => _showVersions = !_showVersions),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.celestialCyan.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.layers_outlined, size: 12, color: AppColors.celestialCyan),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${merged.versions.length}版本',
+                            style: const TextStyle(
+                              color: AppColors.celestialCyan,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          Icon(
+                            _showVersions ? Icons.expand_less : Icons.expand_more,
+                            size: 14,
+                            color: AppColors.celestialCyan,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  if (episode.overview.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      episode.overview,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textWarmGray,
-                        fontSize: 12,
-                        height: 1.4,
-                      ),
+                ] else if (episode.durationFormatted.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Text(
+                    episode.durationFormatted,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            // Version selector dropdown
+            if (_showVersions && merged.hasMultipleVersions)
+              Container(
+                margin: const EdgeInsets.only(top: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.cardBg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.celestialCyan.withValues(alpha: 0.2)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '选择版本',
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: List.generate(merged.versions.length, (i) {
+                        final v = merged.versions[i];
+                        final isSelected = i == merged.selectedVersionIndex;
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                          merged.selectedVersionIndex = i;
+                          _showVersions = false;
+                        });
+                      },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? AppColors.celestialCyan.withValues(alpha: 0.2)
+                                  : AppColors.deepVoid,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: isSelected
+                                    ? AppColors.celestialCyan
+                                    : AppColors.celestialCyan.withValues(alpha: 0.1),
+                              ),
+                            ),
+                            child: Text(
+                              v.name.isNotEmpty ? v.name : '版本 ${i + 1}',
+                              style: TextStyle(
+                                color: isSelected ? AppColors.celestialCyan : AppColors.textWarmGray,
+                                fontSize: 12,
+                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
                     ),
                   ],
-                ],
-              ),
-            ),
-            // Duration
-            if (episode.durationFormatted.isNotEmpty) ...[
-              const SizedBox(width: 8),
-              Text(
-                episode.durationFormatted,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 11,
                 ),
               ),
-            ],
           ],
         ),
       ),
@@ -749,6 +895,7 @@ class _CastMember extends StatelessWidget {
   final String name;
   final String? role;
   final String? personId;
+  final String proxyUrl;
   final String serverUrl;
   final String? token;
 
@@ -756,6 +903,7 @@ class _CastMember extends StatelessWidget {
     required this.name,
     this.role,
     this.personId,
+    required this.proxyUrl,
     required this.serverUrl,
     this.token,
   });
@@ -773,11 +921,11 @@ class _CastMember extends StatelessWidget {
             child: personId != null && personId!.isNotEmpty
                 ? ClipOval(
                     child: Image.network(
-                      '$serverUrl/api/images/$personId/Primary?maxWidth=80',
+                      '$proxyUrl/api/images/$personId/Primary?maxWidth=80',
                       width: 52,
                       height: 52,
                       fit: BoxFit.cover,
-                      headers: token != null ? {'X-Emby-Token': token!} : null,
+                      headers: token != null ? {'X-Emby-Token': token!, 'X-Emby-Server': serverUrl} : null,
                       errorBuilder: (_, __, ___) => const Icon(
                         Icons.person,
                         size: 24,

@@ -25,6 +25,7 @@ class EpisodeDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
+  // ── State ──────────────────────────────────────────────────────────────
   MediaStreamInfo? _streamInfo;
   bool _loadingStream = false;
   bool _overviewExpanded = false;
@@ -35,10 +36,19 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
   int _selectedAudioIndex = 0;
   int _selectedSubtitleIndex = 0;
 
+  static const _proxyUrl = 'http://localhost:19800';
+  String? _serverUrl;
+
   @override
   void initState() {
     super.initState();
+    _loadServerUrl();
     _loadPlaybackInfo();
+  }
+
+  Future<void> _loadServerUrl() async {
+    final url = await ref.read(storageServiceProvider).getServerUrl();
+    if (mounted) setState(() => _serverUrl = url);
   }
 
   // ── Data loading ──────────────────────────────────────────────────────
@@ -133,14 +143,14 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final token = ref.read(authProvider).authResult?.token;
-    const serverUrl = 'http://localhost:19800';
+    final serverUrl = _serverUrl ?? '';
 
     return Scaffold(
       backgroundColor: AppColors.episodeBg,
       body: CustomScrollView(
         slivers: [
-          _buildHeroAppBar(serverUrl, token),
-          SliverToBoxAdapter(child: _buildContent(serverUrl, token)),
+          _buildHeroAppBar(_proxyUrl, serverUrl, token),
+          SliverToBoxAdapter(child: _buildContent(_proxyUrl, serverUrl, token)),
         ],
       ),
     );
@@ -148,7 +158,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
 
   // ── Hero App Bar ──────────────────────────────────────────────────────
 
-  Widget _buildHeroAppBar(String serverUrl, String? token) {
+  Widget _buildHeroAppBar(String proxyUrl, String serverUrl, String? token) {
     return SliverAppBar(
       expandedHeight: 320,
       pinned: true,
@@ -165,12 +175,13 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
             if (_item.hasBackdrop || _item.hasPrimaryImage)
               Image.network(
                 _item.hasBackdrop
-                    ? '$serverUrl/api/images/${_item.id}/Backdrop?maxWidth=800'
-                    : '$serverUrl/api/images/${_item.id}/Primary?maxWidth=600',
+                    ? '$proxyUrl/api/images/${_item.id}/Backdrop?maxWidth=800'
+                    : '$proxyUrl/api/images/${_item.id}/Primary?maxWidth=600',
                 fit: BoxFit.cover,
                 headers: {
                   'Accept': 'image/*',
                   'X-Emby-Token': token ?? '',
+                  'X-Emby-Server': serverUrl,
                 },
                 errorBuilder: (_, __, ___) => _fallbackImage(),
               )
@@ -221,7 +232,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
 
   // ── Content ───────────────────────────────────────────────────────────
 
-  Widget _buildContent(String serverUrl, String? token) {
+  Widget _buildContent(String proxyUrl, String serverUrl, String? token) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 48),
       child: Column(
@@ -345,7 +356,6 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
   Widget _buildSeriesCard() {
     if (_item.seriesName.isEmpty) return const SizedBox.shrink();
 
-    final serverUrl = 'http://localhost:19800';
     final token = ref.read(authProvider).authResult?.token;
 
     return Container(
@@ -364,11 +374,12 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
               height: 64,
               child: _item.hasPrimaryImage
                   ? Image.network(
-                      '$serverUrl/api/images/${_item.id}/Primary?maxWidth=128',
+                      '$_proxyUrl/api/images/${_item.id}/Primary?maxWidth=128',
                       fit: BoxFit.cover,
                       headers: {
                         'Accept': 'image/*',
                         'X-Emby-Token': token ?? '',
+                        'X-Emby-Server': _serverUrl ?? '',
                       },
                       errorBuilder: (_, __, ___) => Container(
                         color: AppColors.chipBg,
@@ -518,7 +529,8 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
                 final person = _allPeople[index];
                 return _CastCard(
                   person: person,
-                  serverUrl: 'http://localhost:19800',
+                  proxyUrl: _proxyUrl,
+                  serverUrl: _serverUrl ?? '',
                   token:
                       ref.read(authProvider).authResult?.token,
                 );
@@ -916,11 +928,13 @@ class _MetaChip extends StatelessWidget {
 /// Cast / crew avatar card for horizontal scrolling list
 class _CastCard extends StatelessWidget {
   final Person person;
+  final String proxyUrl;
   final String serverUrl;
   final String? token;
 
   const _CastCard({
     required this.person,
+    required this.proxyUrl,
     required this.serverUrl,
     this.token,
   });
@@ -928,7 +942,7 @@ class _CastCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageUrl = person.hasImage
-        ? '$serverUrl/api/images/${person.id}/Primary?maxWidth=120'
+        ? '$proxyUrl/api/images/${person.id}/Primary?maxWidth=120'
         : null;
 
     return SizedBox(

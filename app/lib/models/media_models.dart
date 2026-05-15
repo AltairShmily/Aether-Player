@@ -410,3 +410,35 @@ class MediaFolder {
     }
   }
 }
+
+/// Represents a version of an episode (different media file for the same episode number)
+class EpisodeVersion {
+  final String id;
+  final String name;
+
+  const EpisodeVersion({required this.id, required this.name});
+}
+
+/// An episode that may have multiple versions merged together
+class MergedEpisode {
+  /// The primary MediaItem (preferred version, usually with an image)
+  final MediaItem primary;
+
+  /// All available versions of this episode
+  final List<EpisodeVersion> versions;
+
+  /// Index of the currently selected version
+  int selectedVersionIndex;
+
+  MergedEpisode({
+    required this.primary,
+    required this.versions,
+    this.selectedVersionIndex = 0,
+  });
+
+  /// The currently selected version
+  EpisodeVersion get selectedVersion => versions[selectedVersionIndex];
+
+  /// Whether this episode has multiple versions
+  bool get hasMultipleVersions => versions.length > 1;
+}

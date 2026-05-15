@@ -5,12 +5,16 @@ class MediaCard extends StatelessWidget {
   final MediaItem item;
   final VoidCallback onTap;
   final String Function(String, {String type, int? maxWidth}) imageUrlBuilder;
+  final String? serverUrl;
+  final String? token;
 
   const MediaCard({
     super.key,
     required this.item,
     required this.onTap,
     required this.imageUrlBuilder,
+    this.serverUrl,
+    this.token,
   });
 
   @override
@@ -33,7 +37,7 @@ class MediaCard extends StatelessWidget {
                     ? Image.network(
                         imageUrl,
                         fit: BoxFit.cover,
-                        headers: const {'Accept': 'image/*'},
+                        headers: {'Accept': 'image/*', 'X-Emby-Server': serverUrl ?? '', 'X-Emby-Token': token ?? ''},
                         errorBuilder: (_, __, ___) => _buildPlaceholder(theme),
                         loadingBuilder: (_, child, progress) {
                           if (progress == null) return child;
@@ -125,12 +129,16 @@ class SearchHintCard extends StatelessWidget {
   final SearchHint hint;
   final VoidCallback onTap;
   final String Function(String, {String type, int? maxWidth}) imageUrlBuilder;
+  final String? serverUrl;
+  final String? token;
 
   const SearchHintCard({
     super.key,
     required this.hint,
     required this.onTap,
     required this.imageUrlBuilder,
+    this.serverUrl,
+    this.token,
   });
 
   @override
@@ -148,7 +156,7 @@ class SearchHintCard extends StatelessWidget {
               ? Image.network(
                   imageUrl,
                   fit: BoxFit.cover,
-                  headers: const {'Accept': 'image/*'},
+                        headers: {'Accept': 'image/*', 'X-Emby-Server': serverUrl ?? '', 'X-Emby-Token': token ?? ''},
                   errorBuilder: (_, __, ___) => _buildSmallPlaceholder(theme),
                 )
               : _buildSmallPlaceholder(theme),

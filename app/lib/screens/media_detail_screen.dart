@@ -15,19 +15,28 @@ class MediaDetailScreen extends ConsumerStatefulWidget {
 class _MediaDetailScreenState extends ConsumerState<MediaDetailScreen> {
   MediaStreamInfo? _streamInfo;
   List<MediaItem> _seasons = [];
-  List<MediaItem> _episodes = [];
+  List<MergedEpisode> _episodes = [];
   String? _selectedSeasonId;
   bool _loadingStream = false;
   bool _loadingSeasons = false;
   bool _loadingEpisodes = false;
 
+  static const _proxyUrl = 'http://localhost:19800';
+  String? _serverUrl;
+
   @override
   void initState() {
     super.initState();
+    _loadServerUrl();
     _loadPlaybackInfo();
     if (widget.item.isSeries) {
       _loadSeasons();
     }
+  }
+
+  Future<void> _loadServerUrl() async {
+    final url = await ref.read(storageServiceProvider).getServerUrl();
+    if (mounted) setState(() => _serverUrl = url);
   }
 
   Future<void> _loadPlaybackInfo() async {
@@ -98,8 +107,9 @@ class _MediaDetailScreenState extends ConsumerState<MediaDetailScreen> {
             seasonId: seasonId,
           );
       if (mounted) {
+        final merged = _mergeEpisodes(result.items);
         setState(() {
-          _episodes = result.items;
+          _episodes = merged;
           _loadingEpisodes = false;
         });
       }
@@ -108,12 +118,38 @@ class _MediaDetailScreenState extends ConsumerState<MediaDetailScreen> {
     }
   }
 
+  // ── Version merging ──────────────────────────────────────────────
+
+  /// Merge episodes with the same IndexNumber (episode number) into a single
+  /// MergedEpisode with multiple versions.
+  List<MergedEpisode> _mergeEpisodes(List<MediaItem> raw) {
+    final Map<int, List<MediaItem>> grouped = {};
+    for (final ep in raw) {
+      final key = ep.indexNumber > 0 ? ep.indexNumber : raw.indexOf(ep);
+      grouped.putIfAbsent(key, () => []).add(ep);
+    }
+
+    final keys = grouped.keys.toList()..sort();
+    return keys.map((key) {
+      final items = grouped[key]!;
+      // Pick the primary version: prefer the one with an image, then the first
+      final primary = items.firstWhere(
+        (e) => e.hasPrimaryImage,
+        orElse: () => items.first,
+      );
+      final versions = items.map((e) =>
+        EpisodeVersion(id: e.id, name: e.name),
+      ).toList();
+      return MergedEpisode(primary: primary, versions: versions);
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final item = widget.item;
     final token = ref.read(authProvider).authResult?.token;
-    final serverUrl = 'http://localhost:19800';
+    final serverUrl = _serverUrl ?? '';
 
     return Scaffold(
       body: CustomScrollView(
@@ -128,16 +164,16 @@ class _MediaDetailScreenState extends ConsumerState<MediaDetailScreen> {
                 children: [
                   if (item.hasBackdrop)
                     Image.network(
-                      '$serverUrl/api/images/${item.id}/Backdrop?maxWidth=800',
+                      '$_proxyUrl/api/images/${item.id}/Backdrop?maxWidth=800',
                       fit: BoxFit.cover,
-                      headers: {'Accept': 'image/*', 'X-Emby-Token': token ?? ''},
+                      headers: {'Accept': 'image/*', 'X-Emby-Server': serverUrl, 'X-Emby-Token': token ?? ''},
                       errorBuilder: (_, __, ___) => _buildHeaderFallback(theme),
                     )
                   else if (item.hasPrimaryImage)
                     Image.network(
-                      '$serverUrl/api/images/${item.id}/Primary?maxWidth=600',
+                      '$_proxyUrl/api/images/${item.id}/Primary?maxWidth=600',
                       fit: BoxFit.cover,
-                      headers: {'Accept': 'image/*', 'X-Emby-Token': token ?? ''},
+                      headers: {'Accept': 'image/*', 'X-Emby-Server': serverUrl, 'X-Emby-Token': token ?? ''},
                       errorBuilder: (_, __, ___) => _buildHeaderFallback(theme),
                     )
                   else
@@ -259,8 +295,9 @@ class _MediaDetailScreenState extends ConsumerState<MediaDetailScreen> {
                       if (_loadingEpisodes)
                         const Center(child: CircularProgressIndicator())
                       else
-                        ..._episodes.map((ep) => _EpisodeTile(
-                              episode: ep,
+                        ..._episodes.map((merged) => _EpisodeTile(
+                              merged: merged,
+                              proxyUrl: _proxyUrl,
                               serverUrl: serverUrl,
                               token: token,
                             )),
@@ -413,70 +450,179 @@ class _MediaDetailScreenState extends ConsumerState<MediaDetailScreen> {
   }
 }
 
-class _EpisodeTile extends StatelessWidget {
-  final MediaItem episode;
+class _EpisodeTile extends StatefulWidget {
+  final MergedEpisode merged;
+  final String proxyUrl;
   final String serverUrl;
   final String? token;
 
   const _EpisodeTile({
-    required this.episode,
+    required this.merged,
+    required this.proxyUrl,
     required this.serverUrl,
     this.token,
   });
 
   @override
+  State<_EpisodeTile> createState() => _EpisodeTileState();
+}
+
+class _EpisodeTileState extends State<_EpisodeTile> {
+  bool _showVersions = false;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final imageUrl = '$serverUrl/api/images/${episode.id}/Primary?maxWidth=200';
+    final merged = widget.merged;
+    final episode = merged.primary;
+    final imageUrl = '${widget.proxyUrl}/api/images/${merged.selectedVersion.id}/Primary?maxWidth=200';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: SizedBox(
-            width: 80,
-            height: 45,
-            child: episode.hasPrimaryImage
-                ? Image.network(
-                    imageUrl,
-                    fit: BoxFit.cover,
-                    headers: {'Accept': 'image/*', 'X-Emby-Token': token ?? ''},
-                    errorBuilder: (_, __, ___) => Container(
-                      color: theme.colorScheme.surfaceContainerHighest,
-                      child: const Center(child: Icon(Icons.play_circle_outline, size: 20)),
+      child: Column(
+        children: [
+          ListTile(
+            leading: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                width: 80,
+                height: 45,
+                child: episode.hasPrimaryImage
+                    ? Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        headers: {'Accept': 'image/*', 'X-Emby-Token': widget.token ?? '', 'X-Emby-Server': widget.serverUrl},
+                        errorBuilder: (_, __, ___) => Container(
+                          color: theme.colorScheme.surfaceContainerHighest,
+                          child: const Center(child: Icon(Icons.play_circle_outline, size: 20)),
+                        ),
+                      )
+                    : Container(
+                        color: theme.colorScheme.surfaceContainerHighest,
+                        child: const Center(child: Icon(Icons.play_circle_outline, size: 20)),
+                      ),
+              ),
+            ),
+            title: Text(
+              '${episode.episodeLabel} ${episode.name}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+            ),
+            subtitle: episode.overview.isNotEmpty
+                ? Text(
+                    episode.overview,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                     ),
                   )
-                : Container(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    child: const Center(child: Icon(Icons.play_circle_outline, size: 20)),
-                  ),
+                : null,
+            trailing: merged.hasMultipleVersions
+                ? GestureDetector(
+                    onTap: () => setState(() => _showVersions = !_showVersions),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.layers_outlined, size: 12, color: theme.colorScheme.primary),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${merged.versions.length}版本',
+                            style: TextStyle(
+                              color: theme.colorScheme.primary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          Icon(
+                            _showVersions ? Icons.expand_less : Icons.expand_more,
+                            size: 14,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : (episode.durationText.isNotEmpty
+                    ? Text(
+                        episode.durationText,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                        ),
+                      )
+                    : null),
           ),
-        ),
-        title: Text(
-          '${episode.episodeLabel} ${episode.name}',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
-        ),
-        subtitle: episode.overview.isNotEmpty
-            ? Text(
-                episode.overview,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+          // Version selector dropdown
+          if (_showVersions && merged.hasMultipleVersions)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.2)),
                 ),
-              )
-            : null,
-        trailing: episode.durationText.isNotEmpty
-            ? Text(
-                episode.durationText,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '选择版本',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: List.generate(merged.versions.length, (i) {
+                        final v = merged.versions[i];
+                        final isSelected = i == merged.selectedVersionIndex;
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              merged.selectedVersionIndex = i;
+                              _showVersions = false;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
+                                  : theme.colorScheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: isSelected
+                                    ? theme.colorScheme.primary
+                                    : theme.colorScheme.outline.withValues(alpha: 0.2),
+                              ),
+                            ),
+                            child: Text(
+                              v.name.isNotEmpty ? v.name : '版本 ${i + 1}',
+                              style: TextStyle(
+                                color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                                fontSize: 12,
+                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ],
                 ),
-              )
-            : null,
+              ),
+            ),
+        ],
       ),
     );
   }

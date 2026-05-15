@@ -9,7 +9,7 @@ class EpisodeCard extends StatelessWidget {
   final double? progress;
   final VoidCallback? onTap;
   final String? token;
-
+  final String? serverUrl;
   const EpisodeCard({
     super.key,
     this.imageUrl,
@@ -18,6 +18,7 @@ class EpisodeCard extends StatelessWidget {
     this.progress,
     this.onTap,
     this.token,
+    this.serverUrl,
   });
 
   @override
@@ -43,7 +44,7 @@ class EpisodeCard extends StatelessWidget {
                             imageUrl!,
                             fit: BoxFit.cover,
                             headers: token != null
-                                ? {'X-Emby-Token': token!}
+                                ? {'X-Emby-Token': token!, 'X-Emby-Server': serverUrl ?? ''}
                                 : null,
                             errorBuilder: (_, __, ___) => _placeholder(),
                           )
