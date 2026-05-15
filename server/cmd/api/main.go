@@ -16,6 +16,7 @@ func main() {
 	libraryHandler := handler.NewLibraryHandler(embyClient)
 	playbackHandler := handler.NewPlaybackHandler(embyClient)
 	userHandler := handler.NewUserHandler(embyClient)
+	proxyHandler := handler.NewProxyHandler()
 
 	mux := http.NewServeMux()
 
@@ -45,6 +46,10 @@ func main() {
 	mux.HandleFunc("/api/users/favorites/toggle", userHandler.HandleToggleFavorite)
 	mux.HandleFunc("/api/users/favorites", userHandler.HandleGetFavorites)
 	mux.HandleFunc("/api/users/profile", userHandler.HandleGetUserProfile)
+
+	// Catch-all proxy: forwards unmatched /api/* to Emby server
+	// This enables access to ALL Emby endpoints (System/Info, Configuration, Plugins, etc.)
+	mux.Handle("/api/", proxyHandler)
 
 	h := middleware.Logger(middleware.CORS(mux))
 
