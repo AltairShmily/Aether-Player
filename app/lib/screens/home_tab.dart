@@ -4,6 +4,14 @@ import '../i18n/strings.g.dart';
 import '../providers/auth_provider.dart';
 import '../providers/home_provider.dart';
 import '../models/media_models.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_breakpoints.dart';
+import '../widgets/aether_card.dart';
+import '../widgets/aether_hero.dart';
+import '../widgets/aether_progress.dart';
+import '../widgets/aether_badge.dart';
+import '../widgets/aether_chip.dart';
+import '../widgets/glass_panel.dart';
 import 'series_detail_screen.dart';
 import 'episode_detail_screen.dart';
 import 'media_detail_screen.dart';
@@ -18,6 +26,7 @@ class HomeTab extends ConsumerStatefulWidget {
 
 class _HomeTabState extends ConsumerState<HomeTab> {
   String? _serverUrl;
+  final PageController _heroController = PageController(viewportFraction: 0.92);
 
   @override
   void initState() {
@@ -34,197 +43,254 @@ class _HomeTabState extends ConsumerState<HomeTab> {
   }
 
   @override
+  void dispose() {
+    _heroController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final t = Translations.of(context);
     final authState = ref.watch(authProvider);
     final homeState = ref.watch(homeProvider);
-    final theme = Theme.of(context);
     final userName = authState.authResult?.user.name ?? '';
+    final token = authState.authResult?.token;
+    final pad = AetherBreakpoints.pagePadding(context);
 
     return CustomScrollView(
       slivers: [
-        // App bar
+        // ── App Bar ──
         SliverAppBar(
           floating: true,
-          title: Text(t.home.title),
+          backgroundColor: AppColors.deepVoid,
+          surfaceTintColor: Colors.transparent,
+          title: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  gradient: AppColors.accentGradient,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.play_arrow_rounded,
+                  color: AppColors.deepVoid,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'AETHER',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 3,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
           actions: [
             IconButton(
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(Icons.refresh_rounded, color: AppColors.textSecondary),
               onPressed: () => ref.read(homeProvider.notifier).loadAll(),
             ),
           ],
         ),
 
-        // Welcome
+        // ── Welcome ──
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            padding: EdgeInsets.fromLTRB(pad, 8, pad, 20),
             child: Text(
               t.home.welcome(name: userName),
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w600,
+              style: const TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+                letterSpacing: -0.3,
               ),
             ),
           ),
         ),
 
-        // Loading
+        // ── Loading ──
         if (homeState.isLoading && homeState.resumeItems.isEmpty)
           const SliverToBoxAdapter(
             child: SizedBox(
               height: 200,
-              child: Center(child: CircularProgressIndicator()),
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: AppColors.celestialCyan,
+                  strokeWidth: 2,
+                ),
+              ),
             ),
           ),
 
-        // Continue Watching (Resume)
+        // ── Hero Banner (Resume 首项) ──
         if (homeState.resumeItems.isNotEmpty)
           SliverToBoxAdapter(
-            child: _MediaRow(
-              title: t.home.continueWatching,
-              items: homeState.resumeItems,
-              serverUrl: _serverUrl,
-              token: _token,
-            ),
-          ),
-
-        // Error
-        if (homeState.error != null)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.error.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.error_outline, color: theme.colorScheme.error, size: 20),
-                    const SizedBox(width: 12),
-                    Expanded(child: Text(homeState.error!, style: TextStyle(color: theme.colorScheme.error, fontSize: 13))),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-        // Media Libraries section
-        if (homeState.libraries.isNotEmpty)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
-              child: Text(
-                '媒体库',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-
-        if (homeState.libraries.isNotEmpty)
-          SliverToBoxAdapter(
             child: SizedBox(
-              height: 90,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                itemCount: homeState.libraries.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
+              height: AetherBreakpoints.heroHeight(context),
+              child: PageView.builder(
+                controller: _heroController,
+                itemCount: homeState.resumeItems.length.clamp(0, 5),
                 itemBuilder: (context, index) {
-                  final lib = homeState.libraries[index];
-                  return _LibraryCard(
-                    folder: lib,
-                    serverUrl: _serverUrl,
-                    token: _token,
+                  final item = homeState.resumeItems[index];
+                  final imageUrl =
+                      'http://localhost:19800/api/images/${item.id}/Backdrop?maxWidth=800';
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: AetherHero.carousel(
+                      imageUrl: imageUrl,
+                      title: item.isEpisode ? item.seriesName : item.name,
+                      subtitle: item.isEpisode
+                          ? '${item.episodeLabel} · ${item.overview}'
+                          : item.overview,
+                      tags: [
+                        if (item.isEpisode) '剧集',
+                        if (item.isMovie) '电影',
+                        if (item.productionYear > 0) '${item.productionYear}',
+                      ],
+                      rating: item.communityRating,
+                      primaryAction: AetherButton.primary(
+                        label: '继续播放',
+                        icon: Icons.play_arrow_rounded,
+                        compact: true,
+                        onPressed: () => _navigateToItem(context, item),
+                      ),
+                      onTap: () => _navigateToItem(context, item),
+                    ),
                   );
                 },
               ),
             ),
           ),
 
-        // Per-library rows (only show libraries with items)
+        // ── Error ──
+        if (homeState.error != null)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: pad, vertical: 12),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.error.withValues(alpha: 0.2),
+                    width: 0.5,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        homeState.error!,
+                        style: const TextStyle(
+                          color: AppColors.error,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+        // ── Continue Watching ──
+        if (homeState.resumeItems.isNotEmpty)
+          SliverToBoxAdapter(
+            child: _SectionRow(
+              title: t.home.continueWatching,
+              items: homeState.resumeItems,
+              serverUrl: _serverUrl,
+              token: token,
+            ),
+          ),
+
+        // ── Library Shortcuts ──
+        if (homeState.libraries.isNotEmpty)
+          SliverToBoxAdapter(
+            child: _LibraryRow(
+              libraries: homeState.libraries,
+              serverUrl: _serverUrl,
+              token: token,
+            ),
+          ),
+
+        // ── Per-library rows ──
         for (final lib in homeState.libraries) ...[
           if (homeState.libraryItems.containsKey(lib.id) &&
-              homeState.libraryItems[lib.id]!.isNotEmpty) ...[
+              homeState.libraryItems[lib.id]!.isNotEmpty)
             SliverToBoxAdapter(
-              child: _MediaRow(
+              child: _SectionRow(
                 title: lib.name,
                 items: homeState.libraryItems[lib.id]!,
                 serverUrl: _serverUrl,
-                token: _token,
+                token: token,
               ),
             ),
-            const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          ],
         ],
 
-        // Account section at the bottom
+        // ── Account Card ──
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Divider(color: Colors.white.withValues(alpha: 0.06)),
-                const SizedBox(height: 24),
-                Text(
-                  '账号',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+            padding: EdgeInsets.fromLTRB(pad, 40, pad, 32),
+            child: AetherCard.simple(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      gradient: AppColors.accentGradient,
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    child: const Icon(
+                      Icons.person_rounded,
+                      color: AppColors.deepVoid,
+                      size: 22,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(22),
-                          ),
-                          child: Icon(
-                            Icons.person,
-                            color: theme.colorScheme.primary,
+                        Text(
+                          userName,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
                           ),
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                userName,
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              Text(
-                                authState.authResult?.server.serverName ?? '',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                                ),
-                              ),
-                            ],
+                        const SizedBox(height: 2),
+                        Text(
+                          authState.authResult?.server.serverName ?? '',
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
                           ),
-                        ),
-                        TextButton.icon(
-                          onPressed: () => _switchAccount(context, ref),
-                          icon: const Icon(Icons.swap_horiz, size: 18),
-                          label: const Text('切换账号'),
                         ),
                       ],
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-              ],
+                  AetherButton.ghost(
+                    label: '切换',
+                    icon: Icons.swap_horiz_rounded,
+                    compact: true,
+                    onPressed: () => _switchAccount(context, ref),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -232,8 +298,19 @@ class _HomeTabState extends ConsumerState<HomeTab> {
     );
   }
 
-  // _serverUrl is now loaded in initState and stored in state
-  String? get _token => ref.read(authProvider).authResult?.token;
+  void _navigateToItem(BuildContext context, MediaItem item) {
+    Widget destination;
+    if (item.isSeries) {
+      destination = SeriesDetailScreen(series: item);
+    } else if (item.isEpisode) {
+      destination = EpisodeDetailScreen(item: item);
+    } else {
+      destination = MediaDetailScreen(item: item);
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => destination),
+    );
+  }
 
   void _switchAccount(BuildContext context, WidgetRef ref) {
     showDialog(
@@ -252,7 +329,8 @@ class _HomeTabState extends ConsumerState<HomeTab> {
               await ref.read(authProvider.notifier).logout();
               if (context.mounted) {
                 Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const ServerSelectionScreen()),
+                  MaterialPageRoute(
+                      builder: (_) => const ServerSelectionScreen()),
                   (route) => false,
                 );
               }
@@ -265,13 +343,16 @@ class _HomeTabState extends ConsumerState<HomeTab> {
   }
 }
 
-class _MediaRow extends StatelessWidget {
+// ══════════════════════════════════════════════════
+//  _SectionRow — 杂志感分类行
+// ══════════════════════════════════════════════════
+class _SectionRow extends StatelessWidget {
   final String title;
   final List<MediaItem> items;
   final String? serverUrl;
   final String? token;
 
-  const _MediaRow({
+  const _SectionRow({
     required this.title,
     required this.items,
     this.serverUrl,
@@ -280,36 +361,63 @@ class _MediaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    if (items.isEmpty) return const SizedBox.shrink();
+    final pad = AetherBreakpoints.pagePadding(context);
+    final cardH = AetherBreakpoints.isMobile(context) ? 180.0 : 220.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 分类标题
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Text(
-            title,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+          padding: EdgeInsets.fromLTRB(pad, 28, pad, 14),
+          child: Row(
+            children: [
+              Container(
+                width: 3,
+                height: 14,
+                decoration: BoxDecoration(
+                  gradient: AppColors.accentGradient,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                  letterSpacing: -0.2,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '查看全部 ›',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textTertiary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 12),
+        // 卡片行
         SizedBox(
-          height: 220,
+          height: cardH,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: EdgeInsets.symmetric(horizontal: pad),
             itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, __) =>
+                SizedBox(width: AetherBreakpoints.cardSpacing(context)),
             itemBuilder: (context, index) {
               final item = items[index];
-              return _ItemCard(
+              return _HomeItemCard(
                 item: item,
                 serverUrl: serverUrl,
                 token: token,
+                height: cardH,
               );
             },
           ),
@@ -319,49 +427,56 @@ class _MediaRow extends StatelessWidget {
   }
 }
 
-class _ItemCard extends StatelessWidget {
+// ══════════════════════════════════════════════════
+//  _HomeItemCard — 星辉卡片
+// ══════════════════════════════════════════════════
+class _HomeItemCard extends StatelessWidget {
   final MediaItem item;
   final String? serverUrl;
   final String? token;
+  final double height;
 
-  const _ItemCard({
+  const _HomeItemCard({
     required this.item,
     this.serverUrl,
     this.token,
+    this.height = 220,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final imageUrl = 'http://localhost:19800/api/images/${item.id}/Primary?maxWidth=300';
+    final cardW = height * 0.68;
+    final imageUrl =
+        'http://localhost:19800/api/images/${item.id}/Primary?maxWidth=300';
 
     return SizedBox(
-      width: 130,
-      child: Card(
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () {
-            Widget destination;
-            if (item.isSeries) {
-              destination = SeriesDetailScreen(series: item);
-            } else if (item.isEpisode) {
-              destination = EpisodeDetailScreen(item: item);
-            } else {
-              destination = MediaDetailScreen(item: item);
-            }
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => destination),
-            );
-          },
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
+      width: cardW,
+      child: AetherCard.simple(
+        onTap: () {
+          Widget dest;
+          if (item.isSeries) {
+            dest = SeriesDetailScreen(series: item);
+          } else if (item.isEpisode) {
+            dest = EpisodeDetailScreen(item: item);
+          } else {
+            dest = MediaDetailScreen(item: item);
+          }
+          Navigator.of(context).push(MaterialPageRoute(builder: (_) => dest));
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 海报区
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
                 child: Stack(
+                  fit: StackFit.expand,
                   children: [
                     Container(
-                      width: double.infinity,
-                      color: theme.colorScheme.surfaceContainerHighest,
+                      color: AppColors.stardust,
                       child: item.hasPrimaryImage
                           ? Image.network(
                               imageUrl,
@@ -371,192 +486,190 @@ class _ItemCard extends StatelessWidget {
                                 'X-Emby-Server': serverUrl ?? '',
                                 'X-Emby-Token': token ?? '',
                               },
-                              errorBuilder: (_, __, ___) => _placeholder(theme),
+                              errorBuilder: (_, __, ___) => _placeholder(),
                             )
-                          : _placeholder(theme),
+                          : _placeholder(),
                     ),
-                    // Progress bar for resume items
-                    if (item.userData != null && item.userData!.progressPercent > 0)
+                    // 进度条
+                    if (item.userData != null &&
+                        item.userData!.progressPercent > 0)
                       Positioned(
                         bottom: 0,
                         left: 0,
                         right: 0,
-                        child: LinearProgressIndicator(
+                        child: AetherProgress.mini(
                           value: item.userData!.progressPercent,
-                          backgroundColor: Colors.black45,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            theme.colorScheme.primary,
-                          ),
-                          minHeight: 3,
                         ),
                       ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.isEpisode ? '${item.seriesName} - ${item.episodeLabel}' : item.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w600,
+                    // 评分角标
+                    if (item.communityRating > 0)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: AetherBadge.rating(score: item.communityRating),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        if (item.productionYear > 0)
-                          Text(
-                            '${item.productionYear}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                              fontSize: 10,
-                            ),
-                          ),
-                        if (item.communityRating > 0) ...[
-                          if (item.productionYear > 0) const SizedBox(width: 6),
-                          Icon(Icons.star_rounded, size: 12, color: Colors.amber.shade600),
-                          const SizedBox(width: 1),
-                          Text(
-                            item.communityRating.toStringAsFixed(1),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
                   ],
                 ),
               ),
-            ],
-          ),
+            ),
+            // 信息区
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.isEpisode
+                        ? '${item.seriesName} - ${item.episodeLabel}'
+                        : item.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      if (item.productionYear > 0)
+                        Text(
+                          '${item.productionYear}',
+                          style: const TextStyle(
+                            color: AppColors.textTertiary,
+                            fontSize: 11,
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _placeholder(ThemeData theme) {
+  Widget _placeholder() {
     return Center(
       child: Icon(
         item.isMovie
             ? Icons.movie_outlined
             : item.isSeries
                 ? Icons.tv_outlined
-                : item.isEpisode
-                    ? Icons.play_circle_outline
-                    : Icons.video_file_outlined,
+                : Icons.play_circle_outline,
         size: 32,
-        color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+        color: AppColors.cosmicGray,
       ),
     );
   }
 }
 
-class _LibraryCard extends StatelessWidget {
-  final MediaFolder folder;
+// ══════════════════════════════════════════════════
+//  _LibraryRow — 媒体库快捷入口
+// ══════════════════════════════════════════════════
+class _LibraryRow extends StatelessWidget {
+  final List<MediaFolder> libraries;
   final String? serverUrl;
   final String? token;
 
-  const _LibraryCard({
-    required this.folder,
+  const _LibraryRow({
+    required this.libraries,
     this.serverUrl,
     this.token,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final imageUrl = 'http://localhost:19800/api/images/${folder.id}/Primary?maxWidth=200';
+    final pad = AetherBreakpoints.pagePadding(context);
 
-    return SizedBox(
-      width: 180,
-      child: Card(
-        clipBehavior: Clip.antiAlias,
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                theme.colorScheme.primary.withValues(alpha: 0.08),
-                theme.colorScheme.surface,
-              ],
-            ),
-          ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(pad, 28, pad, 14),
           child: Row(
             children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  bottomLeft: Radius.circular(16),
-                ),
-                child: SizedBox(
-                  width: 70,
-                  height: double.infinity,
-                  child: folder.hasImage
-                      ? Image.network(
-                          imageUrl,
-                          fit: BoxFit.cover,
-                          headers: {
-                            'Accept': 'image/*',
-                            'X-Emby-Server': serverUrl ?? '',
-                            'X-Emby-Token': token ?? '',
-                          },
-                          errorBuilder: (_, __, ___) => _libPlaceholder(theme),
-                        )
-                      : _libPlaceholder(theme),
+              Container(
+                width: 3,
+                height: 14,
+                decoration: BoxDecoration(
+                  gradient: AppColors.accentGradient,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        folder.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _typeLabel(folder.collectionType),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
+              const SizedBox(width: 10),
+              const Text(
+                '媒体库',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                  letterSpacing: -0.2,
                 ),
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _libPlaceholder(ThemeData theme) {
-    return Container(
-      color: theme.colorScheme.primary.withValues(alpha: 0.1),
-      child: Center(
-        child: Icon(
-          _iconForType(folder.collectionType),
-          color: theme.colorScheme.primary.withValues(alpha: 0.5),
-          size: 24,
+        SizedBox(
+          height: 80,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.symmetric(horizontal: pad),
+            itemCount: libraries.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final lib = libraries[index];
+              return AetherCard.simple(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: AppColors.celestialCyan.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        _iconForType(lib.collectionType),
+                        color: AppColors.celestialCyan,
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          lib.name,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _typeLabel(lib.collectionType),
+                          style: const TextStyle(
+                            color: AppColors.textTertiary,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
-      ),
+      ],
     );
   }
 
