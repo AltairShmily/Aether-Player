@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../screens/player_page.dart';
 import '../theme/app_colors.dart';
 import '../widgets/diamond_badge.dart';
 import '../widgets/pill_button.dart';
@@ -327,9 +328,18 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
             backgroundColor: AppColors.playMint,
             showMenuIcon: false,
             onPressed: () {
-              // TODO: Start playing first unwatched episode or first episode
               if (_episodes.isNotEmpty) {
-                _onEpisodeTap(_episodes.first);
+                final episode = _episodes.first.primary;
+                final startAtMs = episode.userData != null && episode.userData!.playbackPositionTicks > 0
+                    ? episode.userData!.playbackPositionTicks ~/ 10000
+                    : 0;
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => PlayerPage(
+                    itemId: episode.id,
+                    title: episode.name,
+                    startAtMs: startAtMs,
+                  ),
+                ));
               }
             },
           ),

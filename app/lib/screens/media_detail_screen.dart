@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../screens/player_page.dart';
 import '../models/media_models.dart';
 import '../providers/auth_provider.dart';
 
@@ -242,10 +243,47 @@ class _MediaDetailScreenState extends ConsumerState<MediaDetailScreen> {
                               ))
                           .toList(),
                     ),
-                    const SizedBox(height: 16),
-                  ],
+                  const SizedBox(height: 16),
+                ],
 
-                  // Overview
+                // Play button
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.play_arrow_rounded),
+                          label: Text(
+                            (item.userData?.progressPercent ?? 0) > 0 ? '继续播放' : '播放',
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(context).colorScheme.primary,
+                            foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onPressed: () {
+                            final startAtMs = item.userData != null && item.userData!.playbackPositionTicks > 0
+                                ? item.userData!.playbackPositionTicks ~/ 10000
+                                : 0;
+                            Navigator.of(context).push(MaterialPageRoute(
+                              builder: (_) => PlayerPage(
+                                itemId: item.id,
+                                title: item.name,
+                                startAtMs: startAtMs,
+                              ),
+                            ));
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Overview
                   if (item.overview.isNotEmpty) ...[
                     Text(
                       '简介',

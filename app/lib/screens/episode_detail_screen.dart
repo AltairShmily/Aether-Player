@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../screens/player_page.dart';
 import '../theme/app_colors.dart';
 import '../widgets/diamond_badge.dart';
 import '../widgets/pill_button.dart';
@@ -345,7 +346,16 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
       backgroundColor: AppColors.playGold,
       textColor: AppColors.textPrimary,
       onPressed: () {
-        // TODO: launch player
+        final startAtMs = _item.userData != null && _item.userData!.playbackPositionTicks > 0
+            ? _item.userData!.playbackPositionTicks ~/ 10000
+            : 0;
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => PlayerPage(
+            itemId: _item.id,
+            title: _item.name,
+            startAtMs: startAtMs,
+          ),
+        ));
       },
       onMenuPressed: () => _showMoreOptions(),
     );
