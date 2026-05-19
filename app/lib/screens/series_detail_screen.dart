@@ -7,6 +7,7 @@ import '../widgets/genre_chip.dart';
 import '../widgets/episode_card.dart';
 import '../models/media_models.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/aether_page_route.dart';
 import 'episode_detail_screen.dart';
 
 /// 剧集总览页 - 展示 TV 系列的所有季与集
@@ -105,8 +106,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
 
   void _onEpisodeTap(MediaItem episode) {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => EpisodeDetailScreen(item: episode),
+      AetherPageRoute(
+        page: EpisodeDetailScreen(item: episode),
+        type: AetherTransitionType.slideFromRight,
       ),
     );
   }

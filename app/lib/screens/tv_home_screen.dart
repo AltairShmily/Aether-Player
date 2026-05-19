@@ -25,6 +25,7 @@ import '../models/media_models.dart';
 import 'series_detail_screen.dart';
 import 'episode_detail_screen.dart';
 import 'media_detail_screen.dart';
+import '../widgets/aether_page_route.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  TV 主界面
@@ -122,7 +123,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
     } else {
       destination = MediaDetailScreen(item: item);
     }
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => destination));
+    Navigator.of(context).push(AetherPageRoute(page: destination, type: AetherTransitionType.slideFromRight));
   }
 
   @override

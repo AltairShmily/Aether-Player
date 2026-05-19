@@ -5,9 +5,11 @@ import '../providers/auth_provider.dart';
 import '../providers/locale_provider.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_breakpoints.dart';
+import '../widgets/aether_badge.dart';
 import '../widgets/aether_card.dart';
 import '../widgets/aether_button.dart';
-import '../widgets/aether_badge.dart';
+import '../widgets/aether_page_route.dart';
+import '../widgets/glass_panel.dart';
 import 'server_selection_screen.dart';
 
 class SettingsTab extends ConsumerWidget {
@@ -104,26 +106,61 @@ class SettingsTab extends ConsumerWidget {
           ),
         ),
 
-        // ── 服务器 ──
+        // ── 播放 ──
         SliverToBoxAdapter(
           child: _SettingsSection(
-            title: '服务器',
+            title: '播放',
             padding: pad,
             children: [
               _SettingsTile(
-                icon: Icons.dns_rounded,
-                label: '服务器名称',
-                value: serverName,
+                icon: Icons.play_circle_outline_rounded,
+                label: '自动播放下一集',
+                trailing: _ToggleSwitch(
+                  initialValue: true,
+                  onChanged: (v) {},
+                ),
               ),
               _SettingsTile(
-                icon: Icons.link_rounded,
-                label: '服务器地址',
-                value: serverUrl,
+                icon: Icons.speed_rounded,
+                label: '硬件加速',
+                trailing: _ToggleSwitch(
+                  initialValue: true,
+                  onChanged: (v) {},
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // ── 外观 ──
+        SliverToBoxAdapter(
+          child: _SettingsSection(
+            title: '外观',
+            padding: pad,
+            children: [
+              _SettingsTile(
+                icon: Icons.dark_mode_rounded,
+                label: '深色模式',
+                trailing: _ToggleSwitch(
+                  initialValue: true,
+                  onChanged: null, // always on, disabled
+                ),
               ),
               _SettingsTile(
-                icon: Icons.person_rounded,
-                label: '用户名',
-                value: userName,
+                icon: Icons.grain_rounded,
+                label: '噪点纹理',
+                trailing: _ToggleSwitch(
+                  initialValue: true,
+                  onChanged: (v) {},
+                ),
+              ),
+              _SettingsTile(
+                icon: Icons.animation_rounded,
+                label: '动画效果',
+                trailing: _ToggleSwitch(
+                  initialValue: true,
+                  onChanged: (v) {},
+                ),
               ),
             ],
           ),
@@ -132,7 +169,7 @@ class SettingsTab extends ConsumerWidget {
         // ── 语言 ──
         SliverToBoxAdapter(
           child: _SettingsSection(
-            title: '外观',
+            title: '语言',
             padding: pad,
             children: [
               _SettingsTile(
@@ -154,6 +191,29 @@ class SettingsTab extends ConsumerWidget {
                     : null,
                 onTap: () =>
                     ref.read(localeProvider.notifier).setLocale(AppLocale.en),
+              ),
+            ],
+          ),
+        ),
+
+        // ── 网络 ──
+        SliverToBoxAdapter(
+          child: _SettingsSection(
+            title: '网络',
+            padding: pad,
+            children: [
+              _SettingsTile(
+                icon: Icons.wifi_rounded,
+                label: '远程访问',
+                trailing: _ToggleSwitch(
+                  initialValue: false,
+                  onChanged: (v) {},
+                ),
+              ),
+              _SettingsTile(
+                icon: Icons.speed_rounded,
+                label: '带宽限制',
+                value: '自动',
               ),
             ],
           ),
@@ -213,8 +273,7 @@ class SettingsTab extends ConsumerWidget {
               await ref.read(authProvider.notifier).logout();
               if (context.mounted) {
                 Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                      builder: (_) => const ServerSelectionScreen()),
+                  AetherPageRoute(page: const ServerSelectionScreen()),
                   (route) => false,
                 );
               }
@@ -223,6 +282,82 @@ class SettingsTab extends ConsumerWidget {
             child: Text(t.settings.logout),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  _ToggleSwitch — 动画开关
+// ══════════════════════════════════════════════════
+class _ToggleSwitch extends StatefulWidget {
+  final bool initialValue;
+  final ValueChanged<bool>? onChanged;
+
+  const _ToggleSwitch({
+    required this.initialValue,
+    this.onChanged,
+  });
+
+  @override
+  State<_ToggleSwitch> createState() => _ToggleSwitchState();
+}
+
+class _ToggleSwitchState extends State<_ToggleSwitch> {
+  late bool _value;
+
+  @override
+  void initState() {
+    super.initState();
+    _value = widget.initialValue;
+  }
+
+  @override
+  void didUpdateWidget(covariant _ToggleSwitch oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialValue != widget.initialValue) {
+      _value = widget.initialValue;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onChanged != null;
+
+    return GestureDetector(
+      onTap: enabled
+          ? () {
+              setState(() => _value = !_value);
+              widget.onChanged?.call(_value);
+            }
+          : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        width: 44,
+        height: 24,
+        decoration: BoxDecoration(
+          color: enabled
+              ? (_value ? AppColors.celestialCyan : AppColors.cosmicGray)
+              : AppColors.cosmicGray.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: AnimatedAlign(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          alignment: _value ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            width: 18,
+            height: 18,
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            decoration: BoxDecoration(
+              color: enabled
+                  ? (_value ? AppColors.deepVoid : AppColors.textSecondary)
+                  : AppColors.textTertiary,
+              shape: BoxShape.circle,
+            ),
+          ),
+        ),
       ),
     );
   }

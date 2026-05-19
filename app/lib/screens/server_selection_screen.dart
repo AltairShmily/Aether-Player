@@ -9,6 +9,7 @@ import '../theme/app_colors.dart';
 import '../widgets/aether_card.dart';
 import '../widgets/aether_button.dart';
 import 'login_screen.dart';
+import '../widgets/aether_page_route.dart';
 import 'shell_screen.dart';
 
 class ServerSelectionScreen extends ConsumerStatefulWidget {
@@ -46,7 +47,7 @@ class _ServerSelectionScreenState extends ConsumerState<ServerSelectionScreen>
     final success = await ref.read(authProvider.notifier).tryAutoLogin();
     if (success && mounted) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const ShellScreen()),
+        AetherPageRoute(page: const ShellScreen()),
       );
     }
   }
@@ -55,7 +56,7 @@ class _ServerSelectionScreenState extends ConsumerState<ServerSelectionScreen>
     final success = await ref.read(authProvider.notifier).loginFromSaved(server);
     if (success && mounted) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const ShellScreen()),
+        AetherPageRoute(page: const ShellScreen()),
       );
     }
   }
@@ -239,8 +240,8 @@ class _ServerSelectionScreenState extends ConsumerState<ServerSelectionScreen>
                         width: double.infinity,
                         onPressed: () {
                           Navigator.of(context).push(
-                            MaterialPageRoute(
-                                builder: (_) => const LoginScreen()),
+                            AetherPageRoute(
+                                page: const LoginScreen()),
                           );
                         },
                       ),

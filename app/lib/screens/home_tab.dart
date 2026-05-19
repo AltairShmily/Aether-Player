@@ -14,6 +14,7 @@ import '../widgets/aether_badge.dart';
 import '../widgets/aether_chip.dart';
 import '../widgets/glass_panel.dart';
 import '../widgets/scroll_arrows.dart';
+import '../widgets/aether_page_route.dart';
 import 'series_detail_screen.dart';
 import 'episode_detail_screen.dart';
 import 'media_detail_screen.dart';
@@ -310,7 +311,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
       destination = MediaDetailScreen(item: item);
     }
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => destination),
+      AetherPageRoute(page: destination, type: AetherTransitionType.slideFromRight),
     );
   }
 
@@ -331,8 +332,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
               await ref.read(authProvider.notifier).logout();
               if (context.mounted) {
                 Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                      builder: (_) => const ServerSelectionScreen()),
+                  AetherPageRoute(page: const ServerSelectionScreen()),
                   (route) => false,
                 );
               }
@@ -480,7 +480,7 @@ class _HomeItemCard extends StatelessWidget {
           } else {
             dest = MediaDetailScreen(item: item);
           }
-          Navigator.of(context).push(MaterialPageRoute(builder: (_) => dest));
+          Navigator.of(context).push(AetherPageRoute(page: dest, type: AetherTransitionType.slideFromRight));
         },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

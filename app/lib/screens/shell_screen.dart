@@ -5,6 +5,7 @@ import '../i18n/strings.g.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/search_overlay.dart';
+import '../widgets/aether_page_route.dart';
 import 'home_tab.dart';
 import 'settings_tab.dart';
 import 'tv_home_screen.dart';
@@ -86,7 +87,7 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
               onSearch: openSearch,
               onTvMode: () {
                 Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const TvHomeScreen()),
+                  AetherPageRoute(page: const TvHomeScreen(), type: AetherTransitionType.fadeScale),
                 );
               },
             ),
