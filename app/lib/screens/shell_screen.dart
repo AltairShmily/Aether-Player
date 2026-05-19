@@ -7,6 +7,7 @@ import '../theme/app_colors.dart';
 import '../widgets/search_overlay.dart';
 import 'home_tab.dart';
 import 'settings_tab.dart';
+import 'tv_home_screen.dart';
 
 class ShellScreen extends ConsumerStatefulWidget {
   const ShellScreen({super.key});
@@ -83,6 +84,11 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
               settingsLabel: t.settings.title,
               onTabSelected: (i) => setState(() => _selectedIndex = i),
               onSearch: openSearch,
+              onTvMode: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const TvHomeScreen()),
+                );
+              },
             ),
             // ── Main Content ──
             Expanded(
@@ -106,6 +112,7 @@ class _Sidebar extends StatelessWidget {
     required this.settingsLabel,
     required this.onTabSelected,
     this.onSearch,
+    this.onTvMode,
   });
 
   final int selectedIndex;
@@ -114,6 +121,7 @@ class _Sidebar extends StatelessWidget {
   final String settingsLabel;
   final ValueChanged<int> onTabSelected;
   final VoidCallback? onSearch;
+  final VoidCallback? onTvMode;
 
   @override
   Widget build(BuildContext context) {
@@ -148,6 +156,15 @@ class _Sidebar extends StatelessWidget {
             label: 'Search',
             isActive: false,
             onTap: onSearch ?? () {},
+          ),
+
+          // ── TV Mode Button ──
+          _SidebarButton(
+            icon: Icons.tv_outlined,
+            activeIcon: Icons.tv,
+            label: 'TV模式',
+            isActive: false,
+            onTap: onTvMode ?? () {},
           ),
 
           const Padding(
