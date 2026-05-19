@@ -90,7 +90,7 @@ class SettingsTab extends ConsumerWidget {
                           style: const TextStyle(
                             color: AppColors.textTertiary,
                             fontSize: 12,
-                            fontFamily: 'JetBrains Mono',
+                            fontFamily: 'DM Mono',
                           ),
                         ),
                       ],

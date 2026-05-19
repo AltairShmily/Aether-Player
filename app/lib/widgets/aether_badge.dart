@@ -204,7 +204,7 @@ class AetherBadge extends StatelessWidget {
               color: c,
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              fontFamily: 'JetBrains Mono',
+              fontFamily: 'DM Mono',
               letterSpacing: 0.3,
             ),
           ),

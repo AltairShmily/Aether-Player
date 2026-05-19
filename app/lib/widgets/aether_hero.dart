@@ -225,7 +225,7 @@ class AetherHero extends StatelessWidget {
                                 color: AppColors.supernova,
                                 fontSize: 15,
                                 fontWeight: FontWeight.w700,
-                                fontFamily: 'JetBrains Mono',
+                                fontFamily: 'DM Mono',
                               ),
                             ),
                           ],

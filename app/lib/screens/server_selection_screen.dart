@@ -337,7 +337,7 @@ class _ServerItemCard extends StatelessWidget {
                   style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 13,
-                    fontFamily: 'JetBrains Mono',
+                    fontFamily: 'DM Mono',
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

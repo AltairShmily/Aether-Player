@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-/// Aether Player 色彩系统 V2 — Celestial Glow Theme
+/// Aether Player 色彩系统 V3 — Celestial Glow Theme
 ///
-/// 以深空为基底，星辰为点缀，构建层次丰富的视觉语言。
-/// 保留 V1 旧名称作为兼容别名，新代码请使用 V2 名称。
+/// StreamVault 布局结构 + Celestial Glow 色系融合方案。
+/// 保留 V1/V2 旧名称作为兼容别名，新代码请使用 V3 名称。
 class AppColors {
   AppColors._();
 
@@ -43,6 +43,37 @@ class AppColors {
   // ══════════════════════════════════════════════════
   static const Color borderSubtle = Color(0x1AFFFFFF); // 10%
   static const Color borderFocus = Color(0x4D00D4FF); // 30% celestialCyan
+
+  // ══════════════════════════════════════════════════
+  //  V3 — 交互态
+  // ══════════════════════════════════════════════════
+  static const Color surfaceHover = Color(0xFF1A2332);    // 卡片悬浮态
+  static const Color accentHover = Color(0xFF33DDFF);     // 强调色悬浮
+  static const Color accentGlow = Color(0x4000D4FF);      // 发光效果 rgba(0,212,255,0.25)
+  static const Color borderLight = Color(0x1AFFFFFF);     // 边框亮色 rgba(255,255,255,0.10)
+
+  // ══════════════════════════════════════════════════
+  //  V3 — 圆角设计令牌
+  // ══════════════════════════════════════════════════
+  static const double radiusXs = 6;
+  static const double radiusSm = 8;
+  static const double radiusMd = 12;
+  static const double radiusLg = 16;
+  static const double radiusXl = 24;
+
+  // ══════════════════════════════════════════════════
+  //  V3 — 渐变色板 (回退用)
+  // ══════════════════════════════════════════════════
+  static const List<Color> gradientPalette = [
+    Color(0xFF0A0E14), // deepVoid
+    Color(0xFF111820), // nebulaDark
+    Color(0xFF1A2332), // stardust
+    Color(0xFF8B5CF6), // novaPurple
+    Color(0xFF00D4FF), // celestialCyan
+    Color(0xFF00E5A0), // auroraGreen
+    Color(0xFFFF6B35), // supernova
+    Color(0xFFEC4899), // plasmaPink
+  ];
 
   // ══════════════════════════════════════════════════
   //  V2 — 渐变

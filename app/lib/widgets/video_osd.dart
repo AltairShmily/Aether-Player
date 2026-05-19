@@ -286,7 +286,7 @@ class _VideoOsdState extends State<VideoOsd>
                                   Text(
                                     _formatDuration(widget.position),
                                     style: const TextStyle(
-                                      fontFamily: 'JetBrains Mono',
+                                      fontFamily: 'DM Mono',
                                       fontSize: 12,
                                       color: AppColors.textSecondary,
                                     ),
@@ -305,7 +305,7 @@ class _VideoOsdState extends State<VideoOsd>
                                   Text(
                                     _formatDuration(widget.duration),
                                     style: const TextStyle(
-                                      fontFamily: 'JetBrains Mono',
+                                      fontFamily: 'DM Mono',
                                       fontSize: 12,
                                       color: AppColors.textTertiary,
                                     ),
@@ -435,7 +435,7 @@ class _VideoOsdState extends State<VideoOsd>
                                       style: const TextStyle(
                                         color: AppColors.textSecondary,
                                         fontSize: 12,
-                                        fontFamily: 'JetBrains Mono',
+                                        fontFamily: 'DM Mono',
                                       ),
                                     ),
                                   ),

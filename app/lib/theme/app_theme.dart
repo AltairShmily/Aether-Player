@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
-/// Aether Player 主题系统 V2 — Celestial Glow
+/// Aether Player 主题系统 V3 — Celestial Glow
 ///
+/// StreamVault 布局结构 + Celestial Glow 色系融合方案。
 /// 基于 Material 3，融合深空美学。
 /// 支持 dynamicColor 回退到 Aether 星辰主题。
 class AppTheme {
@@ -57,7 +58,7 @@ class AppTheme {
 
   static ThemeData darkTheme({ColorScheme? dynamicScheme}) {
     final colorScheme = dynamicScheme ?? _aetherColorScheme;
-    final textTheme = GoogleFonts.interTextTheme(ThemeData.dark().textTheme);
+    final textTheme = GoogleFonts.soraTextTheme(ThemeData.dark().textTheme);
 
     return ThemeData(
       useMaterial3: true,
@@ -313,13 +314,13 @@ class AppTheme {
   //  文字样式快捷方法
   // ══════════════════════════════════════════════════
 
-  /// 代码/时码 字体 (JetBrains Mono)
+  /// 代码/时码 字体 (DM Mono)
   static TextStyle mono({
     double size = 13,
     Color color = AppColors.textSecondary,
     FontWeight weight = FontWeight.w400,
   }) {
-    return GoogleFonts.jetBrainsMono(
+    return GoogleFonts.dmMono(
       fontSize: size,
       color: color,
       fontWeight: weight,

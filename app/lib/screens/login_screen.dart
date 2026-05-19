@@ -213,7 +213,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                         style: const TextStyle(
                                           color: AppColors.textTertiary,
                                           fontSize: 13,
-                                          fontFamily: 'JetBrains Mono',
+                                          fontFamily: 'DM Mono',
                                         ),
                                       ),
                                     ],

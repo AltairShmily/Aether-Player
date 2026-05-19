@@ -188,7 +188,7 @@ class _AetherProgressState extends State<AetherProgress>
             child: Text(
               widget.elapsed!,
               style: const TextStyle(
-                fontFamily: 'JetBrains Mono',
+                fontFamily: 'DM Mono',
                 fontSize: 12,
                 color: AppColors.textSecondary,
                 letterSpacing: 0.5,
@@ -295,7 +295,7 @@ class _AetherProgressState extends State<AetherProgress>
             child: Text(
               widget.remaining!,
               style: const TextStyle(
-                fontFamily: 'JetBrains Mono',
+                fontFamily: 'DM Mono',
                 fontSize: 12,
                 color: AppColors.textSecondary,
                 letterSpacing: 0.5,
