@@ -47,6 +47,9 @@ class AetherHero extends StatelessWidget {
   /// 点击回调（整个 Hero 可点击）
   final VoidCallback? onTap;
 
+  /// 是否使用左侧渐变（carousel / featured 模式）
+  final bool _useLeftGradient;
+
   const AetherHero({
     super.key,
     this.imageUrl,
@@ -62,7 +65,7 @@ class AetherHero extends StatelessWidget {
     this.enableBlur = true,
     this.overlayColors,
     this.onTap,
-  });
+  }) : _useLeftGradient = false;
 
   /// 首页轮播 Hero
   const AetherHero.carousel({
@@ -75,11 +78,30 @@ class AetherHero extends StatelessWidget {
     this.rating = 0,
     this.primaryAction,
     this.secondaryAction,
-    this.height = 360,
+    this.height = 300,
     this.onTap,
   })  : bottomContent = null,
         enableBlur = false,
-        overlayColors = null;
+        overlayColors = null,
+        _useLeftGradient = true;
+
+  /// 大尺寸 Featured Banner (3:1)
+  const AetherHero.featured({
+    super.key,
+    this.imageUrl,
+    this.headers,
+    this.title,
+    this.subtitle,
+    this.tags = const [],
+    this.rating = 0,
+    this.primaryAction,
+    this.secondaryAction,
+    this.height = 300,
+    this.onTap,
+  })  : bottomContent = null,
+        enableBlur = false,
+        overlayColors = null,
+        _useLeftGradient = true;
 
   /// 详情页 Hero
   const AetherHero.detail({
@@ -96,7 +118,8 @@ class AetherHero extends StatelessWidget {
     this.height = 400,
     this.onTap,
   })  : enableBlur = true,
-        overlayColors = null;
+        overlayColors = null,
+        _useLeftGradient = false;
 
   @override
   Widget build(BuildContext context) {
@@ -137,18 +160,51 @@ class AetherHero extends StatelessWidget {
               ),
 
             // ── 渐变遮罩 ──
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: overlays,
-                    stops: const [0.0, 0.4, 0.75, 1.0],
+            if (_useLeftGradient) ...[
+              // 左侧渐变（StreamVault 风格）
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: const [
+                        Color(0xD90A0E14), // rgba(10,14,20,0.85)
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.6],
+                    ),
                   ),
                 ),
               ),
-            ),
+              // 底部渐变
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        AppColors.deepVoid,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ] else
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: overlays,
+                      stops: const [0.0, 0.4, 0.75, 1.0],
+                    ),
+                  ),
+                ),
+              ),
 
             // ── 微光边框 (底部) ──
             Positioned(

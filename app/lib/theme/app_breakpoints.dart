@@ -75,12 +75,12 @@ class AetherBreakpoints {
   static bool useBottomNav(BuildContext context) =>
       MediaQuery.sizeOf(context).width < mobile;
 
-  /// Hero Banner 高度
+  /// Hero Banner 高度 (3:1 aspect ratio target)
   static double heroHeight(BuildContext context) {
     final w = MediaQuery.sizeOf(context).width;
-    if (w < mobile) return 200;
-    if (w < tablet) return 280;
-    return 360;
+    if (w < mobile) return 180;
+    if (w < tablet) return 260;
+    return 320;
   }
 
   /// 卡片宽高比
