@@ -11,6 +11,9 @@ import '../widgets/aether_button.dart';
 import '../widgets/aether_hero.dart';
 import '../widgets/aether_progress.dart';
 import '../widgets/aether_badge.dart';
+import '../widgets/aether_chip.dart';
+import '../widgets/glass_panel.dart';
+import '../widgets/scroll_arrows.dart';
 import 'series_detail_screen.dart';
 import 'episode_detail_screen.dart';
 import 'media_detail_screen.dart';
@@ -345,7 +348,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
 // ══════════════════════════════════════════════════
 //  _SectionRow — 杂志感分类行
 // ══════════════════════════════════════════════════
-class _SectionRow extends StatelessWidget {
+class _SectionRow extends StatefulWidget {
   final String title;
   final List<MediaItem> items;
   final String? serverUrl;
@@ -357,6 +360,19 @@ class _SectionRow extends StatelessWidget {
     this.serverUrl,
     this.token,
   });
+
+  @override
+  State<_SectionRow> createState() => _SectionRowState();
+}
+
+class _SectionRowState extends State<_SectionRow> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -381,7 +397,7 @@ class _SectionRow extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                title,
+                widget.title,
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -404,21 +420,25 @@ class _SectionRow extends StatelessWidget {
         // 卡片行
         SizedBox(
           height: cardH,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: EdgeInsets.symmetric(horizontal: pad),
-            itemCount: items.length,
-            separatorBuilder: (_, __) =>
-                SizedBox(width: AetherBreakpoints.cardSpacing(context)),
-            itemBuilder: (context, index) {
-              final item = items[index];
-              return _HomeItemCard(
-                item: item,
-                serverUrl: serverUrl,
-                token: token,
-                height: cardH,
-              );
-            },
+          child: ScrollArrows(
+            scrollController: _scrollController,
+            child: ListView.separated(
+              controller: _scrollController,
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.symmetric(horizontal: pad),
+              itemCount: widget.items.length,
+              separatorBuilder: (_, __) =>
+                  SizedBox(width: AetherBreakpoints.cardSpacing(context)),
+              itemBuilder: (context, index) {
+                final item = widget.items[index];
+                return _HomeItemCard(
+                  item: item,
+                  serverUrl: widget.serverUrl,
+                  token: widget.token,
+                  height: cardH,
+                );
+              },
+            ),
           ),
         ),
       ],
@@ -569,7 +589,7 @@ class _HomeItemCard extends StatelessWidget {
 // ══════════════════════════════════════════════════
 //  _LibraryRow — 媒体库快捷入口
 // ══════════════════════════════════════════════════
-class _LibraryRow extends StatelessWidget {
+class _LibraryRow extends StatefulWidget {
   final List<MediaFolder> libraries;
   final String? serverUrl;
   final String? token;
@@ -579,6 +599,19 @@ class _LibraryRow extends StatelessWidget {
     this.serverUrl,
     this.token,
   });
+
+  @override
+  State<_LibraryRow> createState() => _LibraryRowState();
+}
+
+class _LibraryRowState extends State<_LibraryRow> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -614,13 +647,16 @@ class _LibraryRow extends StatelessWidget {
         ),
         SizedBox(
           height: 80,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: EdgeInsets.symmetric(horizontal: pad),
-            itemCount: libraries.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
-            itemBuilder: (context, index) {
-              final lib = libraries[index];
+          child: ScrollArrows(
+            scrollController: _scrollController,
+            child: ListView.separated(
+              controller: _scrollController,
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.symmetric(horizontal: pad),
+              itemCount: widget.libraries.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (context, index) {
+                final lib = widget.libraries[index];
               return AetherCard.simple(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
@@ -666,6 +702,7 @@ class _LibraryRow extends StatelessWidget {
                 ),
               );
             },
+            ),
           ),
         ),
       ],

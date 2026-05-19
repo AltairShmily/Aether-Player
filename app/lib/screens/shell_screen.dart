@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../i18n/strings.g.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_colors.dart';
+import '../widgets/search_overlay.dart';
 import 'home_tab.dart';
 import 'settings_tab.dart';
 
@@ -28,44 +30,66 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
     final serverName = authState.authResult?.server.serverName ?? '';
     final isCompact = MediaQuery.sizeOf(context).width < 720;
 
+    void openSearch() => SearchOverlay.show(context);
+
+    Widget buildKeyboardShortcuts(Widget child) {
+      return RawKeyboardListener(
+        focusNode: FocusNode(),
+        onKey: (event) {
+          if (event is RawKeyDownEvent &&
+              event.key == LogicalKeyboardKey.keyK &&
+              (HardwareKeyboard.instance.isControlPressed ||
+               HardwareKeyboard.instance.isMetaPressed)) {
+            openSearch();
+          }
+        },
+        child: child,
+      );
+    }
+
     if (isCompact) {
-      return Scaffold(
-        body: _tabs[_selectedIndex],
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _selectedIndex,
-          onDestinationSelected: (i) => setState(() => _selectedIndex = i),
-          destinations: [
-            NavigationDestination(
-              icon: const Icon(Icons.home_outlined),
-              selectedIcon: const Icon(Icons.home),
-              label: t.home.title,
-            ),
-            NavigationDestination(
-              icon: const Icon(Icons.settings_outlined),
-              selectedIcon: const Icon(Icons.settings),
-              label: t.settings.title,
-            ),
-          ],
+      return buildKeyboardShortcuts(
+        Scaffold(
+          body: _tabs[_selectedIndex],
+          bottomNavigationBar: NavigationBar(
+            selectedIndex: _selectedIndex,
+            onDestinationSelected: (i) => setState(() => _selectedIndex = i),
+            destinations: [
+              NavigationDestination(
+                icon: const Icon(Icons.home_outlined),
+                selectedIcon: const Icon(Icons.home),
+                label: t.home.title,
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.settings_outlined),
+                selectedIcon: const Icon(Icons.settings),
+                label: t.settings.title,
+              ),
+            ],
+          ),
         ),
       );
     }
 
-    return Scaffold(
-      body: Row(
-        children: [
-          // ── Custom Sidebar ──
-          _Sidebar(
-            selectedIndex: _selectedIndex,
-            serverName: serverName,
-            homeLabel: t.home.title,
-            settingsLabel: t.settings.title,
-            onTabSelected: (i) => setState(() => _selectedIndex = i),
-          ),
-          // ── Main Content ──
-          Expanded(
-            child: _tabs[_selectedIndex],
-          ),
-        ],
+    return buildKeyboardShortcuts(
+      Scaffold(
+        body: Row(
+          children: [
+            // ── Custom Sidebar ──
+            _Sidebar(
+              selectedIndex: _selectedIndex,
+              serverName: serverName,
+              homeLabel: t.home.title,
+              settingsLabel: t.settings.title,
+              onTabSelected: (i) => setState(() => _selectedIndex = i),
+              onSearch: openSearch,
+            ),
+            // ── Main Content ──
+            Expanded(
+              child: _tabs[_selectedIndex],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -81,6 +105,7 @@ class _Sidebar extends StatelessWidget {
     required this.homeLabel,
     required this.settingsLabel,
     required this.onTabSelected,
+    this.onSearch,
   });
 
   final int selectedIndex;
@@ -88,6 +113,7 @@ class _Sidebar extends StatelessWidget {
   final String homeLabel;
   final String settingsLabel;
   final ValueChanged<int> onTabSelected;
+  final VoidCallback? onSearch;
 
   @override
   Widget build(BuildContext context) {
@@ -113,6 +139,15 @@ class _Sidebar extends StatelessWidget {
             label: homeLabel,
             isActive: selectedIndex == 0,
             onTap: () => onTabSelected(0),
+          ),
+
+          // ── Search Button ──
+          _SidebarButton(
+            icon: Icons.search,
+            activeIcon: Icons.search,
+            label: 'Search',
+            isActive: false,
+            onTap: onSearch ?? () {},
           ),
 
           const Padding(
