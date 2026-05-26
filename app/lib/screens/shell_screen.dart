@@ -3,12 +3,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../i18n/strings.g.dart';
 import '../providers/auth_provider.dart';
+import '../providers/home_provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/search_overlay.dart';
 import '../widgets/aether_page_route.dart';
+import '../widgets/noise_texture.dart';
+import '../widgets/server_switcher.dart';
+import '../widgets/settings_modal.dart';
 import 'home_tab.dart';
-import 'settings_tab.dart';
 import 'tv_home_screen.dart';
+import 'phone_library_screen.dart';
 
 class ShellScreen extends ConsumerStatefulWidget {
   const ShellScreen({super.key});
@@ -22,7 +26,7 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
 
   static const _tabs = [
     HomeTab(),
-    SettingsTab(),
+    PhoneLibraryScreen(),
   ];
 
   @override
@@ -35,11 +39,11 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
     void openSearch() => SearchOverlay.show(context);
 
     Widget buildKeyboardShortcuts(Widget child) {
-      return RawKeyboardListener(
+      return KeyboardListener(
         focusNode: FocusNode(),
-        onKey: (event) {
-          if (event is RawKeyDownEvent &&
-              event.key == LogicalKeyboardKey.keyK &&
+        onKeyEvent: (event) {
+          if (event is KeyDownEvent &&
+              event.logicalKey == LogicalKeyboardKey.keyK &&
               (HardwareKeyboard.instance.isControlPressed ||
                HardwareKeyboard.instance.isMetaPressed)) {
             openSearch();
@@ -52,15 +56,40 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
     if (isCompact) {
       return buildKeyboardShortcuts(
         Scaffold(
-          body: _tabs[_selectedIndex],
+          body: Stack(
+            children: [
+              _tabs[_selectedIndex.clamp(0, _tabs.length - 1)],
+              const Positioned.fill(child: NoiseTexture()),
+            ],
+          ),
           bottomNavigationBar: NavigationBar(
-            selectedIndex: _selectedIndex,
-            onDestinationSelected: (i) => setState(() => _selectedIndex = i),
+            selectedIndex: _selectedIndex.clamp(0, 3),
+            onDestinationSelected: (i) {
+              if (i == 2) {
+                SearchOverlay.show(context);
+              } else if (i == 3) {
+                SettingsModal.show(context);
+              } else {
+                setState(() {
+                  _selectedIndex = i;
+                });
+              }
+            },
             destinations: [
               NavigationDestination(
                 icon: const Icon(Icons.home_outlined),
                 selectedIcon: const Icon(Icons.home),
                 label: t.home.title,
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.grid_view_outlined),
+                selectedIcon: const Icon(Icons.grid_view),
+                label: '媒体库',
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.search_outlined),
+                selectedIcon: const Icon(Icons.search),
+                label: '搜索',
               ),
               NavigationDestination(
                 icon: const Icon(Icons.settings_outlined),
@@ -75,26 +104,38 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
 
     return buildKeyboardShortcuts(
       Scaffold(
-        body: Row(
+        body: Stack(
           children: [
-            // ── Custom Sidebar ──
-            _Sidebar(
-              selectedIndex: _selectedIndex,
-              serverName: serverName,
-              homeLabel: t.home.title,
-              settingsLabel: t.settings.title,
-              onTabSelected: (i) => setState(() => _selectedIndex = i),
-              onSearch: openSearch,
-              onTvMode: () {
-                Navigator.of(context).push(
-                  AetherPageRoute(page: const TvHomeScreen(), type: AetherTransitionType.fadeScale),
-                );
-              },
+            Row(
+              children: [
+                // ── Custom Sidebar ──
+                _Sidebar(
+                  selectedIndex: _selectedIndex,
+                  serverName: serverName,
+                  homeLabel: t.home.title,
+                  settingsLabel: t.settings.title,
+                  onTabSelected: (i) => setState(() {
+                    _selectedIndex = i;
+                  }),
+                  onSearch: openSearch,
+                  onTvMode: () {
+                    Navigator.of(context).push(
+                      AetherPageRoute(page: const TvHomeScreen(), type: AetherTransitionType.fadeScale),
+                    );
+                  },
+                  onLibrarySelected: (libId) {
+                    setState(() {
+                      _selectedIndex = 1;
+                    });
+                  },
+                ),
+                // ── Main Content ──
+                Expanded(
+                  child: _tabs[_selectedIndex.clamp(0, _tabs.length - 1)],
+                ),
+              ],
             ),
-            // ── Main Content ──
-            Expanded(
-              child: _tabs[_selectedIndex],
-            ),
+            const Positioned.fill(child: NoiseTexture()),
           ],
         ),
       ),
@@ -105,7 +146,7 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
 // ════════════════════════════════════════════════════════════════
 //  Custom Sidebar — StreamVault-inspired, Aether color system
 // ════════════════════════════════════════════════════════════════
-class _Sidebar extends StatelessWidget {
+class _Sidebar extends ConsumerWidget {
   const _Sidebar({
     required this.selectedIndex,
     required this.serverName,
@@ -114,6 +155,7 @@ class _Sidebar extends StatelessWidget {
     required this.onTabSelected,
     this.onSearch,
     this.onTvMode,
+    this.onLibrarySelected,
   });
 
   final int selectedIndex;
@@ -123,9 +165,12 @@ class _Sidebar extends StatelessWidget {
   final ValueChanged<int> onTabSelected;
   final VoidCallback? onSearch;
   final VoidCallback? onTvMode;
+  final ValueChanged<String>? onLibrarySelected;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final homeState = ref.watch(homeProvider);
+
     return Container(
       width: 72,
       decoration: const BoxDecoration(
@@ -139,9 +184,9 @@ class _Sidebar extends StatelessWidget {
           // ── Logo ──
           const SizedBox(height: 16),
           _buildLogo(),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
-          // ── Navigation Buttons ──
+          // ── Home Button ──
           _SidebarButton(
             icon: Icons.home_outlined,
             activeIcon: Icons.home,
@@ -150,11 +195,30 @@ class _Sidebar extends StatelessWidget {
             onTap: () => onTabSelected(0),
           ),
 
+          // ── Divider ──
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Divider(height: 1, color: AppColors.borderSubtle),
+          ),
+
+          // ── Library Buttons ──
+          for (final lib in homeState.libraries)
+            _SidebarButton(
+              icon: _iconForLibraryType(lib.collectionType),
+              activeIcon: _iconForLibraryType(lib.collectionType),
+              label: lib.name,
+              isActive: false,
+              iconColor: _colorForLibraryType(lib.collectionType),
+              onTap: () => onLibrarySelected?.call(lib.id),
+            ),
+
+          const SizedBox(height: 4),
+
           // ── Search Button ──
           _SidebarButton(
             icon: Icons.search,
             activeIcon: Icons.search,
-            label: 'Search',
+            label: '搜索',
             isActive: false,
             onTap: onSearch ?? () {},
           ),
@@ -168,27 +232,19 @@ class _Sidebar extends StatelessWidget {
             onTap: onTvMode ?? () {},
           ),
 
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Divider(
-              height: 1,
-              color: AppColors.borderSubtle,
-            ),
-          ),
-
-          // ── Bottom Section (spacer + settings + avatar) ──
           const Spacer(),
 
-          // Server Avatar
-          _buildServerAvatar(serverName),
+          // ── Bottom Section ──
+          // Server Switcher
+          const ServerSwitcher(),
           const SizedBox(height: 12),
 
           _SidebarButton(
             icon: Icons.settings_outlined,
             activeIcon: Icons.settings,
             label: settingsLabel,
-            isActive: selectedIndex == 1,
-            onTap: () => onTabSelected(1),
+            isActive: false,
+            onTap: () => SettingsModal.show(context),
           ),
           const SizedBox(height: 16),
         ],
@@ -212,33 +268,30 @@ class _Sidebar extends StatelessWidget {
     );
   }
 
-  Widget _buildServerAvatar(String name) {
-    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
-    return Tooltip(
-      message: name.isNotEmpty ? name : 'Server',
-      child: Container(
-        width: 36,
-        height: 36,
-        decoration: const BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: LinearGradient(
-            colors: [AppColors.celestialCyan, AppColors.novaPurple],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: Center(
-          child: Text(
-            initial,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ),
-    );
+  IconData _iconForLibraryType(String type) {
+    switch (type) {
+      case 'movies':
+        return Icons.movie_outlined;
+      case 'tvshows':
+        return Icons.tv_outlined;
+      case 'music':
+        return Icons.music_note_outlined;
+      default:
+        return Icons.video_library_outlined;
+    }
+  }
+
+  Color _colorForLibraryType(String type) {
+    switch (type) {
+      case 'movies':
+        return AppColors.auroraGreen;
+      case 'tvshows':
+        return AppColors.novaPurple;
+      case 'music':
+        return AppColors.plasmaPink;
+      default:
+        return AppColors.celestialCyan;
+    }
   }
 }
 
@@ -252,6 +305,7 @@ class _SidebarButton extends StatefulWidget {
     required this.label,
     required this.isActive,
     required this.onTap,
+    this.iconColor,
   });
 
   final IconData icon;
@@ -259,6 +313,7 @@ class _SidebarButton extends StatefulWidget {
   final String label;
   final bool isActive;
   final VoidCallback onTap;
+  final Color? iconColor;
 
   @override
   State<_SidebarButton> createState() => _SidebarButtonState();
@@ -273,7 +328,9 @@ class _SidebarButtonState extends State<_SidebarButton> {
     final isHovered = _isHovered;
 
     Color iconColor;
-    if (isActive) {
+    if (widget.iconColor != null) {
+      iconColor = widget.iconColor!;
+    } else if (isActive) {
       iconColor = AppColors.celestialCyan;
     } else if (isHovered) {
       iconColor = AppColors.textSecondary;
@@ -283,7 +340,7 @@ class _SidebarButtonState extends State<_SidebarButton> {
 
     Color? bgColor;
     if (isActive) {
-      bgColor = const Color(0x1A00D4FF); // rgba(0,212,255,0.10)
+      bgColor = const Color(0x1A00D4FF);
     } else if (isHovered) {
       bgColor = AppColors.surfaceHover;
     }

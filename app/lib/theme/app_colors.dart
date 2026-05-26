@@ -11,8 +11,10 @@ class AppColors {
   //  V2 — 深空背景
   // ══════════════════════════════════════════════════
   static const Color deepVoid = Color(0xFF0A0E14);
-  static const Color nebulaDark = Color(0xFF111820);
-  static const Color stardust = Color(0xFF1A2332);
+  static const Color bgPrimary = Color(0xFF0D1520);    // --bg-primary
+  static const Color bgSecondary = Color(0xFF0F1722);  // --bg-secondary
+  static const Color nebulaDark = Color(0xFF111820);    // --bg-surface / --bg-card
+  static const Color stardust = Color(0xFF1A2332);      // --bg-surface-hover / --bg-elevated
   static const Color cosmicGray = Color(0xFF2A3444);
 
   // ══════════════════════════════════════════════════
@@ -41,14 +43,17 @@ class AppColors {
   // ══════════════════════════════════════════════════
   //  V2 — 边框
   // ══════════════════════════════════════════════════
-  static const Color borderSubtle = Color(0x1AFFFFFF); // 10%
-  static const Color borderFocus = Color(0x4D00D4FF); // 30% celestialCyan
+  static const Color borderDefault = Color(0x0FFFFFFF); // 6% rgba(255,255,255,0.06)
+  static const Color borderSubtle = Color(0x1AFFFFFF);  // 10% rgba(255,255,255,0.10)
+  static const Color borderFocus = Color(0x4D00D4FF);  // 30% celestialCyan
 
   // ══════════════════════════════════════════════════
   //  V3 — 交互态
   // ══════════════════════════════════════════════════
   static const Color surfaceHover = Color(0xFF1A2332);    // 卡片悬浮态
   static const Color accentHover = Color(0xFF33DDFF);     // 强调色悬浮
+  static const Color accentSoft = Color(0x1A00D4FF);      // --accent-soft 10%
+  static const Color accentMedium = Color(0x3300D4FF);    // --accent-medium 20%
   static const Color accentGlow = Color(0x4000D4FF);      // 发光效果 rgba(0,212,255,0.25)
   static const Color borderLight = Color(0x1AFFFFFF);     // 边框亮色 rgba(255,255,255,0.10)
 

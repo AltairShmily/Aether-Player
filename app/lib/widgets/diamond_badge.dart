@@ -20,14 +20,19 @@ class DiamondBadge extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: const Color(0xCC1A1A1A),
+        color: AppColors.deepVoid,
         shape: BoxShape.rectangle,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(AppColors.radiusXs),
         border: Border.all(
-          color: AppColors.goldBorder.withValues(alpha: 0.7),
+          color: AppColors.celestialCyan.withValues(alpha: 0.7),
           width: 1.5,
         ),
         boxShadow: [
+          BoxShadow(
+            color: AppColors.celestialCyan.withValues(alpha: 0.2),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.5),
             blurRadius: 12,
@@ -35,7 +40,6 @@ class DiamondBadge extends StatelessWidget {
           ),
         ],
       ),
-      // 不旋转，保持正方形，更实用
       child: Padding(
         padding: const EdgeInsets.all(6),
         child: Column(

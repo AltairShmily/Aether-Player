@@ -11,8 +11,6 @@ import '../widgets/aether_button.dart';
 import '../widgets/aether_hero.dart';
 import '../widgets/aether_progress.dart';
 import '../widgets/aether_badge.dart';
-import '../widgets/aether_chip.dart';
-import '../widgets/glass_panel.dart';
 import '../widgets/scroll_arrows.dart';
 import '../widgets/aether_page_route.dart';
 import 'series_detail_screen.dart';
@@ -406,12 +404,13 @@ class _SectionRowState extends State<_SectionRow> {
                 ),
               ),
               const Spacer(),
-              Text(
-                '查看全部 ›',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textTertiary,
-                  fontWeight: FontWeight.w500,
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () {
+                    // TODO: 导航到库详情页
+                  },
+                  child: const _SeeAllButton(),
                 ),
               ),
             ],
@@ -733,5 +732,43 @@ class _LibraryRowState extends State<_LibraryRow> {
       default:
         return Icons.video_library_outlined;
     }
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  _SeeAllButton — 查看全部按钮（hover 效果）
+// ══════════════════════════════════════════════════
+class _SeeAllButton extends StatefulWidget {
+  const _SeeAllButton();
+
+  @override
+  State<_SeeAllButton> createState() => _SeeAllButtonState();
+}
+
+class _SeeAllButtonState extends State<_SeeAllButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(
+          color: _isHovered ? AppColors.celestialCyan.withValues(alpha: 0.10) : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppColors.radiusSm),
+        ),
+        child: Text(
+          '查看全部 →',
+          style: TextStyle(
+            fontSize: 13,
+            color: _isHovered ? AppColors.celestialCyan : AppColors.textTertiary,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
   }
 }

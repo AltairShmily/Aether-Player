@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_colors.dart';
 import '../widgets/diamond_badge.dart';
 import '../widgets/pill_button.dart';
-import '../widgets/genre_chip.dart';
+import '../widgets/aether_chip.dart';
 import '../widgets/episode_card.dart';
 import '../models/media_models.dart';
 import '../providers/auth_provider.dart';
@@ -32,10 +32,11 @@ class SeriesDetailScreen extends ConsumerStatefulWidget {
 
 class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
   List<MediaItem> _seasons = [];
-  List<MediaItem> _episodes = [];
+  List<MergedEpisode> _episodes = [];
   String? _selectedSeasonId;
   bool _loadingSeasons = false;
   bool _loadingEpisodes = false;
+  String _embyServerUrl = '';
 
   static const _serverUrl = 'http://localhost:19800';
 
@@ -52,6 +53,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
     final serverUrl = await ref.read(storageServiceProvider).getServerUrl();
     if (token == null || serverUrl == null) return;
 
+    if (mounted) setState(() => _embyServerUrl = serverUrl);
     setState(() => _loadingSeasons = true);
     try {
       final userId = ref.read(authProvider).authResult?.user.id ?? '';
@@ -94,12 +96,35 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
           );
       if (!mounted) return;
       setState(() {
-        _episodes = result.items;
+        _episodes = _mergeEpisodes(result.items);
         _loadingEpisodes = false;
       });
     } catch (_) {
       if (mounted) setState(() => _loadingEpisodes = false);
     }
+  }
+
+  /// 合并同一集的不同版本 (如 1080p / 4K) 为单个 MergedEpisode
+  List<MergedEpisode> _mergeEpisodes(List<MediaItem> raw) {
+    final Map<int, List<MediaItem>> grouped = {};
+    for (final ep in raw) {
+      final key = ep.indexNumber > 0 ? ep.indexNumber : raw.indexOf(ep);
+      grouped.putIfAbsent(key, () => []).add(ep);
+    }
+
+    final keys = grouped.keys.toList()..sort();
+    return keys.map((key) {
+      final items = grouped[key]!;
+      // 优先选择有图片的版本作为主版本
+      final primary = items.firstWhere(
+        (e) => e.hasPrimaryImage,
+        orElse: () => items.first,
+      );
+      final versions = items.map((e) =>
+        EpisodeVersion(id: e.id, name: e.name),
+      ).toList();
+      return MergedEpisode(primary: primary, versions: versions);
+    }).toList();
   }
 
   // ── Navigation ────────────────────────────────────────────────
@@ -161,7 +186,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                           ? Image.network(
                               '$_serverUrl/api/images/${series.id}/Primary?maxWidth=400',
                               fit: BoxFit.cover,
-                              headers: {'Accept': 'image/*', 'X-Emby-Token': token ?? ''},
+                              headers: {'Accept': 'image/*', 'X-Emby-Token': token ?? '', 'X-Emby-Server': _embyServerUrl},
                               errorBuilder: (_, __, ___) => Container(
                                 color: AppColors.cardBg,
                                 child: const Center(
@@ -207,6 +232,28 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
         height: 300,
         child: Stack(
           children: [
+            // Back button
+            Positioned(
+              top: 12,
+              left: 16,
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: AppColors.nebulaDark.withValues(alpha: 0.8),
+                    borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                    border: Border.all(color: AppColors.borderSubtle),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back_rounded,
+                    color: AppColors.textSecondary,
+                    size: 19,
+                  ),
+                ),
+              ),
+            ),
             // Rounded hero backdrop card
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -221,14 +268,14 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                         Image.network(
                           '$_serverUrl/api/images/${series.id}/Backdrop?maxWidth=800',
                           fit: BoxFit.cover,
-                          headers: {'Accept': 'image/*', 'X-Emby-Token': token ?? ''},
+                          headers: {'Accept': 'image/*', 'X-Emby-Token': token ?? '', 'X-Emby-Server': _embyServerUrl},
                           errorBuilder: (_, __, ___) => _heroFallback(),
                         )
                       else if (series.hasPrimaryImage)
                         Image.network(
                           '$_serverUrl/api/images/${series.id}/Primary?maxWidth=600',
                           fit: BoxFit.cover,
-                          headers: {'Accept': 'image/*', 'X-Emby-Token': token ?? ''},
+                          headers: {'Accept': 'image/*', 'X-Emby-Token': token ?? '', 'X-Emby-Server': _embyServerUrl},
                           errorBuilder: (_, __, ___) => _heroFallback(),
                         )
                       else
@@ -349,7 +396,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
             Wrap(
               spacing: 8,
               runSpacing: 6,
-              children: series.genres.map((g) => GenreChip(label: g)).toList(),
+              children: series.genres.map((g) => AetherChip.genre(label: g)).toList(),
             ),
           const SizedBox(height: 20),
 
@@ -362,7 +409,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
             onPressed: () {
               // TODO: Start playing first unwatched episode or first episode
               if (_episodes.isNotEmpty) {
-                _onEpisodeTap(_episodes.first);
+                _onEpisodeTap(_episodes.first.primary);
               }
             },
           ),
@@ -461,7 +508,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                             height: 2,
                             width: isSelected ? 28 : 0,
                             decoration: BoxDecoration(
-                              color: AppColors.celestialCyan,
+                              gradient: AppColors.accentGradient,
                               borderRadius: BorderRadius.circular(1),
                             ),
                           ),
@@ -535,14 +582,15 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
           // Horizontal scroll preview (first 10 episodes)
           if (_episodes.length > 1)
             SizedBox(
-              height: 120,
+              height: 140,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 itemCount: _episodes.length.clamp(0, 10),
                 separatorBuilder: (_, __) => const SizedBox(width: 12),
                 itemBuilder: (context, index) {
-                  final ep = _episodes[index];
+                  final merged = _episodes[index];
+                  final ep = merged.primary;
                   return EpisodeCard(
                     imageUrl: ep.hasPrimaryImage
                         ? '$_serverUrl/api/images/${ep.id}/Primary?maxWidth=200'
@@ -559,11 +607,13 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
 
           // Full episode list
           const SizedBox(height: 16),
-          ..._episodes.map((ep) => _EpisodeTile(
-                episode: ep,
+          ..._episodes.map((merged) => _EpisodeTile(
+                episode: merged.primary,
                 serverUrl: _serverUrl,
                 token: token,
-                onTap: () => _onEpisodeTap(ep),
+                embyServerUrl: _embyServerUrl,
+                versions: merged.hasMultipleVersions ? merged.versions : null,
+                onTap: () => _onEpisodeTap(merged.primary),
               )),
         ],
       ),
@@ -613,6 +663,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                   personId: actor.id,
                   serverUrl: _serverUrl,
                   token: token,
+                  embyServerUrl: _embyServerUrl,
                   index: index,
                 );
               },
@@ -670,12 +721,16 @@ class _EpisodeTile extends StatefulWidget {
   final MediaItem episode;
   final String serverUrl;
   final String? token;
+  final String embyServerUrl;
+  final List<EpisodeVersion>? versions;
   final VoidCallback? onTap;
 
   const _EpisodeTile({
     required this.episode,
     required this.serverUrl,
     this.token,
+    required this.embyServerUrl,
+    this.versions,
     this.onTap,
   });
 
@@ -696,10 +751,11 @@ class _EpisodeTileState extends State<_EpisodeTile> {
       onTap: widget.onTap,
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppColors.cardBg,
-          borderRadius: BorderRadius.circular(12),
+          color: AppColors.nebulaDark,
+          borderRadius: BorderRadius.circular(AppColors.radiusMd),
+          border: Border.all(color: AppColors.borderSubtle),
         ),
         child: Row(
           children: [
@@ -709,17 +765,17 @@ class _EpisodeTileState extends State<_EpisodeTile> {
               onExit: (_) => setState(() => _isHovered = false),
               cursor: SystemMouseCursors.click,
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(AppColors.radiusSm),
                 child: Stack(
                   children: [
                     SizedBox(
-                      width: 100,
-                      height: 56,
+                      width: 130,
+                      height: 73,
                       child: widget.episode.hasPrimaryImage
                           ? Image.network(
                               imageUrl,
                               fit: BoxFit.cover,
-                              headers: widget.token != null ? {'X-Emby-Token': widget.token!} : null,
+                              headers: widget.token != null ? {'X-Emby-Token': widget.token!, 'X-Emby-Server': widget.embyServerUrl} : null,
                               errorBuilder: (_, __, ___) => _thumbPlaceholder(),
                             )
                           : _thumbPlaceholder(),
@@ -791,6 +847,25 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
+                  // Version count badge
+                  if (widget.versions != null && widget.versions!.length > 1) ...[
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.celestialCyan.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '${widget.versions!.length} 版本',
+                        style: const TextStyle(
+                          color: AppColors.celestialCyan,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
                   if (widget.episode.overview.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
@@ -798,9 +873,9 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: AppColors.textWarmGray,
+                        color: AppColors.textSecondary,
                         fontSize: 12,
-                        height: 1.4,
+                        height: 1.5,
                       ),
                     ),
                   ],
@@ -813,8 +888,9 @@ class _EpisodeTileState extends State<_EpisodeTile> {
               Text(
                 widget.episode.durationFormatted,
                 style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 11,
+                  color: AppColors.textTertiary,
+                  fontSize: 12,
+                  fontFamily: 'DM Mono',
                 ),
               ),
             ],
@@ -843,6 +919,7 @@ class _CastMember extends StatelessWidget {
   final String? personId;
   final String serverUrl;
   final String? token;
+  final String embyServerUrl;
   final int index;
 
   // Gradient palette cycling through actor indices
@@ -859,6 +936,7 @@ class _CastMember extends StatelessWidget {
     this.personId,
     required this.serverUrl,
     this.token,
+    required this.embyServerUrl,
     this.index = 0,
   });
 
@@ -881,7 +959,7 @@ class _CastMember extends StatelessWidget {
                       width: 52,
                       height: 52,
                       fit: BoxFit.cover,
-                      headers: token != null ? {'X-Emby-Token': token!} : null,
+                      headers: token != null ? {'X-Emby-Token': token!, 'X-Emby-Server': embyServerUrl} : null,
                       errorBuilder: (_, __, ___) => _gradientFallback(gradient),
                     ),
                   )

@@ -25,6 +25,7 @@ import '../models/media_models.dart';
 import 'series_detail_screen.dart';
 import 'episode_detail_screen.dart';
 import 'media_detail_screen.dart';
+import 'tv_search_overlay.dart';
 import '../widgets/aether_page_route.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -42,6 +43,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
   // ── 时钟定时器 ──
   Timer? _clockTimer;
   String _clockText = '';
+  String _serverUrl = 'http://localhost:19800';
 
   // ── 顶部导航栏 ──
   final List<_TabItem> _tabs = [
@@ -73,8 +75,14 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
 
     // 加载数据
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadServerUrl();
       ref.read(homeProvider.notifier).loadAll();
     });
+  }
+
+  Future<void> _loadServerUrl() async {
+    final url = await ref.read(storageServiceProvider).getServerUrl();
+    if (mounted && url != null) setState(() => _serverUrl = url);
   }
 
   /// 更新时钟显示 (HH:mm 格式)
@@ -161,60 +169,299 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
 
         // ── 可滚动内容 ──
         Expanded(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.zero,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 24),
+          child: _buildTabContent(homeState),
+        ),
+      ],
+    );
+  }
 
-                // ── 推荐横幅 ──
-                _buildFeaturedBanner(homeState),
+  Widget _buildTabContent(HomeState homeState) {
+    switch (_activeTabIndex) {
+      case 0: // 主页
+        return _buildHomeTab(homeState);
+      case 1: // 电影
+        return _buildLibraryTab(homeState, 'movies', '电影');
+      case 2: // 剧集
+        return _buildLibraryTab(homeState, 'tvshows', '剧集');
+      case 3: // 动漫
+        return _buildAnimeTab(homeState);
+      case 4: // 设置
+        return _buildSettingsTab();
+      default:
+        return _buildHomeTab(homeState);
+    }
+  }
 
-                const SizedBox(height: 36),
-
-                // ── 最近更新 ──
-                if (homeState.resumeItems.isNotEmpty)
-                  _TvSection(
-                    title: '最近更新',
-                    child: _TvMediaRow(
-                      items: homeState.resumeItems,
-                      focusNodes: _cardFocusNodes,
-                      onItemTap: _navigateToItem,
-                    ),
-                  ),
-
-                const SizedBox(height: 36),
-
-                // ── 媒体库 ──
-                if (homeState.libraries.isNotEmpty)
-                  _TvSection(
-                    title: '媒体库',
-                    child: _TvLibraryRow(
-                      libraries: homeState.libraries,
-                      libraryItems: homeState.libraryItems,
-                      focusNodes: _libraryFocusNodes,
-                    ),
-                  ),
-
-                const SizedBox(height: 36),
-
-                // ── 热门动漫 (使用 libraryItems 中的动漫数据) ──
-                if (_getAnimeItems(homeState).isNotEmpty)
-                  _TvSection(
-                    title: '热门动漫',
-                    child: _TvMediaRow(
-                      items: _getAnimeItems(homeState),
-                      onItemTap: _navigateToItem,
-                    ),
-                  ),
-
-                const SizedBox(height: 80),
-              ],
+  Widget _buildHomeTab(HomeState homeState) {
+    return SingleChildScrollView(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 24),
+          // ── 推荐横幅 ──
+          _buildFeaturedBanner(homeState),
+          const SizedBox(height: 36),
+          // ── 最近更新 ──
+          if (homeState.resumeItems.isNotEmpty)
+            _TvSection(
+              title: '最近更新',
+              child: _TvMediaRow(
+                items: homeState.resumeItems,
+                focusNodes: _cardFocusNodes,
+                onItemTap: _navigateToItem,
+                serverUrl: _serverUrl,
+              ),
             ),
+          const SizedBox(height: 36),
+          // ── 媒体库 ──
+          if (homeState.libraries.isNotEmpty)
+            _TvSection(
+              title: '媒体库',
+              child: _TvLibraryRow(
+                libraries: homeState.libraries,
+                libraryItems: homeState.libraryItems,
+                focusNodes: _libraryFocusNodes,
+              ),
+            ),
+          const SizedBox(height: 36),
+          // ── 热门动漫 ──
+          if (_getAnimeItems(homeState).isNotEmpty)
+            _TvSection(
+              title: '热门动漫',
+              child: _TvMediaRow(
+                items: _getAnimeItems(homeState),
+                onItemTap: _navigateToItem,
+                serverUrl: _serverUrl,
+              ),
+            ),
+          const SizedBox(height: 80),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLibraryTab(HomeState homeState, String collectionType, String title) {
+    // 查找对应类型的库
+    MediaFolder? targetLib;
+    for (final lib in homeState.libraries) {
+      if (lib.collectionType == collectionType) {
+        targetLib = lib;
+        break;
+      }
+    }
+    final items = targetLib != null ? (homeState.libraryItems[targetLib.id] ?? <MediaItem>[]) : <MediaItem>[];
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 24),
+          if (items.isNotEmpty)
+            _TvSection(
+              title: title,
+              child: _TvMediaRow(
+                items: items,
+                onItemTap: _navigateToItem,
+                serverUrl: _serverUrl,
+              ),
+            )
+          else
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.only(top: 100),
+                child: Text(
+                  '暂无内容',
+                  style: TextStyle(
+                    color: AppColors.textTertiary,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
+          const SizedBox(height: 80),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnimeTab(HomeState homeState) {
+    final animeItems = _getAnimeItems(homeState);
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 24),
+          if (animeItems.isNotEmpty)
+            _TvSection(
+              title: '热门动漫',
+              child: _TvMediaRow(
+                items: animeItems,
+                onItemTap: _navigateToItem,
+                serverUrl: _serverUrl,
+              ),
+            )
+          else
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.only(top: 100),
+                child: Text(
+                  '暂无动漫内容',
+                  style: TextStyle(
+                    color: AppColors.textTertiary,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
+          const SizedBox(height: 80),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 56, vertical: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '设置',
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 32),
+          // 播放设置
+          _buildSettingsGroup('播放', [
+            _buildSettingsRow('自动播放下一集', '当前集结束后自动播放下一集', true),
+            _buildSettingsRow('硬件加速', '使用 GPU 进行视频解码', true),
+          ]),
+          const SizedBox(height: 24),
+          // 外观设置
+          _buildSettingsGroup('外观', [
+            _buildSettingsRow('深色模式', '界面主题颜色方案', true, value: '深色'),
+            _buildSettingsRow('噪点纹理', '界面元素启用噪点效果', true),
+          ]),
+          const SizedBox(height: 24),
+          // 网络设置
+          _buildSettingsGroup('网络', [
+            _buildSettingsRow('远程访问', '允许通过互联网连接服务器', false),
+            _buildSettingsRow('带宽限制', '远程播放时的最大带宽', true, value: '自动'),
+          ]),
+          const SizedBox(height: 24),
+          // 关于
+          _buildSettingsGroup('关于', [
+            _buildSettingsRow('版本', '', false, value: 'v1.0.0-dev'),
+            _buildSettingsRow('架构', '', false, value: 'Flutter + Go + MPV'),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsGroup(String title, List<Widget> children) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.2,
+            color: AppColors.celestialCyan,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.nebulaDark,
+            borderRadius: BorderRadius.circular(AppColors.radiusLg),
+            border: Border.all(color: AppColors.borderSubtle),
+          ),
+          child: Column(
+            children: children,
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSettingsRow(String label, String description, bool isToggle, {String? value}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: AppColors.borderSubtle, width: 0.5),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                if (description.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: const TextStyle(
+                      color: AppColors.textTertiary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (value != null)
+            Text(
+              value,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+              ),
+            ),
+          if (isToggle && value == null)
+            Container(
+              width: 44,
+              height: 24,
+              decoration: BoxDecoration(
+                color: AppColors.celestialCyan,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  margin: const EdgeInsets.only(right: 3),
+                  decoration: const BoxDecoration(
+                    color: AppColors.deepVoid,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -306,7 +553,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
           Focus(
             child: GestureDetector(
               onTap: () {
-                // TODO: 打开搜索界面
+                TvSearchOverlay.show(context);
               },
               child: Container(
                 width: 40,
@@ -351,7 +598,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
     final featuredItem =
         homeState.resumeItems.isNotEmpty ? homeState.resumeItems.first : null;
     final imageUrl = featuredItem != null
-        ? 'http://localhost:19800/api/images/${featuredItem.id}/Backdrop?maxWidth=800'
+        ? '$_serverUrl/api/images/${featuredItem.id}/Backdrop?maxWidth=800'
         : null;
 
     return Padding(
@@ -507,10 +754,19 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
                                   onTap: () => _navigateToItem(featuredItem),
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 24, vertical: 10),
+                                        horizontal: 28, vertical: 12),
                                     decoration: BoxDecoration(
-                                      color: AppColors.celestialCyan,
-                                      borderRadius: BorderRadius.circular(24),
+                                      gradient: const LinearGradient(
+                                        colors: [AppColors.celestialCyan, AppColors.novaPurple],
+                                      ),
+                                      borderRadius: BorderRadius.circular(28),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: AppColors.celestialCyan.withValues(alpha: 0.35),
+                                          blurRadius: 20,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
                                     ),
                                     child: const Row(
                                       mainAxisSize: MainAxisSize.min,
@@ -635,11 +891,13 @@ class _TvMediaRow extends StatelessWidget {
   final List<MediaItem> items;
   final List<FocusNode>? focusNodes;
   final Function(MediaItem) onItemTap;
+  final String serverUrl;
 
   const _TvMediaRow({
     required this.items,
     this.focusNodes,
     required this.onItemTap,
+    this.serverUrl = 'http://localhost:19800',
   });
 
   @override
@@ -662,6 +920,7 @@ class _TvMediaRow extends StatelessWidget {
             focusNode: focusNode,
             isFirst: index == 0,
             onTap: () => onItemTap(item),
+            serverUrl: serverUrl,
           );
         },
       ),
@@ -678,18 +937,20 @@ class _TvMediaCard extends StatelessWidget {
   final FocusNode? focusNode;
   final bool isFirst;
   final VoidCallback onTap;
+  final String serverUrl;
 
   const _TvMediaCard({
     required this.item,
     this.focusNode,
     this.isFirst = false,
     required this.onTap,
+    this.serverUrl = 'http://localhost:19800',
   });
 
   @override
   Widget build(BuildContext context) {
     final imageUrl =
-        'http://localhost:19800/api/images/${item.id}/Primary?maxWidth=300';
+        '$serverUrl/api/images/${item.id}/Primary?maxWidth=300';
 
     return SizedBox(
       width: 190,
@@ -886,6 +1147,7 @@ class _TvLibraryRow extends StatelessWidget {
           final itemCount = libraryItems[lib.id]?.length ?? 0;
           return _TvLibraryCard(
             library: lib,
+            index: index,
             itemCount: itemCount,
             focusNode: focusNodes[index],
             isFirst: index == 0,
@@ -902,12 +1164,14 @@ class _TvLibraryRow extends StatelessWidget {
 
 class _TvLibraryCard extends StatelessWidget {
   final MediaFolder library;
+  final int index;
   final int itemCount;
   final FocusNode focusNode;
   final bool isFirst;
 
   const _TvLibraryCard({
     required this.library,
+    required this.index,
     required this.itemCount,
     required this.focusNode,
     this.isFirst = false,
@@ -987,8 +1251,7 @@ class _TvLibraryCard extends StatelessWidget {
                         // ── 渐变背景 ──
                         Container(
                           decoration: BoxDecoration(
-                            gradient: _getLibraryGradient(
-                                libraries.indexOf(library)),
+                            gradient: _getLibraryGradient(index),
                           ),
                         ),
 

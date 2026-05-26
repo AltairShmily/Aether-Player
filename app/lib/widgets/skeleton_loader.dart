@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 
 /// Aether 骨架屏加载组件
 ///
@@ -104,9 +105,9 @@ class _AetherSkeletonState extends State<AetherSkeleton>
               begin: Alignment(-1.0 + 2.0 * _animation.value, 0),
               end: Alignment(-0.5 + 2.0 * _animation.value, 0),
               colors: const [
-                Color(0xFF0E1319),
-                Color(0xFF1A2332),
-                Color(0xFF0E1319),
+                AppColors.deepVoid,
+                AppColors.stardust,
+                AppColors.deepVoid,
               ],
             ),
           ),

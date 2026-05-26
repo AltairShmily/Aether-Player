@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../i18n/strings.g.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_colors.dart';
+import '../widgets/aether_badge.dart';
 import '../widgets/aether_card.dart';
 import '../widgets/aether_button.dart';
 import '../widgets/aether_page_route.dart';

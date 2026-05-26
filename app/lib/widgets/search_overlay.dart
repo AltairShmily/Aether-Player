@@ -272,11 +272,11 @@ class _SearchOverlayState extends State<SearchOverlay>
 
   /// 搜索图标 + 文本输入
   Widget _buildInputRow() {
-    return RawKeyboardListener(
+    return KeyboardListener(
       focusNode: FocusNode(),
-      onKey: (event) {
+      onKeyEvent: (event) {
         // Esc 关闭
-        if (event is RawKeyDownEvent &&
+        if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.escape) {
           _close();
         }
@@ -328,12 +328,6 @@ class _SearchOverlayState extends State<SearchOverlay>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.keyboard_command_key,
-            color: AppColors.textTertiary,
-            size: 14,
-          ),
-          const SizedBox(width: 6),
           Text(
             '输入关键词搜索，或按 Esc 关闭',
             style: TextStyle(

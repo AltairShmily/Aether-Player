@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
-/// A reusable wrapper that adds left/right scroll arrow buttons
-/// to any horizontal scrollable content.
+/// 可复用的横向滚动包装器，添加左右箭头按钮和鼠标拖拽支持。
 ///
-/// Wraps a scrollable child (e.g., a horizontal ListView) and displays
-/// semi-transparent circular arrow buttons that appear on hover.
-/// The arrows scroll the content by 350px per click, and auto-hide
-/// when scrolled to the start or end.
+/// 包装一个可滚动子组件（如横向 ListView），显示半透明圆形箭头按钮，
+/// 在 hover 时出现。箭头每次点击滚动 350px，滚动到边界时自动隐藏。
+/// 支持鼠标拖拽滚动。
 ///
 /// Usage:
 /// ```dart
@@ -54,6 +52,11 @@ class _ScrollArrowsState extends State<ScrollArrows> {
   bool _isHovered = false;
   bool _canScrollLeft = false;
   bool _canScrollRight = false;
+
+  // 拖拽状态
+  bool _isDragging = false;
+  double _dragStartX = 0;
+  double _dragStartScrollOffset = 0;
 
   @override
   void initState() {
@@ -125,53 +128,88 @@ class _ScrollArrowsState extends State<ScrollArrows> {
     );
   }
 
+  // ── 鼠标拖拽处理 ──
+
+  void _onDragStart(PointerDownEvent event) {
+    _isDragging = true;
+    _dragStartX = event.position.dx;
+    _dragStartScrollOffset = widget.scrollController.offset;
+  }
+
+  void _onDragMove(PointerMoveEvent event) {
+    if (!_isDragging) return;
+    final dx = event.position.dx - _dragStartX;
+    final newOffset = (_dragStartScrollOffset - dx * 1.5).clamp(
+      widget.scrollController.position.minScrollExtent,
+      widget.scrollController.position.maxScrollExtent,
+    );
+    widget.scrollController.jumpTo(newOffset);
+  }
+
+  void _onDragEnd(PointerUpEvent event) {
+    _isDragging = false;
+  }
+
+  void _onDragCancel(PointerCancelEvent event) {
+    _isDragging = false;
+  }
+
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      cursor: SystemMouseCursors.basic,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          widget.child,
-          // Left arrow
-          if (_canScrollLeft)
-            Positioned(
-              left: widget.arrowInset,
-              top: 0,
-              bottom: 0,
-              child: AnimatedOpacity(
-                opacity: _isHovered ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 200),
-                child: Center(
-                  child: _ArrowButton(
-                    direction: _ArrowDirection.left,
-                    size: widget.arrowSize,
-                    onTap: _scrollLeft,
+      onExit: (_) => setState(() {
+        _isHovered = false;
+        _isDragging = false;
+      }),
+      cursor: _isDragging ? SystemMouseCursors.grabbing : SystemMouseCursors.grab,
+      child: Listener(
+        onPointerDown: _onDragStart,
+        onPointerMove: _onDragMove,
+        onPointerUp: _onDragEnd,
+        onPointerCancel: _onDragCancel,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            widget.child,
+            // Left arrow
+            if (_canScrollLeft)
+              Positioned(
+                left: widget.arrowInset,
+                top: 0,
+                bottom: 0,
+                child: AnimatedOpacity(
+                  opacity: _isHovered && !_isDragging ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Center(
+                    child: _ArrowButton(
+                      direction: _ArrowDirection.left,
+                      size: widget.arrowSize,
+                      onTap: _scrollLeft,
+                    ),
                   ),
                 ),
               ),
-            ),
-          // Right arrow
-          if (_canScrollRight)
-            Positioned(
-              right: widget.arrowInset,
-              top: 0,
-              bottom: 0,
-              child: AnimatedOpacity(
-                opacity: _isHovered ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 200),
-                child: Center(
-                  child: _ArrowButton(
-                    direction: _ArrowDirection.right,
-                    size: widget.arrowSize,
-                    onTap: _scrollRight,
+            // Right arrow
+            if (_canScrollRight)
+              Positioned(
+                right: widget.arrowInset,
+                top: 0,
+                bottom: 0,
+                child: AnimatedOpacity(
+                  opacity: _isHovered && !_isDragging ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Center(
+                    child: _ArrowButton(
+                      direction: _ArrowDirection.right,
+                      size: widget.arrowSize,
+                      onTap: _scrollRight,
+                    ),
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

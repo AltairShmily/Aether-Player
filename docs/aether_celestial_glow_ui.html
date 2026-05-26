@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StreamVault · Emby Client</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+  <style>
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+    :root{
+      /* ── Celestial Glow 色彩系统 ── */
+      --bg-deep:#0A0E14;
+      --bg-primary:#0D1520;
+      --bg-secondary:#0F1722;
+      --bg-surface:#111820;
+      --bg-surface-hover:#1A2332;
+      --bg-elevated:#1A2332;
+      --bg-card:#111820;
+
+      --accent:#00D4FF;
+      --accent-soft:rgba(0,212,255,0.10);
+      --accent-medium:rgba(0,212,255,0.20);
+      --accent-hover:#33DDFF;
+      --accent-glow:rgba(0,212,255,0.25);
+
+      --text-primary:#F0F4F8;
+      --text-secondary:#8892A4;
+      --text-muted:#5A6577;
+
+      --border:rgba(255,255,255,0.06);
+      --border-light:rgba(255,255,255,0.10);
+
+      --radius-xs:6px;--radius-sm:8px;--radius-md:12px;--radius-lg:16px;--radius-xl:24px;
+      --sidebar-w:72px;
+      --transition:0.3s cubic-bezier(0.4,0,0.2,1);
+    }
+    html{font-size:14px}
+    body{font-family:'Sora','PingFang SC',sans-serif;background:#0A0E14;color:var(--text-primary);overflow:hidden;height:100vh}
+    ::-webkit-scrollbar{width:5px;height:5px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.07);border-radius:3px}
+    ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.14)}
+    .material-symbols-rounded{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;user-select:none}
+    .icon-filled{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24}
+
+    /* ===== PLATFORM BAR ===== */
+    .platform-bar{
+      position:fixed;top:0;left:0;right:0;height:44px;
+      background:rgba(10,14,20,0.85);backdrop-filter:blur(12px);
+      border-bottom:1px solid var(--border);
+      display:flex;align-items:center;justify-content:center;gap:4px;
+      z-index:9999;padding:0 20px;
+    }
+    .platform-bar .logo{font-weight:700;font-size:0.85rem;color:var(--accent);margin-right:auto;letter-spacing:-0.02em}
+    .p-btn{
+      padding:6px 16px;border:none;background:transparent;color:var(--text-muted);
+      font-family:inherit;font-size:0.78rem;font-weight:500;border-radius:20px;
+      cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:6px;
+    }
+    .p-btn:hover{color:var(--text-secondary);background:var(--bg-surface)}
+    .p-btn.active{color:var(--accent);background:var(--accent-soft)}
+    .p-btn .material-symbols-rounded{font-size:16px}
+
+    /* ===== DEVICE FRAMES ===== */
+    .device-frame{position:absolute;top:44px;left:0;right:0;bottom:0;display:none;overflow:hidden}
+    .device-frame.active{display:flex}
+
+    /* ========================================================
+       DESKTOP
+       ======================================================== */
+    .desktop-app{display:flex;width:100%;height:100%}
+
+    /* SIDEBAR */
+    .sidebar{
+      width:var(--sidebar-w);min-width:var(--sidebar-w);height:100%;
+      background:var(--bg-surface);border-right:1px solid var(--border);
+      display:flex;flex-direction:column;align-items:center;
+      padding:20px 0 16px;z-index:100;
+    }
+    .sidebar-logo{width:40px;height:40px;display:flex;align-items:center;justify-content:center;margin-bottom:24px}
+    .sidebar-logo svg{width:30px;height:30px}
+    .sidebar-nav{display:flex;flex-direction:column;align-items:center;gap:2px;flex:1}
+    .nav-btn{
+      width:44px;height:44px;border:none;background:transparent;
+      color:var(--text-muted);border-radius:var(--radius-md);
+      cursor:pointer;display:flex;align-items:center;justify-content:center;
+      position:relative;transition:color var(--transition),background var(--transition);
+    }
+    .nav-btn:hover{color:var(--text-secondary);background:var(--bg-surface-hover)}
+    .nav-btn.active{color:var(--accent);background:var(--accent-soft)}
+    .nav-btn.active .material-symbols-rounded{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24}
+    .nav-btn .material-symbols-rounded{font-size:22px}
+    .nav-btn .tooltip{
+      position:absolute;left:calc(100% + 14px);top:50%;transform:translateY(-50%) translateX(-4px);
+      background:var(--bg-elevated);color:var(--text-primary);
+      padding:6px 12px;border-radius:var(--radius-sm);font-size:0.75rem;
+      white-space:nowrap;pointer-events:none;opacity:0;
+      transition:opacity 0.2s,transform 0.2s;
+      box-shadow:0 4px 12px rgba(0,0,0,0.4);border:1px solid var(--border-light);z-index:200;
+    }
+    .nav-btn:hover .tooltip{opacity:1;transform:translateY(-50%) translateX(0)}
+    .sidebar-bottom{display:flex;flex-direction:column;align-items:center;gap:4px}
+    .sidebar-divider{width:28px;height:1px;background:var(--border);margin:8px 0}
+
+    /* SERVER SWITCHER (v1 style) */
+    .server-switcher{position:relative}
+    .server-avatar{
+      width:36px;height:36px;border-radius:50%;
+      background:linear-gradient(135deg,#00D4FF,#8B5CF6);
+      display:flex;align-items:center;justify-content:center;
+      cursor:pointer;font-size:0.8rem;font-weight:600;color:#fff;
+      transition:box-shadow var(--transition),transform var(--transition);
+      border:2px solid transparent;
+    }
+    .server-avatar:hover{box-shadow:0 0 0 3px var(--accent-soft);transform:scale(1.08)}
+    .server-dropdown{
+      position:absolute;left:calc(100% + 12px);bottom:-8px;width:280px;
+      background:var(--bg-elevated);border:1px solid var(--border-light);
+      border-radius:var(--radius-lg);padding:12px;
+      box-shadow:0 12px 40px rgba(0,0,0,0.5);
+      opacity:0;pointer-events:none;transform:translateX(-8px) scale(0.96);
+      transition:opacity 0.25s,transform 0.25s;z-index:300;
+    }
+    .server-dropdown.open{opacity:1;pointer-events:all;transform:translateX(0) scale(1)}
+    .dropdown-label{font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);padding:8px 10px 6px}
+    .server-item,.account-item{
+      display:flex;align-items:center;gap:10px;padding:10px;
+      border-radius:var(--radius-sm);cursor:pointer;transition:background 0.2s;
+      font-size:0.85rem;color:var(--text-secondary);
+    }
+    .server-item:hover,.account-item:hover{background:var(--bg-surface-hover);color:var(--text-primary)}
+    .server-item.current,.account-item.current{background:var(--accent-soft);color:var(--accent)}
+    .status-dot{width:8px;height:8px;border-radius:50%;background:var(--text-muted);flex-shrink:0}
+    .status-dot.online{background:#00E5A0;box-shadow:0 0 6px rgba(0,229,160,0.4)}
+    .account-avatar-sm{
+      width:28px;height:28px;border-radius:50%;display:flex;align-items:center;
+      justify-content:center;font-size:0.7rem;font-weight:600;color:#fff;flex-shrink:0;
+    }
+    .dropdown-divider{height:1px;background:var(--border);margin:8px 4px}
+    .add-account-btn{
+      display:flex;align-items:center;gap:8px;width:100%;padding:10px;
+      border:1px dashed var(--border-light);border-radius:var(--radius-sm);
+      background:transparent;color:var(--text-muted);cursor:pointer;
+      font-family:inherit;font-size:0.8rem;transition:all 0.2s;margin-top:4px;
+    }
+    .add-account-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+    .add-account-btn .material-symbols-rounded{font-size:18px}
+
+    /* MAIN */
+    .desktop-main{
+      flex:1;overflow-y:auto;overflow-x:hidden;position:relative;
+      background:
+        radial-gradient(ellipse at 10% 0%,rgba(0,212,255,0.04),transparent 50%),
+        radial-gradient(ellipse at 80% 100%,rgba(139,92,246,0.03),transparent 50%),
+        var(--bg-primary);
+    }
+    .desktop-main::before{
+      content:'';position:absolute;inset:0;
+      background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+      opacity:0.025;pointer-events:none;z-index:0;
+    }
+
+    /* Top Bar */
+    .top-bar{
+      display:flex;align-items:center;justify-content:flex-end;
+      padding:16px 36px;position:sticky;top:0;z-index:10;
+      background:linear-gradient(to bottom,var(--bg-primary) 60%,transparent);
+    }
+    .search-trigger{
+      display:flex;align-items:center;gap:10px;
+      padding:8px 16px;background:var(--bg-surface);
+      border:1px solid var(--border-light);border-radius:24px;
+      cursor:pointer;transition:all 0.2s;color:var(--text-muted);font-size:0.82rem;
+      min-width:220px;
+    }
+    .search-trigger:hover{border-color:var(--accent);color:var(--text-secondary);background:var(--bg-surface-hover)}
+    .search-trigger .material-symbols-rounded{font-size:18px}
+    .search-trigger .shortcut{
+      margin-left:auto;font-family:'DM Mono',monospace;font-size:0.68rem;
+      background:var(--bg-elevated);padding:2px 8px;border-radius:4px;border:1px solid var(--border-light);
+    }
+
+    /* Search Modal */
+    .search-modal{
+      position:fixed;inset:0;z-index:600;display:flex;
+      align-items:flex-start;justify-content:center;padding-top:120px;
+      background:rgba(0,0,0,0.55);backdrop-filter:blur(8px);
+      opacity:0;pointer-events:none;transition:opacity 0.25s;
+    }
+    .search-modal.open{opacity:1;pointer-events:all}
+    .search-box{
+      width:560px;background:var(--bg-elevated);border:1px solid var(--border-light);
+      border-radius:var(--radius-lg);overflow:hidden;
+      transform:translateY(-12px) scale(0.97);
+      transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+      box-shadow:0 24px 64px rgba(0,0,0,0.5);
+    }
+    .search-modal.open .search-box{transform:translateY(0) scale(1)}
+    .search-input-wrap{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border)}
+    .search-input-wrap .material-symbols-rounded{color:var(--accent);font-size:22px}
+    .search-input{flex:1;background:none;border:none;outline:none;color:var(--text-primary);font-family:inherit;font-size:1rem}
+    .search-input::placeholder{color:var(--text-muted)}
+    .search-hint{padding:16px 20px;font-size:0.8rem;color:var(--text-muted)}
+
+    /* Views */
+    .view{display:none;padding:8px 36px 60px;position:relative;z-index:1}
+    .view.active{display:block;animation:vIn 0.4s ease forwards}
+    @keyframes vIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+    /* Sections */
+    .sec{margin-bottom:36px}
+    .sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+    .sec-hdr h2{font-size:1rem;font-weight:600;display:flex;align-items:center;gap:8px}
+    .sec-hdr h2 .material-symbols-rounded{font-size:20px;color:var(--accent)}
+    .see-all{
+      background:none;border:none;color:var(--text-muted);font-family:inherit;
+      font-size:0.78rem;cursor:pointer;padding:5px 12px;border-radius:var(--radius-sm);transition:all 0.2s;
+    }
+    .see-all:hover{color:var(--accent);background:var(--accent-soft)}
+
+    /* H-SCROLL WITH ARROWS */
+    .h-scroll-wrap{position:relative}
+    .h-scroll-wrap:hover .scroll-arrow{opacity:1}
+    .h-scroll{
+      display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x proximity;
+      padding:4px 2px 12px;scrollbar-width:none;-ms-overflow-style:none;cursor:grab;
+    }
+    .h-scroll::-webkit-scrollbar{display:none}
+    .h-scroll.dragging{cursor:grabbing;scroll-snap-type:none}
+    .scroll-arrow{
+      position:absolute;top:50%;transform:translateY(-50%);
+      width:36px;height:36px;border-radius:50%;
+      background:rgba(17,24,32,0.92);border:1px solid var(--border-light);
+      color:var(--text-secondary);display:flex;align-items:center;justify-content:center;
+      cursor:pointer;z-index:5;opacity:0;transition:all 0.2s;backdrop-filter:blur(8px);
+    }
+    .scroll-arrow:hover{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+    .scroll-arrow .material-symbols-rounded{font-size:20px}
+    .scroll-arrow.left{left:4px}
+    .scroll-arrow.right{right:4px}
+
+    /* Media Card */
+    .media-card{flex:0 0 auto;width:152px;cursor:pointer;scroll-snap-align:start}
+    .media-card .poster{
+      width:100%;aspect-ratio:2/3;border-radius:var(--radius-md);overflow:hidden;
+      position:relative;transition:transform 0.35s cubic-bezier(0.4,0,0.2,1),box-shadow 0.35s;
+    }
+    .media-card .poster-bg{width:100%;height:100%;display:flex;align-items:flex-end;padding:14px;position:relative}
+    .media-card .poster-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(10,14,20,0.75) 0%,transparent 60%)}
+    .media-card .poster-title{position:relative;z-index:1;font-size:0.7rem;font-weight:600;color:rgba(240,244,248,0.9);line-height:1.3}
+    .media-card:hover .poster{
+      transform:translateY(-6px) scale(1.03);
+      box-shadow:0 12px 32px rgba(0,0,0,0.5),0 0 0 1px rgba(0,212,255,0.15),0 0 20px rgba(0,212,255,0.08);
+    }
+    .media-card .card-meta{padding:8px 2px 0;display:flex;align-items:center;justify-content:space-between}
+    .media-card .card-title{font-size:0.78rem;font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:95px}
+    .media-card .card-year{font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--text-muted)}
+    .play-overlay{
+      position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+      background:rgba(10,14,20,0.35);opacity:0;transition:opacity 0.3s;z-index:2;
+    }
+    .play-circle{
+      width:40px;height:40px;border-radius:50%;background:rgba(0,212,255,0.9);
+      display:flex;align-items:center;justify-content:center;
+      transform:scale(0.8);transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+      box-shadow:0 4px 20px rgba(0,212,255,0.3);
+    }
+    .play-circle .material-symbols-rounded{color:#0A0E14;font-size:20px;margin-left:2px}
+    .media-card:hover .play-overlay{opacity:1}
+    .media-card:hover .play-circle{transform:scale(1)}
+
+    /* Library Grid */
+    .lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+    .lib-card{
+      aspect-ratio:16/9;border-radius:var(--radius-lg);overflow:hidden;
+      cursor:pointer;position:relative;transition:transform 0.35s,box-shadow 0.35s;
+    }
+    .lib-card .lib-bg{width:100%;height:100%;display:flex;flex-direction:column;justify-content:flex-end;padding:18px;position:relative}
+    .lib-card .lib-bg::before{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(10,14,20,0.65),transparent 70%)}
+    .lib-card .lib-bg::after{content:'';position:absolute;top:-30%;right:-20%;width:60%;height:130%;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,0.06),transparent 70%)}
+    .lib-card .lib-icon{position:relative;z-index:1;margin-bottom:6px}
+    .lib-card .lib-icon .material-symbols-rounded{font-size:26px;opacity:0.8}
+    .lib-card .lib-name{position:relative;z-index:1;font-size:1.05rem;font-weight:700;color:#F0F4F8}
+    .lib-card .lib-count{position:relative;z-index:1;font-family:'DM Mono',monospace;font-size:0.72rem;color:rgba(240,244,248,0.6);margin-top:3px}
+    .lib-card:hover{transform:translateY(-4px) scale(1.02);box-shadow:0 12px 36px rgba(0,0,0,0.5),0 0 0 1px rgba(0,212,255,0.1)}
+
+    /* Media Grid */
+    .media-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:18px}
+    .media-grid .media-card{opacity:0;animation:cfu 0.5s ease forwards}
+    @keyframes cfu{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+
+    /* Library Header */
+    .lib-header{display:flex;align-items:center;gap:14px;margin-bottom:28px}
+    .back-btn{
+      width:38px;height:38px;border:1px solid var(--border-light);
+      background:var(--bg-surface);color:var(--text-secondary);
+      border-radius:var(--radius-sm);cursor:pointer;display:flex;
+      align-items:center;justify-content:center;transition:all 0.2s;
+    }
+    .back-btn:hover{background:var(--bg-surface-hover);color:var(--text-primary);border-color:var(--accent)}
+    .back-btn .material-symbols-rounded{font-size:19px}
+    .lib-header .lib-title{font-size:1.5rem;font-weight:700;letter-spacing:-0.02em}
+    .lib-header .lib-info{font-family:'DM Mono',monospace;font-size:0.78rem;color:var(--text-muted);margin-left:auto}
+
+    /* Detail */
+    .detail-backdrop{position:relative;height:300px;border-radius:var(--radius-xl);overflow:hidden;margin-bottom:-70px}
+    .detail-backdrop .bd-bg{width:100%;height:100%;position:relative}
+    .detail-backdrop .bd-bg::after{
+      content:'';position:absolute;inset:0;
+      background:linear-gradient(to top,var(--bg-primary) 5%,transparent 50%),linear-gradient(to right,rgba(10,14,20,0.7),transparent 60%);
+    }
+    .detail-hdr{position:relative;z-index:2;display:flex;gap:24px;padding:0 24px;margin-bottom:28px}
+    .detail-poster{width:170px;flex-shrink:0;aspect-ratio:2/3;border-radius:var(--radius-lg);overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5);border:2px solid rgba(0,212,255,0.12)}
+    .detail-poster .poster-bg{width:100%;height:100%}
+    .detail-info{flex:1;padding-top:70px}
+    .detail-info .d-title{font-size:1.85rem;font-weight:700;letter-spacing:-0.03em;margin-bottom:10px;line-height:1.2}
+    .meta-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+    .meta-tag{display:inline-flex;align-items:center;gap:4px;font-size:0.78rem;color:var(--text-secondary)}
+    .meta-tag .material-symbols-rounded{font-size:15px}
+    .meta-dot{width:3px;height:3px;border-radius:50%;background:var(--text-muted)}
+    .rating-badge{display:inline-flex;align-items:center;gap:4px;background:var(--accent-soft);color:var(--accent);padding:3px 9px;border-radius:var(--radius-xs);font-size:0.78rem;font-weight:600}
+    .genre-tag{display:inline-block;padding:3px 9px;border-radius:var(--radius-xs);font-size:0.72rem;background:var(--bg-surface);color:var(--text-secondary);border:1px solid var(--border)}
+    .detail-desc{font-size:0.85rem;color:var(--text-secondary);line-height:1.7;max-width:580px}
+
+    /* Cast */
+    .cast-scroll{display:flex;gap:14px;overflow-x:auto;padding-bottom:8px;scrollbar-width:none}
+    .cast-scroll::-webkit-scrollbar{display:none}
+    .cast-item{flex:0 0 auto;width:74px;text-align:center}
+    .cast-avatar{width:58px;height:58px;border-radius:50%;margin:0 auto 6px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:600;color:#fff}
+    .cast-name{font-size:0.68rem;color:var(--text-secondary);line-height:1.3}
+    .cast-role{font-size:0.62rem;color:var(--text-muted)}
+
+    /* Seasons */
+    .season-tabs{display:flex;gap:4px;margin-bottom:18px;border-bottom:1px solid var(--border)}
+    .season-tab{
+      padding:10px 18px;background:none;border:none;color:var(--text-muted);
+      font-family:inherit;font-size:0.82rem;font-weight:500;cursor:pointer;
+      position:relative;transition:color 0.2s;
+    }
+    .season-tab::after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:2px;background:linear-gradient(90deg,#00D4FF,#8B5CF6);border-radius:1px;transform:scaleX(0);transition:transform 0.25s}
+    .season-tab:hover{color:var(--text-secondary)}
+    .season-tab.active{color:var(--accent)}
+    .season-tab.active::after{transform:scaleX(1)}
+
+    /* Episode List */
+    .ep-list{display:flex;flex-direction:column;gap:2px}
+    .ep-item{display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:var(--radius-md);cursor:pointer;transition:background 0.2s}
+    .ep-item:hover{background:var(--bg-surface-hover)}
+    .ep-num{font-family:'DM Mono',monospace;font-size:0.78rem;color:var(--text-muted);width:28px;text-align:center;flex-shrink:0}
+    .ep-thumb{width:130px;aspect-ratio:16/9;border-radius:var(--radius-sm);overflow:hidden;flex-shrink:0;position:relative}
+    .ep-thumb .poster-bg{width:100%;height:100%}
+    .ep-thumb .ep-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,14,20,0.4);opacity:0;transition:opacity 0.2s}
+    .ep-item:hover .ep-play{opacity:1}
+    .ep-info{flex:1;min-width:0}
+    .ep-title{font-size:0.85rem;font-weight:500;color:var(--text-primary);margin-bottom:3px}
+    .ep-desc{font-size:0.75rem;color:var(--text-muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.5}
+    .ep-dur{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--text-muted);flex-shrink:0}
+
+    /* Episode Detail */
+    .epd-layout{display:grid;grid-template-columns:1fr 360px;gap:32px;align-items:start}
+    .epd-cover{width:100%;aspect-ratio:16/9;border-radius:var(--radius-lg);overflow:hidden;position:relative;margin-bottom:20px}
+    .epd-cover .poster-bg{width:100%;height:100%}
+    .epd-cover .big-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,14,20,0.25);cursor:pointer;transition:background 0.3s}
+    .epd-cover .big-play:hover{background:rgba(10,14,20,0.4)}
+    .big-play-btn{
+      width:60px;height:60px;border-radius:50%;
+      background:linear-gradient(135deg,#00D4FF,#8B5CF6);
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 4px 24px rgba(0,212,255,0.3);
+      transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .big-play-btn .material-symbols-rounded{color:#0A0E14;font-size:30px;margin-left:3px}
+    .big-play-btn:hover{transform:scale(1.1);box-shadow:0 4px 32px rgba(0,212,255,0.45)}
+    .epd-breadcrumb{display:flex;align-items:center;gap:7px;font-size:0.78rem;color:var(--text-muted);margin-bottom:10px}
+    .epd-breadcrumb span{color:var(--text-secondary)}
+    .epd-title{font-size:1.4rem;font-weight:700;margin-bottom:8px}
+    .epd-meta{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+    .epd-desc{font-size:0.85rem;color:var(--text-secondary);line-height:1.8;margin-bottom:28px}
+
+    /* Controls Panel */
+    .ctrl-panel{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px;position:sticky;top:32px}
+    .ctrl-label{font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:7px}
+    .ctrl-group{margin-bottom:18px}
+    .ctrl-group:last-of-type{margin-bottom:22px}
+    .custom-select{position:relative}
+    .sel-trigger{
+      width:100%;padding:11px 13px;background:var(--bg-elevated);
+      border:1px solid var(--border-light);border-radius:var(--radius-sm);
+      color:var(--text-primary);font-family:inherit;font-size:0.82rem;
+      cursor:pointer;display:flex;align-items:center;justify-content:space-between;
+      transition:border-color 0.2s,box-shadow 0.2s;
+    }
+    .sel-trigger:hover{border-color:rgba(255,255,255,0.15)}
+    .sel-trigger.open{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+    .sel-trigger .arrow{font-size:17px;color:var(--text-muted);transition:transform 0.2s}
+    .sel-trigger.open .arrow{transform:rotate(180deg)}
+    .sel-menu{
+      position:absolute;top:calc(100% + 4px);left:0;right:0;
+      background:var(--bg-elevated);border:1px solid var(--border-light);
+      border-radius:var(--radius-sm);padding:4px;
+      box-shadow:0 8px 24px rgba(0,0,0,0.4);
+      opacity:0;pointer-events:none;transform:translateY(-4px);
+      transition:opacity 0.2s,transform 0.2s;z-index:50;
+    }
+    .sel-menu.open{opacity:1;pointer-events:all;transform:translateY(0)}
+    .sel-opt{
+      padding:9px 12px;border-radius:var(--radius-xs);cursor:pointer;
+      font-size:0.82rem;color:var(--text-secondary);transition:all 0.15s;
+      display:flex;align-items:center;justify-content:space-between;
+    }
+    .sel-opt:hover{background:var(--bg-surface-hover);color:var(--text-primary)}
+    .sel-opt.selected{background:var(--accent-soft);color:var(--accent)}
+    .sel-opt .check{font-size:17px;opacity:0}
+    .sel-opt.selected .check{opacity:1}
+    .sel-sub{font-size:0.7rem;color:var(--text-muted);margin-left:6px}
+
+    .play-full-btn{
+      width:100%;padding:13px;
+      background:linear-gradient(135deg,#00D4FF,#8B5CF6);color:#0A0E14;
+      border:none;border-radius:var(--radius-md);font-family:inherit;
+      font-size:0.92rem;font-weight:600;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;gap:8px;
+      transition:all 0.3s cubic-bezier(0.4,0,0.2,1);
+    }
+    .play-full-btn .material-symbols-rounded{font-size:20px}
+    .play-full-btn:hover{
+      box-shadow:0 4px 24px rgba(0,212,255,0.35),0 0 0 1px rgba(0,212,255,0.2);
+      transform:translateY(-1px);
+    }
+
+    /* Settings Modal (v1 style) */
+    .settings-overlay{
+      position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(6px);
+      z-index:500;opacity:0;pointer-events:none;transition:opacity 0.3s;
+      display:flex;align-items:center;justify-content:center;
+    }
+    .settings-overlay.open{opacity:1;pointer-events:all}
+    .settings-modal{
+      width:520px;max-height:80vh;background:var(--bg-secondary);
+      border:1px solid var(--border-light);border-radius:var(--radius-xl);
+      overflow:hidden;transform:scale(0.95) translateY(12px);
+      transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .settings-overlay.open .settings-modal{transform:scale(1) translateY(0)}
+    .settings-header{display:flex;align-items:center;justify-content:space-between;padding:24px 28px;border-bottom:1px solid var(--border)}
+    .settings-header h3{font-size:1.15rem;font-weight:600}
+    .close-btn{
+      width:36px;height:36px;border:none;background:var(--bg-surface);
+      color:var(--text-secondary);border-radius:var(--radius-sm);
+      cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;
+    }
+    .close-btn:hover{background:var(--bg-surface-hover);color:var(--text-primary)}
+    .settings-body{padding:24px 28px;overflow-y:auto;max-height:calc(80vh - 80px)}
+    .setting-group{margin-bottom:28px}
+    .setting-group-title{font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--accent);margin-bottom:16px}
+    .setting-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)}
+    .setting-row:last-child{border-bottom:none}
+    .setting-label{font-size:0.9rem;color:var(--text-primary)}
+    .setting-desc{font-size:0.75rem;color:var(--text-muted);margin-top:2px}
+    .toggle{
+      width:44px;height:24px;border-radius:12px;background:var(--bg-elevated);
+      border:2px solid var(--border-light);cursor:pointer;position:relative;
+      transition:all 0.3s;flex-shrink:0;
+    }
+    .toggle::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--text-muted);transition:all 0.3s}
+    .toggle.on{background:var(--accent);border-color:var(--accent)}
+    .toggle.on::after{left:22px;background:var(--bg-deep)}
+    .about-block{text-align:center;padding:20px}
+    .about-block .logo-icon{width:48px;height:48px;margin:0 auto 12px}
+    .about-block .app-name{font-size:1.1rem;font-weight:700}
+    .about-block .app-version{font-family:'DM Mono',monospace;font-size:0.78rem;color:var(--text-muted);margin-top:4px}
+
+    @media(max-width:1100px){.epd-layout{grid-template-columns:1fr}.ctrl-panel{position:static}}
+
+    /* ========================================================
+       PHONE
+       ======================================================== */
+    .phone-app{width:100%;height:100%;display:flex;flex-direction:column;background:var(--bg-primary);position:relative}
+    .phone-app::before{
+      content:'';position:absolute;inset:0;
+      background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+      opacity:0.02;pointer-events:none;
+    }
+    .p-top{display:flex;align-items:center;gap:12px;padding:12px 16px 8px;position:relative;z-index:2;flex-shrink:0}
+    .p-top .p-logo{font-size:1.1rem;font-weight:700;letter-spacing:-0.03em;background:linear-gradient(135deg,#00D4FF,#8B5CF6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .p-search{
+      flex:1;height:38px;border-radius:20px;background:var(--bg-surface);
+      border:1px solid var(--border-light);display:flex;align-items:center;
+      gap:8px;padding:0 14px;cursor:pointer;transition:border-color 0.2s;
+    }
+    .p-search:hover{border-color:var(--accent)}
+    .p-search .material-symbols-rounded{font-size:18px;color:var(--text-muted)}
+    .p-search span{font-size:0.8rem;color:var(--text-muted)}
+    .p-content{flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 0 16px;position:relative;z-index:1}
+    .p-sec{margin-bottom:22px}
+    .p-sec-hdr{display:flex;align-items:center;justify-content:space-between;padding:0 16px;margin-bottom:10px}
+    .p-sec-hdr h3{font-size:0.92rem;font-weight:600;display:flex;align-items:center;gap:6px}
+    .p-sec-hdr h3 .material-symbols-rounded{font-size:18px;color:var(--accent)}
+    .p-see-all{background:none;border:none;color:var(--text-muted);font-family:inherit;font-size:0.72rem;cursor:pointer;padding:4px 10px;border-radius:12px;transition:all 0.2s}
+    .p-see-all:hover{color:var(--accent);background:var(--accent-soft)}
+    .p-scroll{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x proximity;padding:2px 16px 10px;scrollbar-width:none}
+    .p-scroll::-webkit-scrollbar{display:none}
+    .p-card{flex:0 0 auto;width:120px;cursor:pointer;scroll-snap-align:start}
+    .p-card .poster{width:100%;aspect-ratio:2/3;border-radius:var(--radius-md);overflow:hidden;position:relative;transition:transform 0.3s}
+    .p-card .poster-bg{width:100%;height:100%;display:flex;align-items:flex-end;padding:10px;position:relative}
+    .p-card .poster-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(10,14,20,0.65) 0%,transparent 55%)}
+    .p-card .poster-title{position:relative;z-index:1;font-size:0.62rem;font-weight:600;color:rgba(240,244,248,0.9)}
+    .p-card:active .poster{transform:scale(0.96)}
+    .p-card .p-meta{padding:5px 1px 0}
+    .p-card .p-meta .p-name{font-size:0.72rem;font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .p-card .p-meta .p-yr{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--text-muted)}
+    .p-lib-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 16px}
+    .p-lib-card{
+      aspect-ratio:16/10;border-radius:var(--radius-md);overflow:hidden;cursor:pointer;position:relative;
+    }
+    .p-lib-card .lib-bg{width:100%;height:100%;display:flex;flex-direction:column;justify-content:flex-end;padding:14px;position:relative}
+    .p-lib-card .lib-bg::before{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(10,14,20,0.6),transparent 65%)}
+    .p-lib-card .lib-icon{position:relative;z-index:1;margin-bottom:4px}
+    .p-lib-card .lib-icon .material-symbols-rounded{font-size:22px;opacity:0.8}
+    .p-lib-card .lib-name{position:relative;z-index:1;font-size:0.9rem;font-weight:700;color:#F0F4F8}
+    .p-lib-card .lib-count{position:relative;z-index:1;font-family:'DM Mono',monospace;font-size:0.65rem;color:rgba(240,244,248,0.55);margin-top:2px}
+    .p-detail{padding:0 0 100px}
+    .p-detail-cover{width:100%;aspect-ratio:16/9;position:relative;overflow:hidden}
+    .p-detail-cover .poster-bg{width:100%;height:100%}
+    .p-detail-cover::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,var(--bg-primary) 0%,transparent 60%)}
+    .p-detail-body{padding:0 16px;margin-top:-60px;position:relative;z-index:2}
+    .p-detail-row{display:flex;gap:16px;margin-bottom:20px}
+    .p-detail-poster{width:100px;flex-shrink:0;aspect-ratio:2/3;border-radius:var(--radius-md);overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.5);border:2px solid rgba(0,212,255,0.12)}
+    .p-detail-poster .poster-bg{width:100%;height:100%}
+    .p-detail-info{flex:1;padding-top:20px;min-width:0}
+    .p-detail-info .d-title{font-size:1.2rem;font-weight:700;margin-bottom:6px;line-height:1.2}
+    .p-meta-row{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+    .p-detail-desc{font-size:0.78rem;color:var(--text-secondary);line-height:1.6;margin-bottom:20px}
+    .p-ep-item{display:flex;align-items:center;gap:10px;padding:10px 16px;border-radius:var(--radius-sm);cursor:pointer;transition:background 0.2s}
+    .p-ep-item:active{background:var(--bg-surface-hover)}
+    .p-ep-num{font-family:'DM Mono',monospace;font-size:0.72rem;color:var(--text-muted);width:24px;flex-shrink:0}
+    .p-ep-thumb{width:100px;aspect-ratio:16/9;border-radius:var(--radius-xs);overflow:hidden;flex-shrink:0}
+    .p-ep-thumb .poster-bg{width:100%;height:100%}
+    .p-ep-info{flex:1;min-width:0}
+    .p-ep-info .ep-title{font-size:0.78rem;font-weight:500;color:var(--text-primary);margin-bottom:2px}
+    .p-ep-info .ep-desc{font-size:0.68rem;color:var(--text-muted);display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+    .p-ep-dur{font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--text-muted);flex-shrink:0}
+    .p-bottom{
+      display:flex;align-items:center;justify-content:space-around;
+      padding:8px 0 env(safe-area-inset-bottom,8px);
+      background:rgba(13,21,32,0.92);backdrop-filter:blur(12px);
+      border-top:1px solid var(--border);flex-shrink:0;position:relative;z-index:10;
+    }
+    .p-nav-btn{
+      display:flex;flex-direction:column;align-items:center;gap:2px;
+      padding:6px 16px;border:none;background:transparent;
+      color:var(--text-muted);cursor:pointer;font-family:inherit;font-size:0.6rem;transition:color 0.2s;
+    }
+    .p-nav-btn .material-symbols-rounded{font-size:24px;transition:font-variation-settings 0.2s}
+    .p-nav-btn.active{color:var(--accent)}
+    .p-nav-btn.active .material-symbols-rounded{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24}
+    .p-play-bar{
+      position:absolute;bottom:60px;left:12px;right:12px;
+      background:var(--bg-elevated);border:1px solid rgba(0,212,255,0.1);
+      border-radius:var(--radius-md);padding:10px 14px;
+      display:flex;align-items:center;gap:10px;z-index:20;
+      box-shadow:0 4px 20px rgba(0,0,0,0.4),0 0 30px rgba(0,212,255,0.05);
+    }
+    .p-play-bar .mini-poster{width:36px;height:36px;border-radius:var(--radius-xs);overflow:hidden;flex-shrink:0}
+    .p-play-bar .mini-poster .poster-bg{width:100%;height:100%}
+    .p-play-bar .mini-info{flex:1;min-width:0}
+    .p-play-bar .mini-info .mini-title{font-size:0.75rem;font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .p-play-bar .mini-info .mini-ep{font-size:0.62rem;color:var(--text-muted)}
+    .p-play-bar .mini-controls{display:flex;gap:4px}
+    .p-play-bar .mini-controls button{
+      width:32px;height:32px;border:none;background:transparent;
+      color:var(--text-secondary);cursor:pointer;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;transition:all 0.2s;
+    }
+    .p-play-bar .mini-controls button:hover{color:var(--accent);background:var(--accent-soft)}
+
+    /* ========================================================
+       TV
+       ======================================================== */
+    .tv-app{width:100%;height:100%;display:flex;flex-direction:column;background:var(--bg-primary);position:relative}
+    .tv-app::before{
+      content:'';position:absolute;inset:0;
+      background:
+        radial-gradient(ellipse at 15% 10%,rgba(0,212,255,0.05),transparent 55%),
+        radial-gradient(ellipse at 85% 80%,rgba(139,92,246,0.03),transparent 50%),
+        var(--bg-deep);
+      background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+      background-color:var(--bg-deep);opacity:1;pointer-events:none;
+    }
+    .tv-top{display:flex;align-items:center;padding:24px 56px 16px;position:relative;z-index:2;flex-shrink:0}
+    .tv-top .tv-logo{font-size:1.4rem;font-weight:800;letter-spacing:-0.03em;background:linear-gradient(135deg,#00D4FF,#8B5CF6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .tv-nav{display:flex;gap:6px;margin-left:40px}
+    .tv-nav-btn{
+      padding:8px 20px;border:none;background:transparent;
+      color:var(--text-muted);font-family:inherit;font-size:0.88rem;
+      font-weight:500;border-radius:24px;cursor:pointer;transition:all 0.2s;
+    }
+    .tv-nav-btn:hover{color:var(--text-secondary)}
+    .tv-nav-btn.active{color:#0A0E14;background:linear-gradient(135deg,#00D4FF,#8B5CF6);font-weight:600}
+    .tv-top-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+    .tv-search{
+      width:40px;height:40px;border-radius:50%;background:var(--bg-surface);
+      border:1px solid var(--border-light);color:var(--text-muted);
+      display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.2s;
+    }
+    .tv-search:hover,.tv-search:focus{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);outline:none}
+    .tv-search .material-symbols-rounded{font-size:22px}
+    .tv-clock{font-family:'DM Mono',monospace;font-size:0.85rem;color:var(--text-muted)}
+    .tv-content{flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 0 40px;position:relative;z-index:1}
+    .tv-sec{margin-bottom:36px}
+    .tv-sec-hdr{display:flex;align-items:center;gap:12px;padding:0 56px;margin-bottom:16px}
+    .tv-sec-hdr h2{font-size:1.2rem;font-weight:700;display:flex;align-items:center;gap:10px}
+    .tv-sec-hdr h2 .material-symbols-rounded{font-size:24px;color:var(--accent)}
+    .tv-scroll{display:flex;gap:18px;overflow-x:auto;scroll-snap-type:x proximity;padding:4px 56px 14px;scrollbar-width:none}
+    .tv-scroll::-webkit-scrollbar{display:none}
+
+    /* TV Media Card */
+    .tv-card{
+      flex:0 0 auto;width:190px;cursor:pointer;scroll-snap-align:start;
+      border-radius:var(--radius-lg);transition:transform 0.3s,box-shadow 0.3s;outline:none;
+    }
+    .tv-card:hover,.tv-card:focus,.tv-card.focused{
+      transform:scale(1.08);
+      box-shadow:0 0 0 3px var(--accent),0 16px 40px rgba(0,0,0,0.5),0 0 24px rgba(0,212,255,0.12);
+    }
+    .tv-card .poster{width:100%;aspect-ratio:2/3;border-radius:var(--radius-lg);overflow:hidden;position:relative}
+    .tv-card .poster-bg{width:100%;height:100%;display:flex;align-items:flex-end;padding:16px;position:relative}
+    .tv-card .poster-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(10,14,20,0.7) 0%,transparent 55%)}
+    .tv-card .poster-title{position:relative;z-index:1;font-size:0.82rem;font-weight:600;color:rgba(240,244,248,0.9)}
+    .tv-card .tv-meta{padding:10px 4px 0}
+    .tv-card .tv-name{font-size:0.92rem;font-weight:500;color:var(--text-primary)}
+    .tv-card .tv-yr{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--text-muted);margin-top:2px}
+
+    /* TV Featured */
+    .tv-featured{
+      margin:0 56px 36px;aspect-ratio:21/9;border-radius:var(--radius-xl);
+      overflow:hidden;position:relative;cursor:pointer;
+      transition:transform 0.3s,box-shadow 0.3s;outline:none;
+    }
+    .tv-featured:hover,.tv-featured:focus,.tv-featured.focused{
+      transform:scale(1.01);
+      box-shadow:0 0 0 3px var(--accent),0 20px 60px rgba(0,0,0,0.5),0 0 40px rgba(0,212,255,0.1);
+    }
+    .tv-featured .poster-bg{width:100%;height:100%;position:relative}
+    .tv-featured .poster-bg::after{
+      content:'';position:absolute;inset:0;
+      background:
+        linear-gradient(to right,rgba(10,14,20,0.88) 0%,rgba(10,14,20,0.4) 40%,transparent 70%),
+        linear-gradient(to top,rgba(10,14,20,0.6) 0%,transparent 40%);
+    }
+    .tv-featured .feat-content{position:absolute;left:48px;bottom:36px;z-index:2;max-width:45%}
+    .tv-featured .feat-tag{
+      display:inline-flex;align-items:center;gap:5px;
+      background:var(--accent-soft);color:var(--accent);
+      padding:4px 12px;border-radius:12px;font-size:0.72rem;font-weight:600;margin-bottom:12px;
+    }
+    .tv-featured .feat-title{font-size:2rem;font-weight:800;letter-spacing:-0.03em;margin-bottom:8px;line-height:1.1}
+    .tv-featured .feat-desc{font-size:0.85rem;color:var(--text-secondary);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:16px}
+    .tv-play-btn{
+      display:inline-flex;align-items:center;gap:8px;
+      padding:10px 28px;
+      background:linear-gradient(135deg,#00D4FF,#8B5CF6);color:#0A0E14;
+      border:none;border-radius:28px;font-family:inherit;
+      font-size:0.88rem;font-weight:600;cursor:pointer;transition:all 0.3s;
+    }
+    .tv-play-btn .material-symbols-rounded{font-size:20px}
+    .tv-play-btn:hover{box-shadow:0 4px 20px rgba(0,212,255,0.35)}
+
+    /* TV Lib Grid */
+    .tv-lib-grid{display:flex;gap:16px;overflow-x:auto;padding:0 56px 14px;scrollbar-width:none}
+    .tv-lib-grid::-webkit-scrollbar{display:none}
+    .tv-lib-card{
+      flex:0 0 auto;width:260px;aspect-ratio:16/9;border-radius:var(--radius-lg);
+      overflow:hidden;cursor:pointer;position:relative;
+      transition:transform 0.3s,box-shadow 0.3s;outline:none;
+    }
+    .tv-lib-card:hover,.tv-lib-card:focus,.tv-lib-card.focused{
+      transform:scale(1.05);
+      box-shadow:0 0 0 3px var(--accent),0 12px 36px rgba(0,0,0,0.5),0 0 20px rgba(0,212,255,0.1);
+    }
+    .tv-lib-card .lib-bg{width:100%;height:100%;display:flex;flex-direction:column;justify-content:flex-end;padding:20px;position:relative}
+    .tv-lib-card .lib-bg::before{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(10,14,20,0.6),transparent 65%)}
+    .tv-lib-card .lib-bg::after{content:'';position:absolute;top:-25%;right:-15%;width:55%;height:120%;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,0.05),transparent 70%)}
+    .tv-lib-card .lib-icon{position:relative;z-index:1;margin-bottom:6px}
+    .tv-lib-card .lib-icon .material-symbols-rounded{font-size:28px;opacity:0.8}
+    .tv-lib-card .lib-name{position:relative;z-index:1;font-size:1.15rem;font-weight:700;color:#F0F4F8}
+    .tv-lib-card .lib-count{position:relative;z-index:1;font-family:'DM Mono',monospace;font-size:0.75rem;color:rgba(240,244,248,0.55);margin-top:3px}
+  </style>
+</head>
+<body>
+  <!-- ========== PLATFORM SELECTOR ========== -->
+  <div class="platform-bar">
+    <span class="logo">StreamVault</span>
+    <button class="p-btn active" onclick="switchPlatform('desktop',this)"><span class="material-symbols-rounded">computer</span> Desktop</button>
+    <button class="p-btn" onclick="switchPlatform('phone',this)"><span class="material-symbols-rounded">smartphone</span> Phone</button>
+    <button class="p-btn" onclick="switchPlatform('tv',this)"><span class="material-symbols-rounded">tv</span> Android TV</button>
+  </div>
+
+  <!-- ========================================================
+       DESKTOP
+       ======================================================== -->
+  <div class="device-frame active" id="frame-desktop">
+    <div class="desktop-app">
+      <aside class="sidebar">
+        <div class="sidebar-logo"><svg viewBox="0 0 32 32" fill="none"><defs><linearGradient id="lg" x1="0" y1="0" x2="32" y2="32"><stop offset="0%" stop-color="#00D4FF"/><stop offset="100%" stop-color="#8B5CF6"/></linearGradient></defs><path d="M6 4C6 2.895 6.895 2 8 2H14L26 14V28C26 29.105 25.105 30 24 30H8C6.895 30 6 29.105 6 28V4Z" fill="url(#lg)" opacity="0.2"/><path d="M12 8L24 20" stroke="url(#lg)" stroke-width="2.5" stroke-linecap="round"/><path d="M10 14L18 22" stroke="url(#lg)" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/><circle cx="13" cy="22" r="3" fill="url(#lg)"/></svg></div>
+        <div class="sidebar-nav" id="dSidebarNav"></div>
+        <div class="sidebar-bottom">
+          <div class="sidebar-divider"></div>
+          <!-- Server Switcher (v1 style) -->
+          <div class="server-switcher">
+            <div class="server-avatar" onclick="toggleServerDropdown()" title="服务器与账号"><span>M</span></div>
+            <div class="server-dropdown" id="serverDropdown">
+              <div class="dropdown-label">服务器</div>
+              <div class="server-item current">
+                <span class="status-dot online"></span>
+                <div><div style="font-weight:500">MediaServer-01</div><div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px">192.168.1.100</div></div>
+              </div>
+              <div class="server-item">
+                <span class="status-dot"></span>
+                <div><div style="font-weight:500">Backup-NAS</div><div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px">离线</div></div>
+              </div>
+              <div class="dropdown-divider"></div>
+              <div class="dropdown-label">账号</div>
+              <div class="account-item current">
+                <div class="account-avatar-sm" style="background:linear-gradient(135deg,#00D4FF,#8B5CF6)">M</div>
+                <div><div style="font-weight:500">MovieLover</div><div style="font-size:0.7rem;color:var(--text-muted)">管理员</div></div>
+              </div>
+              <div class="account-item">
+                <div class="account-avatar-sm" style="background:linear-gradient(135deg,#00E5A0,#10b981)">G</div>
+                <div><div style="font-weight:500">Guest</div><div style="font-size:0.7rem;color:var(--text-muted)">受限</div></div>
+              </div>
+              <button class="add-account-btn"><span class="material-symbols-rounded">person_add</span> 添加账号</button>
+            </div>
+          </div>
+          <button class="nav-btn" onclick="toggleSettings('d')"><span class="material-symbols-rounded">settings</span><span class="tooltip">设置</span></button>
+        </div>
+      </aside>
+
+      <main class="desktop-main" id="dMain">
+        <div class="top-bar">
+          <div class="search-trigger" onclick="openSearch('d')">
+            <span class="material-symbols-rounded">search</span><span>搜索媒体库...</span><span class="shortcut">Ctrl+K</span>
+          </div>
+        </div>
+
+        <!-- HOME -->
+        <div class="view active" id="dHome">
+          <div id="dHomeSections"></div>
+          <div class="sec">
+            <div class="sec-hdr"><h2><span class="material-symbols-rounded">grid_view</span> 所有媒体库</h2></div>
+            <div class="lib-grid" id="dLibGrid"></div>
+          </div>
+        </div>
+
+        <!-- LIBRARY -->
+        <div class="view" id="dLibView">
+          <div class="lib-header">
+            <button class="back-btn" onclick="dNav('home')"><span class="material-symbols-rounded">arrow_back</span></button>
+            <div class="lib-title" id="dLibTitle"></div>
+            <div class="lib-info" id="dLibInfo"></div>
+          </div>
+          <div class="media-grid" id="dMediaGrid"></div>
+        </div>
+
+        <!-- DETAIL -->
+        <div class="view" id="dDetail">
+          <div class="lib-header" style="margin-bottom:16px"><button class="back-btn" onclick="dNav('library')"><span class="material-symbols-rounded">arrow_back</span></button></div>
+          <div class="detail-backdrop"><div class="bd-bg" id="dBD"></div></div>
+          <div class="detail-hdr">
+            <div class="detail-poster"><div class="poster-bg" id="dDP"></div></div>
+            <div class="detail-info">
+              <div class="d-title" id="dDT"></div>
+              <div class="meta-row" id="dMetaRow"></div>
+              <div class="meta-row" id="dGenres"></div>
+              <div class="detail-desc" id="dDesc"></div>
+            </div>
+          </div>
+          <div class="sec"><div class="sec-hdr"><h2><span class="material-symbols-rounded">groups</span> 演员</h2></div><div class="cast-scroll" id="dCast"></div></div>
+          <div class="sec"><div class="sec-hdr"><h2><span class="material-symbols-rounded">view_list</span> 剧集</h2></div><div class="season-tabs" id="dSeasonTabs"></div><div class="ep-list" id="dEpList"></div></div>
+        </div>
+
+        <!-- EPISODE DETAIL -->
+        <div class="view" id="dEpView">
+          <div class="lib-header" style="margin-bottom:16px"><button class="back-btn" onclick="dNav('detail')"><span class="material-symbols-rounded">arrow_back</span></button></div>
+          <div class="epd-layout">
+            <div>
+              <div class="epd-cover"><div class="poster-bg" id="dEpCover"></div><div class="big-play" onclick="simulatePlay()"><div class="big-play-btn"><span class="material-symbols-rounded icon-filled">play_arrow</span></div></div></div>
+              <div class="epd-breadcrumb"><span id="dEpShow"></span><span>·</span><span id="dEpSsn"></span><span>·</span><span id="dEpNum" style="color:var(--accent)"></span></div>
+              <div class="epd-title" id="dEpTitle"></div>
+              <div class="epd-meta" id="dEpMeta"></div>
+              <div class="epd-desc" id="dEpDesc"></div>
+            </div>
+            <div class="ctrl-panel">
+              <div class="ctrl-group"><div class="ctrl-label">媒体源</div><div class="custom-select"><div class="sel-trigger" onclick="toggleSel(this)"><span>4K HDR · Remux <span class="sel-sub">68 Mbps</span></span><span class="material-symbols-rounded arrow">expand_more</span></div><div class="sel-menu"><div class="sel-opt selected" onclick="pickOpt(this)"><span>4K HDR · Remux <span class="sel-sub">68 Mbps</span></span><span class="material-symbols-rounded check icon-filled">check</span></div><div class="sel-opt" onclick="pickOpt(this)"><span>4K · H.265 <span class="sel-sub">25 Mbps</span></span><span class="material-symbols-rounded check icon-filled">check</span></div><div class="sel-opt" onclick="pickOpt(this)"><span>1080P · H.264 <span class="sel-sub">8 Mbps</span></span><span class="material-symbols-rounded check icon-filled">check</span></div><div class="sel-opt" onclick="pickOpt(this)"><span>720P <span class="sel-sub">4 Mbps</span></span><span class="material-symbols-rounded check icon-filled">check</span></div></div></div></div>
+              <div class="ctrl-group"><div class="ctrl-label">音频</div><div class="custom-select"><div class="sel-trigger" onclick="toggleSel(this)"><span>Dolby Atmos 7.1 <span class="sel-sub">日语</span></span><span class="material-symbols-rounded arrow">expand_more</span></div><div class="sel-menu"><div class="sel-opt selected" onclick="pickOpt(this)"><span>Dolby Atmos 7.1 <span class="sel-sub">日语</span></span><span class="material-symbols-rounded check icon-filled">check</span></div><div class="sel-opt" onclick="pickOpt(this)"><span>DTS-HD 5.1 <span class="sel-sub">日语</span></span><span class="material-symbols-rounded check icon-filled">check</span></div><div class="sel-opt" onclick="pickOpt(this)"><span>AAC 2.0 <span class="sel-sub">中文</span></span><span class="material-symbols-rounded check icon-filled">check</span></div></div></div></div>
+              <div class="ctrl-group"><div class="ctrl-label">字幕</div><div class="custom-select"><div class="sel-trigger" onclick="toggleSel(this)"><span>中文简体 <span class="sel-sub">外挂</span></span><span class="material-symbols-rounded arrow">expand_more</span></div><div class="sel-menu"><div class="sel-opt selected" onclick="pickOpt(this)"><span>中文简体 <span class="sel-sub">外挂</span></span><span class="material-symbols-rounded check icon-filled">check</span></div><div class="sel-opt" onclick="pickOpt(this)"><span>中文繁體 <span class="sel-sub">外挂</span></span><span class="material-symbols-rounded check icon-filled">check</span></div><div class="sel-opt" onclick="pickOpt(this)"><span>English <span class="sel-sub">内封</span></span><span class="material-symbols-rounded check icon-filled">check</span></div><div class="sel-opt" onclick="pickOpt(this)"><span>关闭字幕</span><span class="material-symbols-rounded check icon-filled">check</span></div></div></div></div>
+              <button class="play-full-btn" onclick="simulatePlay()"><span class="material-symbols-rounded icon-filled">play_arrow</span> 播放</button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Settings Modal (v1 style) -->
+    <div class="settings-overlay" id="dSettings" onclick="if(event.target===this)toggleSettings('d')">
+      <div class="settings-modal">
+        <div class="settings-header"><h3>设置</h3><button class="close-btn" onclick="toggleSettings('d')"><span class="material-symbols-rounded">close</span></button></div>
+        <div class="settings-body">
+          <div class="about-block">
+            <div class="logo-icon"><svg viewBox="0 0 32 32" fill="none" style="width:48px;height:48px"><defs><linearGradient id="lg2" x1="0" y1="0" x2="32" y2="32"><stop offset="0%" stop-color="#00D4FF"/><stop offset="100%" stop-color="#8B5CF6"/></linearGradient></defs><path d="M6 4C6 2.895 6.895 2 8 2H14L26 14V28C26 29.105 25.105 30 24 30H8C6.895 30 6 29.105 6 28V4Z" fill="url(#lg2)" opacity="0.2"/><path d="M12 8L24 20" stroke="url(#lg2)" stroke-width="2.5" stroke-linecap="round"/><path d="M10 14L18 22" stroke="url(#lg2)" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/><circle cx="13" cy="22" r="3" fill="url(#lg2)"/></svg></div>
+            <div class="app-name">StreamVault</div>
+            <div class="app-version">v2.4.1 · Emby Desktop Client</div>
+          </div>
+          <div class="setting-group"><div class="setting-group-title">播放</div>
+            <div class="setting-row"><div><div class="setting-label">自动播放下一集</div><div class="setting-desc">当前集结束后自动播放下一集</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="setting-row"><div><div class="setting-label">默认画质</div><div class="setting-desc">默认使用的媒体源画质</div></div><div style="color:var(--text-secondary);font-size:0.85rem">原始画质</div></div>
+            <div class="setting-row"><div><div class="setting-label">硬件加速</div><div class="setting-desc">使用 GPU 进行视频解码</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+          </div>
+          <div class="setting-group"><div class="setting-group-title">外观</div>
+            <div class="setting-row"><div><div class="setting-label">深色模式</div><div class="setting-desc">界面主题颜色方案</div></div><div style="color:var(--text-secondary);font-size:0.85rem">深色</div></div>
+            <div class="setting-row"><div><div class="setting-label">毛玻璃效果</div><div class="setting-desc">界面元素启用模糊效果</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="setting-row"><div><div class="setting-label">动画效果</div><div class="setting-desc">页面切换和交互动画</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+          </div>
+          <div class="setting-group"><div class="setting-group-title">网络</div>
+            <div class="setting-row"><div><div class="setting-label">远程访问</div><div class="setting-desc">允许通过互联网连接服务器</div></div><div class="toggle" onclick="this.classList.toggle('on')"></div></div>
+            <div class="setting-row"><div><div class="setting-label">带宽限制</div><div class="setting-desc">远程播放时的最大带宽</div></div><div style="color:var(--text-secondary);font-size:0.85rem">自动</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search Modal -->
+    <div class="search-modal" id="dSearch" onclick="if(event.target===this)closeSearch('d')">
+      <div class="search-box">
+        <div class="search-input-wrap"><span class="material-symbols-rounded">search</span><input class="search-input" type="text" placeholder="搜索电影、剧集、演员..."></div>
+        <div class="search-hint">输入关键词开始搜索，或按 Esc 关闭</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================
+       PHONE
+       ======================================================== -->
+  <div class="device-frame" id="frame-phone">
+    <div class="phone-app">
+      <div class="p-top">
+        <span class="p-logo">StreamVault</span>
+        <div class="p-search" onclick="openSearch('p')"><span class="material-symbols-rounded">search</span><span>搜索...</span></div>
+      </div>
+      <div class="p-content" id="pContent">
+        <div class="view active" id="pHome"><div id="pHomeSections"></div>
+          <div class="p-sec"><div class="p-sec-hdr"><h3><span class="material-symbols-rounded">grid_view</span> 所有媒体库</h3></div><div class="p-lib-grid" id="pLibGrid"></div></div>
+        </div>
+        <div class="view" id="pLibView">
+          <div style="display:flex;align-items:center;gap:10px;padding:0 16px;margin-bottom:18px">
+            <button class="back-btn" onclick="pNav('home')"><span class="material-symbols-rounded">arrow_back</span></button>
+            <div style="font-size:1.15rem;font-weight:700" id="pLibTitle"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:0 16px" id="pMediaGrid"></div>
+        </div>
+        <div class="view" id="pDetail">
+          <div class="p-detail">
+            <div class="p-detail-cover"><div class="poster-bg" id="pDC"></div></div>
+            <div class="p-detail-body">
+              <div class="p-detail-row">
+                <div class="p-detail-poster"><div class="poster-bg" id="pDP"></div></div>
+                <div class="p-detail-info"><div class="d-title" id="pDT"></div><div class="p-meta-row" id="pMeta"></div></div>
+              </div>
+              <div class="p-detail-desc" id="pDesc"></div>
+              <div style="margin-bottom:14px"><div style="font-size:0.88rem;font-weight:600;margin-bottom:10px">剧集</div><div class="season-tabs" id="pSeasonTabs"></div></div>
+              <div id="pEpList"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="p-play-bar" id="pPlayBar" style="display:none">
+        <div class="mini-poster"><div class="poster-bg" style="background:linear-gradient(135deg,#00D4FF,#8B5CF6)"></div></div>
+        <div class="mini-info"><div class="mini-title">进击的巨人</div><div class="mini-ep">S1 · E01 · 致两千年后的你</div></div>
+        <div class="mini-controls"><button onclick="simulatePlay()"><span class="material-symbols-rounded icon-filled">play_arrow</span></button><button onclick="document.getElementById('pPlayBar').style.display='none'"><span class="material-symbols-rounded">close</span></button></div>
+      </div>
+      <nav class="p-bottom">
+        <button class="p-nav-btn active" onclick="pNavBtn(this,'home')"><span class="material-symbols-rounded">home</span>主页</button>
+        <button class="p-nav-btn" onclick="pNavBtn(this,'library')"><span class="material-symbols-rounded">grid_view</span>媒体库</button>
+        <button class="p-nav-btn" onclick="pNavBtn(this,'search')"><span class="material-symbols-rounded">search</span>搜索</button>
+        <button class="p-nav-btn" onclick="pNavBtn(this,'settings')"><span class="material-symbols-rounded">settings</span>设置</button>
+      </nav>
+    </div>
+    <div class="search-modal" id="pSearch" onclick="if(event.target===this)closeSearch('p')">
+      <div class="search-box"><div class="search-input-wrap"><span class="material-symbols-rounded">search</span><input class="search-input" type="text" placeholder="搜索媒体..."></div><div class="search-hint">输入关键词搜索</div></div>
+    </div>
+  </div>
+
+  <!-- ========================================================
+       ANDROID TV
+       ======================================================== -->
+  <div class="device-frame" id="frame-tv">
+    <div class="tv-app">
+      <div class="tv-top">
+        <span class="tv-logo">StreamVault</span>
+        <nav class="tv-nav">
+          <button class="tv-nav-btn active" onclick="tvNavBtn(this)">主页</button>
+          <button class="tv-nav-btn" onclick="tvNavBtn(this)">电影</button>
+          <button class="tv-nav-btn" onclick="tvNavBtn(this)">剧集</button>
+          <button class="tv-nav-btn" onclick="tvNavBtn(this)">动漫</button>
+          <button class="tv-nav-btn" onclick="tvNavBtn(this)">设置</button>
+        </nav>
+        <div class="tv-top-right">
+          <button class="tv-search" onclick="tvShowMsg('搜索功能已打开')" tabindex="0"><span class="material-symbols-rounded">search</span></button>
+          <span class="tv-clock" id="tvClock">20:30</span>
+        </div>
+      </div>
+      <div class="tv-content" id="tvContent">
+        <div class="tv-featured" tabindex="0" onclick="tvShowMsg('正在播放推荐内容...')" id="tvFeatured"></div>
+        <div class="tv-sec" id="tvRecent"></div>
+        <div class="tv-sec">
+          <div class="tv-sec-hdr"><h2><span class="material-symbols-rounded">grid_view</span> 媒体库</h2></div>
+          <div class="tv-lib-grid" id="tvLibGrid"></div>
+        </div>
+        <div class="tv-sec" id="tvAnime"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="tvToast" style="position:fixed;bottom:60px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--bg-elevated);border:1px solid var(--accent);color:var(--accent);padding:10px 24px;border-radius:24px;font-size:0.88rem;font-weight:500;opacity:0;pointer-events:none;transition:all 0.3s;z-index:9999;backdrop-filter:blur(12px)"></div>
+
+  <script>
+    // ===== SHARED DATA =====
+    const GRADS=[
+      'linear-gradient(135deg,#0A0E14,#1A2332,#111820)',
+      'linear-gradient(135deg,#0D1520,#1A2332,#8B5CF6)',
+      'linear-gradient(135deg,#1A0A0A,#8B2020,#FF6B35)',
+      'linear-gradient(135deg,#051A12,#00E5A0,#0A0E14)',
+      'linear-gradient(135deg,#0A1628,#00D4FF,#0D1520)',
+      'linear-gradient(135deg,#1A1508,#FF6B35,#FF6B35)',
+      'linear-gradient(135deg,#1A0A2E,#8B5CF6,#EC4899)',
+      'linear-gradient(135deg,#0D1520,#00D4FF,#8B5CF6)',
+      'linear-gradient(135deg,#1A0A33,#8B5CF6,#00D4FF)',
+      'linear-gradient(135deg,#051A18,#00E5A0,#00D4FF)',
+      'linear-gradient(135deg,#141820,#2A3444,#5A6577)',
+      'linear-gradient(135deg,#1A1818,#2A3444,#5A6577)'
+    ];
+    const LIBS=[{id:'anime',name:'动漫',icon:'animation',count:234,color:'#8B5CF6',g:0},{id:'anime-movie',name:'动漫电影',icon:'local_movies',count:89,color:'#00D4FF',g:7},{id:'cn-drama',name:'国产剧',icon:'tv',count:156,color:'#FF6B35',g:2},{id:'variety',name:'综艺',icon:'celebration',count:78,color:'#EC4899',g:5},{id:'movie',name:'电影',icon:'movie',count:567,color:'#00E5A0',g:3},{id:'doc',name:'纪录片',icon:'nature',count:123,color:'#00D4FF',g:9}];
+    const MEDIA={anime:[{t:'进击的巨人 最终季',y:'2024',r:'9.6',g:0},{t:'咒术回战 第二季',y:'2024',r:'9.2',g:1},{t:'鬼灭之刃 柱训练篇',y:'2024',r:'9.0',g:2},{t:'间谍过家家 第二季',y:'2023',r:'8.8',g:3},{t:'电锯人',y:'2023',r:'8.9',g:4},{t:'我的英雄学院 VII',y:'2024',r:'8.5',g:5},{t:'葬送的芙莉莲',y:'2024',r:'9.4',g:6},{t:'排球少年!! 垃圾场',y:'2024',r:'9.1',g:7},{t:'药屋少女的呢喃',y:'2024',r:'8.7',g:8},{t:'迷宫饭',y:'2024',r:'8.6',g:9}],movie:[{t:'流浪地球 3',y:'2025',r:'8.4',g:4},{t:'封神 第二部',y:'2025',r:'8.1',g:0},{t:'哪吒之魔童闹海',y:'2025',r:'8.8',g:2},{t:'长安三万里',y:'2023',r:'8.3',g:7},{t:'灌篮高手 THE FIRST',y:'2023',r:'9.0',g:5},{t:'铃芽之旅',y:'2023',r:'8.6',g:6},{t:'奥本海默',y:'2023',r:'9.1',g:10},{t:'沙丘 2',y:'2024',r:'8.9',g:8}],'cn-drama':[{t:'繁花',y:'2024',r:'8.7',g:5},{t:'狂飙',y:'2023',r:'9.0',g:2},{t:'漫长的季节',y:'2023',r:'9.4',g:0},{t:'三体',y:'2023',r:'8.8',g:4},{t:'庆余年 第二季',y:'2024',r:'8.2',g:7},{t:'玫瑰的故事',y:'2024',r:'8.0',g:6},{t:'南来北往',y:'2024',r:'8.3',g:8},{t:'追风者',y:'2024',r:'8.1',g:11}],variety:[{t:'歌手 2024',y:'2024',r:'8.8',g:6},{t:'披荆斩棘 4',y:'2024',r:'7.5',g:1},{t:'密室大逃脱 5',y:'2024',r:'7.8',g:0},{t:'种地吧 第二季',y:'2024',r:'8.5',g:9}]};
+    const CAST=[{n:'梶裕贵',r:'艾伦',b:'linear-gradient(135deg,#00D4FF,#8B5CF6)'},{n:'石川由依',r:'三笠',b:'linear-gradient(135deg,#EC4899,#8B5CF6)'},{n:'井上麻里奈',r:'阿尔敏',b:'linear-gradient(135deg,#00E5A0,#00D4FF)'},{n:'神谷浩史',r:'利威尔',b:'linear-gradient(135deg,#1A2332,#2A3444)'},{n:'小野大辅',r:'埃尔文',b:'linear-gradient(135deg,#FF6B35,#FF6B35)'},{n:'下野纮',r:'韩吉',b:'linear-gradient(135deg,#8B5CF6,#EC4899)'},{n:'谷山纪章',r:'柯尼',b:'linear-gradient(135deg,#FF6B35,#00E5A0)'}];
+    const SEASONS=['第 1 季','第 2 季','第 3 季','最终季'];
+    const EPS={0:[{t:'致两千年后的你',d:'超大型巨人突然出现在希干希纳区城墙外，城墙被破坏，无数巨人涌入城内。',dur:'24 分钟',dt:'2013年4月7日'},{t:'那一天',d:'艾伦在目睹母亲被巨人吞噬后，发誓要驱逐所有巨人。',dur:'24 分钟',dt:'2013年4月14日'},{t:'初见巨人',d:'训练兵团成员首次在实战中遭遇巨人。',dur:'24 分钟',dt:'2013年4月21日'},{t:'解散之夜',d:'训练兵团毕业后，众人被分配到各个驻屯地。',dur:'24 分钟',dt:'2013年4月28日'},{t:'初阵',d:'女型巨人出现在托洛斯特区。',dur:'24 分钟',dt:'2013年5月5日'}],1:[{t:'暴风雨前夕',d:'调查兵团准备进行墙外调查。',dur:'24 分钟',dt:'2017年4月1日'},{t:'突入',d:'调查兵团进入森林，与女型巨人展开追逐战。',dur:'24 分钟',dt:'2017年4月8日'},{t:'开口',d:'艾伦面对是否巨人化的抉择。',dur:'24 分钟',dt:'2017年4月15日'}],2:[{t:'城墙的真相',d:'发现城墙中隐藏的秘密。',dur:'24 分钟',dt:'2019年4月29日'},{t:'边境',d:'调查兵团终于抵达大海。',dur:'24 分钟',dt:'2019年5月6日'}],3:[{t:'海的另一边',d:'艾伦踏上前往马莱的旅程。',dur:'25 分钟',dt:'2022年1月10日'},{t:'暗夜列车',d:'艾伦潜入马莱。',dur:'25 分钟',dt:'2022年1月17日'},{t:'天与地',d:'最终决战，地鸣开始。',dur:'28 分钟',dt:'2023年3月4日'},{t:'迈向那座山丘',d:'一切终于走向终局。',dur:'30 分钟',dt:'2023年11月5日'}]};
+
+    // ===== STATE =====
+    let dState={view:'home',lib:null,media:null,season:0};
+    let pState={view:'home',lib:null,media:null,season:0};
+
+    // ===== PLATFORM SWITCH =====
+    function switchPlatform(p,btn){
+      document.querySelectorAll('.device-frame').forEach(f=>f.classList.remove('active'));
+      document.getElementById('frame-'+p).classList.add('active');
+      document.querySelectorAll('.p-btn').forEach(b=>b.classList.remove('active'));
+      if(btn)btn.classList.add('active');
+    }
+
+    // ===== DRAG SCROLL =====
+    function initDragScroll(el){
+      let isDown=false,startX,scrollLeft;
+      el.addEventListener('mousedown',e=>{isDown=true;el.classList.add('dragging');startX=e.pageX-el.offsetLeft;scrollLeft=el.scrollLeft});
+      el.addEventListener('mouseleave',()=>{isDown=false;el.classList.remove('dragging')});
+      el.addEventListener('mouseup',()=>{isDown=false;el.classList.remove('dragging')});
+      el.addEventListener('mousemove',e=>{if(!isDown)return;e.preventDefault();el.scrollLeft=scrollLeft-(e.pageX-el.offsetLeft-startX)*1.5});
+    }
+    function scrollH(dir,container){container.scrollBy({left:dir*350,behavior:'smooth'})}
+
+    // ===== RENDER HELPERS =====
+    function mkCard(item,idx,cls,onClick){
+      const c=document.createElement('div');c.className=cls||'media-card';c.style.animationDelay=`${idx*0.05}s`;
+      const g=GRADS[item.g%GRADS.length];
+      c.innerHTML=`<div class="poster"><div class="poster-bg" style="background:${g}"><span class="poster-title">${item.t}</span></div><div class="play-overlay"><div class="play-circle"><span class="material-symbols-rounded icon-filled">play_arrow</span></div></div></div><div class="card-meta"><span class="card-title">${item.t}</span><span class="card-year">${item.y}</span></div>`;
+      if(onClick)c.onclick=()=>onClick(item);
+      return c;
+    }
+    function mkHScroll(items,containerId,cardCls,onClick){
+      const container=document.getElementById(containerId);container.innerHTML='';
+      const wrap=container.parentElement;
+      if(cardCls==='media-card'&&!wrap.querySelector('.scroll-arrow.left')){
+        const al=document.createElement('button');al.className='scroll-arrow left';al.innerHTML='<span class="material-symbols-rounded">chevron_left</span>';al.onclick=()=>scrollH(-1,container);wrap.appendChild(al);
+        const ar=document.createElement('button');ar.className='scroll-arrow right';ar.innerHTML='<span class="material-symbols-rounded">chevron_right</span>';ar.onclick=()=>scrollH(1,container);wrap.appendChild(ar);
+      }
+      items.forEach((it,i)=>container.appendChild(mkCard(it,i,cardCls,onClick)));
+      initDragScroll(container);
+    }
+
+    // ===== DESKTOP =====
+    function initDesktop(){
+      const nav=document.getElementById('dSidebarNav');nav.innerHTML='';
+      const hb=document.createElement('button');hb.className='nav-btn active';hb.dataset.lib='home';hb.innerHTML='<span class="material-symbols-rounded">home</span><span class="tooltip">主页</span>';hb.onclick=()=>dNav('home');nav.appendChild(hb);
+      const div1=document.createElement('div');div1.className='sidebar-divider';nav.appendChild(div1);
+      LIBS.forEach(lib=>{const b=document.createElement('button');b.className='nav-btn';b.dataset.lib=lib.id;b.innerHTML=`<span class="material-symbols-rounded" style="color:${lib.color}">${lib.icon}</span><span class="tooltip">${lib.name}</span>`;b.onclick=()=>dNav('library',lib.id);nav.appendChild(b)});
+
+      const hs=document.getElementById('dHomeSections');hs.innerHTML='';
+      [{lib:'anime',label:'动漫 · 最近更新',icon:'animation',color:'#8B5CF6'},{lib:'movie',label:'电影 · 最近更新',icon:'local_movies',color:'#00E5A0'},{lib:'cn-drama',label:'国产剧 · 最近更新',icon:'tv',color:'#FF6B35'},{lib:'variety',label:'综艺 · 最近更新',icon:'celebration',color:'#EC4899'}].forEach(s=>{
+        const sec=document.createElement('div');sec.className='sec';
+        sec.innerHTML=`<div class="sec-hdr"><h2><span class="material-symbols-rounded icon-filled" style="color:${s.color}">${s.icon}</span>${s.label}</h2><button class="see-all" onclick="dNav('library','${s.lib}')">查看全部 →</button></div><div class="h-scroll-wrap"><div class="h-scroll" id="dH-${s.lib}"></div></div>`;
+        hs.appendChild(sec);
+        setTimeout(()=>mkHScroll(MEDIA[s.lib]||MEDIA['anime'],`dH-${s.lib}`,'media-card',(it)=>dOpenDetail(s.lib,it)),0);
+      });
+
+      const lg=document.getElementById('dLibGrid');lg.innerHTML='';
+      LIBS.forEach((lib,i)=>{const c=document.createElement('div');c.className='lib-card';c.style.opacity='0';c.style.animation=`cfu 0.5s ease ${i*0.08}s forwards`;c.innerHTML=`<div class="lib-bg" style="background:${GRADS[lib.g]}"><div class="lib-icon"><span class="material-symbols-rounded" style="color:${lib.color}">${lib.icon}</span></div><div class="lib-name">${lib.name}</div><div class="lib-count">${lib.count} 部</div></div>`;c.onclick=()=>dNav('library',lib.id);lg.appendChild(c)});
+    }
+
+    function dNav(view,param){
+      document.querySelectorAll('#dMain .view').forEach(v=>v.classList.remove('active'));
+      document.querySelectorAll('#dSidebarNav .nav-btn').forEach(b=>b.classList.remove('active'));
+      if(view==='home'){document.getElementById('dHome').classList.add('active');document.querySelector('#dSidebarNav .nav-btn[data-lib="home"]').classList.add('active');dState.view='home'}
+      else if(view==='library'){document.getElementById('dLibView').classList.add('active');const lib=LIBS.find(l=>l.id===(param||dState.lib));if(lib){dState.lib=lib.id;dState.view='library';document.querySelector(`#dSidebarNav .nav-btn[data-lib="${lib.id}"]`)?.classList.add('active');document.getElementById('dLibTitle').textContent=lib.name;document.getElementById('dLibInfo').textContent=`共 ${lib.count} 部`;const grid=document.getElementById('dMediaGrid');grid.innerHTML='';const items=MEDIA[lib.id]||MEDIA['anime'];[...items,...items.map(it=>({...it,t:it.t+' '}))].slice(0,16).forEach((it,i)=>grid.appendChild(mkCard(it,i,'media-card',m=>dOpenDetail(lib.id,m))))}}
+      else if(view==='detail'){document.getElementById('dDetail').classList.add('active');dState.view='detail';const lib=LIBS.find(l=>l.id===dState.lib);if(lib)document.querySelector(`#dSidebarNav .nav-btn[data-lib="${lib.id}"]`)?.classList.add('active')}
+      else if(view==='episode'){document.getElementById('dEpView').classList.add('active');dState.view='episode'}
+      document.getElementById('dMain').scrollTop=0;
+    }
+
+    function dOpenDetail(libId,item){
+      dState.lib=libId;dState.media=item;dState.season=0;
+      const g=GRADS[item.g%GRADS.length];
+      document.getElementById('dBD').style.background=g;document.getElementById('dDP').style.background=g;document.getElementById('dDT').textContent=item.t;
+      document.getElementById('dMetaRow').innerHTML=`<span class="rating-badge"><span class="material-symbols-rounded" style="font-size:13px">star</span>${item.r}</span><span class="meta-dot"></span><span class="meta-tag"><span class="material-symbols-rounded">calendar_today</span>${item.y}</span><span class="meta-dot"></span><span class="meta-tag"><span class="material-symbols-rounded">layers</span>${Math.min(SEASONS.length,~~(Math.random()*3)+2)} 季</span>`;
+      document.getElementById('dGenres').innerHTML=['动作','奇幻','热血'].map(g=>`<span class="genre-tag">${g}</span>`).join('');
+      document.getElementById('dDesc').textContent='这是一个关于人类与巨人之间持续战斗的故事。在被巨人支配的世界中，残存的人类在巨大的城墙内寻求庇护。少年艾伦·耶格尔目睹了母亲被巨人吞噬的惨剧，发誓要驱逐所有巨人。';
+      const cs=document.getElementById('dCast');cs.innerHTML='';
+      CAST.forEach(c=>{const ci=document.createElement('div');ci.className='cast-item';ci.innerHTML=`<div class="cast-avatar" style="background:${c.b}">${c.n[0]}</div><div class="cast-name">${c.n}</div><div class="cast-role">${c.r}</div>`;cs.appendChild(ci)});
+      const sc=Math.min(SEASONS.length,~~(Math.random()*3)+2);const tabs=document.getElementById('dSeasonTabs');tabs.innerHTML='';
+      for(let i=0;i<sc;i++){const tb=document.createElement('button');tb.className='season-tab'+(i===0?' active':'');tb.textContent=SEASONS[i];tb.onclick=()=>dSwitchSeason(i);tabs.appendChild(tb)}
+      dRenderEps(0);dNav('detail');
+    }
+    function dSwitchSeason(i){dState.season=i;document.querySelectorAll('#dSeasonTabs .season-tab').forEach((t,idx)=>t.classList.toggle('active',idx===i));dRenderEps(i)}
+    function dRenderEps(si){
+      const list=document.getElementById('dEpList');list.innerHTML='';
+      (EPS[si]||EPS[0]).forEach((ep,i)=>{
+        const el=document.createElement('div');el.className='ep-item';el.style.opacity='0';el.style.animation=`cfu 0.4s ease ${i*0.05}s forwards`;
+        const g=GRADS[(i+si*3)%GRADS.length];
+        el.innerHTML=`<span class="ep-num">${String(i+1).padStart(2,'0')}</span><div class="ep-thumb"><div class="poster-bg" style="background:${g}"></div><div class="ep-play"><span class="material-symbols-rounded icon-filled" style="color:var(--accent);font-size:26px">play_circle</span></div></div><div class="ep-info"><div class="ep-title">${ep.t}</div><div class="ep-desc">${ep.d}</div></div><span class="ep-dur">${ep.dur}</span>`;
+        el.onclick=()=>dOpenEp(si,i,ep);list.appendChild(el);
+      });
+    }
+    function dOpenEp(si,ei,ep){
+      dState.season=si;const g=GRADS[(ei+si*3)%GRADS.length];
+      document.getElementById('dEpCover').style.background=g;
+      document.getElementById('dEpShow').textContent=dState.media?dState.media.t:'未知';
+      document.getElementById('dEpSsn').textContent=SEASONS[si]||`第 ${si+1} 季`;
+      document.getElementById('dEpNum').textContent=`E${String(ei+1).padStart(2,'0')}`;
+      document.getElementById('dEpTitle').textContent=ep.t;document.getElementById('dEpDesc').textContent=ep.d;
+      document.getElementById('dEpMeta').innerHTML=`<span class="meta-tag"><span class="material-symbols-rounded">schedule</span>${ep.dur}</span><span class="meta-dot"></span><span class="meta-tag"><span class="material-symbols-rounded">calendar_today</span>${ep.dt}</span><span class="meta-dot"></span><span class="meta-tag"><span class="material-symbols-rounded">high_quality</span>4K HDR</span>`;
+      dNav('episode');
+    }
+
+    // ===== PHONE =====
+    function initPhone(){
+      const hs=document.getElementById('pHomeSections');hs.innerHTML='';
+      [{lib:'anime',label:'动漫',icon:'animation',color:'#8B5CF6'},{lib:'movie',label:'电影',icon:'local_movies',color:'#00E5A0'},{lib:'cn-drama',label:'国产剧',icon:'tv',color:'#FF6B35'}].forEach(s=>{
+        const sec=document.createElement('div');sec.className='p-sec';
+        sec.innerHTML=`<div class="p-sec-hdr"><h3><span class="material-symbols-rounded icon-filled" style="color:${s.color}">${s.icon}</span>${s.label}</h3><button class="p-see-all" onclick="pNav('library','${s.lib}')">全部</button></div><div class="p-scroll" id="pH-${s.lib}"></div>`;
+        hs.appendChild(sec);
+        setTimeout(()=>{const c=document.getElementById(`pH-${s.lib}`);c.innerHTML='';(MEDIA[s.lib]||MEDIA['anime']).forEach((it,i)=>{const card=document.createElement('div');card.className='p-card';card.innerHTML=`<div class="poster"><div class="poster-bg" style="background:${GRADS[it.g%GRADS.length]}"><span class="poster-title">${it.t}</span></div></div><div class="p-meta"><div class="p-name">${it.t}</div><div class="p-yr">${it.y}</div></div>`;card.onclick=()=>pOpenDetail(s.lib,it);c.appendChild(card)})},0);
+      });
+      const lg=document.getElementById('pLibGrid');lg.innerHTML='';
+      LIBS.forEach(lib=>{const c=document.createElement('div');c.className='p-lib-card';c.innerHTML=`<div class="lib-bg" style="background:${GRADS[lib.g]}"><div class="lib-icon"><span class="material-symbols-rounded" style="color:${lib.color}">${lib.icon}</span></div><div class="lib-name">${lib.name}</div><div class="lib-count">${lib.count} 部</div></div>`;c.onclick=()=>pNav('library',lib.id);lg.appendChild(c)});
+    }
+    function pNav(view,param){
+      document.querySelectorAll('#pContent .view').forEach(v=>v.classList.remove('active'));
+      if(view==='home'){document.getElementById('pHome').classList.add('active');pState.view='home'}
+      else if(view==='library'){document.getElementById('pLibView').classList.add('active');const lib=LIBS.find(l=>l.id===(param||pState.lib));if(lib){pState.lib=lib.id;pState.view='library';document.getElementById('pLibTitle').textContent=lib.name;const grid=document.getElementById('pMediaGrid');grid.innerHTML='';(MEDIA[lib.id]||MEDIA['anime']).forEach((it,i)=>{const c=document.createElement('div');c.className='p-card';c.style.width='100%';c.innerHTML=`<div class="poster"><div class="poster-bg" style="background:${GRADS[it.g%GRADS.length]}"><span class="poster-title">${it.t}</span></div></div><div class="p-meta"><div class="p-name">${it.t}</div><div class="p-yr">${it.y}</div></div>`;c.onclick=()=>pOpenDetail(lib.id,it);grid.appendChild(c)})}}
+      else if(view==='detail'){document.getElementById('pDetail').classList.add('active');pState.view='detail'}
+      document.getElementById('pContent').scrollTop=0;
+    }
+    function pNavBtn(btn,view){document.querySelectorAll('.p-nav-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');if(view==='settings')return;if(view==='search'){openSearch('p');return}pNav(view)}
+    function pOpenDetail(libId,item){
+      pState.lib=libId;pState.media=item;pState.season=0;const g=GRADS[item.g%GRADS.length];
+      document.getElementById('pDC').style.background=g;document.getElementById('pDP').style.background=g;document.getElementById('pDT').textContent=item.t;
+      document.getElementById('pMeta').innerHTML=`<span class="rating-badge"><span class="material-symbols-rounded" style="font-size:12px">star</span>${item.r}</span><span class="meta-dot"></span><span class="meta-tag">${item.y}</span>`;
+      document.getElementById('pDesc').textContent='这是一个关于人类与巨人之间持续战斗的故事。少年艾伦·耶格尔目睹了母亲被巨人吞噬的惨剧，发誓要驱逐所有巨人。';
+      const sc=Math.min(SEASONS.length,2);const tabs=document.getElementById('pSeasonTabs');tabs.innerHTML='';
+      for(let i=0;i<sc;i++){const tb=document.createElement('button');tb.className='season-tab'+(i===0?' active':'');tb.textContent=SEASONS[i];tb.style.fontSize='0.75rem';tb.style.padding='8px 14px';tb.onclick=()=>{pState.season=i;document.querySelectorAll('#pSeasonTabs .season-tab').forEach((t,idx)=>t.classList.toggle('active',idx===i));pRenderEps(i)};tabs.appendChild(tb)}
+      pRenderEps(0);pNav('detail');document.getElementById('pPlayBar').style.display='flex';
+    }
+    function pRenderEps(si){
+      const list=document.getElementById('pEpList');list.innerHTML='';
+      (EPS[si]||EPS[0]).forEach((ep,i)=>{const g=GRADS[(i+si*3)%GRADS.length];const el=document.createElement('div');el.className='p-ep-item';el.innerHTML=`<span class="p-ep-num">${String(i+1).padStart(2,'0')}</span><div class="p-ep-thumb"><div class="poster-bg" style="background:${g}"></div></div><div class="p-ep-info"><div class="ep-title">${ep.t}</div><div class="ep-desc">${ep.d}</div></div><span class="p-ep-dur">${ep.dur}</span>`;list.appendChild(el)});
+    }
+
+    // ===== TV =====
+    function initTV(){
+      const feat=document.getElementById('tvFeatured');const fItem=MEDIA['anime'][0];
+      feat.innerHTML=`<div class="poster-bg" style="background:${GRADS[fItem.g]}"></div><div class="feat-content"><div class="feat-tag"><span class="material-symbols-rounded" style="font-size:14px">star</span> 推荐观看</div><div class="feat-title">${fItem.t}</div><div class="feat-desc">这是一个关于人类与巨人之间持续战斗的故事。在被巨人支配的世界中，残存的人类在巨大的城墙内寻求庇护。</div><button class="tv-play-btn" onclick="tvShowMsg('正在播放: ${fItem.t}');event.stopPropagation()"><span class="material-symbols-rounded icon-filled">play_arrow</span> 立即播放</button></div>`;
+
+      const recent=document.getElementById('tvRecent');
+      recent.innerHTML=`<div class="tv-sec-hdr"><h2><span class="material-symbols-rounded icon-filled" style="color:#00E5A0">new_releases</span> 最近更新</h2></div><div class="tv-scroll" id="tvRecentScroll"></div>`;
+      const rs=document.getElementById('tvRecentScroll');
+      [...MEDIA['anime'],...MEDIA['movie'],...MEDIA['cn-drama']].slice(0,12).forEach((it,i)=>{
+        const c=document.createElement('div');c.className='tv-card';c.tabIndex=0;
+        c.innerHTML=`<div class="poster"><div class="poster-bg" style="background:${GRADS[it.g%GRADS.length]}"><span class="poster-title">${it.t}</span></div></div><div class="tv-meta"><div class="tv-name">${it.t}</div><div class="tv-yr">${it.y}</div></div>`;
+        c.onclick=()=>tvShowMsg('打开详情: '+it.t);rs.appendChild(c);
+      });
+
+      const lg=document.getElementById('tvLibGrid');lg.innerHTML='';
+      LIBS.forEach(lib=>{
+        const c=document.createElement('div');c.className='tv-lib-card';c.tabIndex=0;
+        c.innerHTML=`<div class="lib-bg" style="background:${GRADS[lib.g]}"><div class="lib-icon"><span class="material-symbols-rounded" style="color:${lib.color}">${lib.icon}</span></div><div class="lib-name">${lib.name}</div><div class="lib-count">${lib.count} 部</div></div>`;
+        c.onclick=()=>tvShowMsg('打开媒体库: '+lib.name);lg.appendChild(c);
+      });
+
+      const anime=document.getElementById('tvAnime');
+      anime.innerHTML=`<div class="tv-sec-hdr"><h2><span class="material-symbols-rounded icon-filled" style="color:#8B5CF6">animation</span> 热门动漫</h2></div><div class="tv-scroll" id="tvAnimeScroll"></div>`;
+      const as=document.getElementById('tvAnimeScroll');
+      MEDIA['anime'].forEach((it,i)=>{
+        const c=document.createElement('div');c.className='tv-card';c.tabIndex=0;
+        c.innerHTML=`<div class="poster"><div class="poster-bg" style="background:${GRADS[it.g]}"><span class="poster-title">${it.t}</span></div></div><div class="tv-meta"><div class="tv-name">${it.t}</div><div class="tv-yr">${it.y}</div></div>`;
+        c.onclick=()=>tvShowMsg('打开详情: '+it.t);as.appendChild(c);
+      });
+
+      function updateClock(){document.getElementById('tvClock').textContent=new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}
+      updateClock();setInterval(updateClock,60000);
+    }
+
+    function tvNavBtn(btn){
+      document.querySelectorAll('.tv-nav-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');tvShowMsg('切换到: '+btn.textContent);
+    }
+
+    function tvShowMsg(msg){
+      const toast=document.getElementById('tvToast');toast.textContent=msg;
+      toast.style.opacity='1';toast.style.transform='translateX(-50%) translateY(0)';
+      clearTimeout(toast._t);
+      toast._t=setTimeout(()=>{toast.style.opacity='0';toast.style.transform='translateX(-50%) translateY(20px)'},2500);
+    }
+
+    // ===== COMMON =====
+    function toggleServerDropdown(){document.getElementById('serverDropdown').classList.toggle('open')}
+    document.addEventListener('click',e=>{const s=document.querySelector('.server-switcher');const d=document.getElementById('serverDropdown');if(s&&!s.contains(e.target))d.classList.remove('open')});
+
+    function toggleSettings(p){const el=document.getElementById(p+'Settings');if(el)el.classList.toggle('open')}
+    function openSearch(p){const el=document.getElementById(p+'Search');if(el){el.classList.add('open');el.querySelector('.search-input')?.focus()}}
+    function closeSearch(p){const el=document.getElementById(p+'Search');if(el)el.classList.remove('open')}
+    function toggleSel(trigger){
+      const menu=trigger.nextElementSibling;const isOpen=trigger.classList.contains('open');
+      document.querySelectorAll('.sel-trigger').forEach(t=>t.classList.remove('open'));document.querySelectorAll('.sel-menu').forEach(m=>m.classList.remove('open'));
+      if(!isOpen){trigger.classList.add('open');menu.classList.add('open')}
+    }
+    function pickOpt(opt){
+      const menu=opt.parentElement;const trigger=menu.previousElementSibling;
+      menu.querySelectorAll('.sel-opt').forEach(o=>o.classList.remove('selected'));opt.classList.add('selected');
+      trigger.querySelector('span').innerHTML=opt.querySelector('span').innerHTML;
+      trigger.classList.remove('open');menu.classList.remove('open');
+    }
+    document.addEventListener('click',e=>{if(!e.target.closest('.custom-select')){document.querySelectorAll('.sel-trigger').forEach(t=>t.classList.remove('open'));document.querySelectorAll('.sel-menu').forEach(m=>m.classList.remove('open'))}});
+    function simulatePlay(){const btns=document.querySelectorAll('.play-full-btn');btns.forEach(btn=>{btn.innerHTML='<span class="material-symbols-rounded icon-filled">check_circle</span> 正在播放...';btn.style.background='linear-gradient(135deg,#00E5A0,#00D4FF)';setTimeout(()=>{btn.innerHTML='<span class="material-symbols-rounded icon-filled">play_arrow</span> 播放';btn.style.background=''},2000)})}
+    document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();openSearch('d')}if(e.key==='Escape'){closeSearch('d');closeSearch('p');document.getElementById('dSettings').classList.remove('open')}});
+
+    // ===== INIT =====
+    initDesktop();initPhone();initTV();
+  </script>
+</body>
+</html>

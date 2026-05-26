@@ -6,6 +6,7 @@ import '../widgets/diamond_badge.dart';
 import '../widgets/pill_button.dart';
 import '../widgets/media_info_card.dart';
 import '../widgets/track_selector.dart';
+import '../widgets/aether_dropdown.dart';
 import '../models/media_models.dart';
 import '../providers/auth_provider.dart';
 
@@ -31,19 +32,22 @@ class EpisodeDetailScreen extends ConsumerStatefulWidget {
 
 class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
   MediaStreamInfo? _streamInfo;
-  bool _loadingStream = false;
   bool _overviewExpanded = false;
+  String _embyServerUrl = '';
 
-  // Track‑selector expansion state
-  bool _audioExpanded = false;
-  bool _subtitleExpanded = false;
   int _selectedAudioIndex = 0;
   int _selectedSubtitleIndex = 0;
 
   @override
   void initState() {
     super.initState();
+    _loadEmbyServerUrl();
     _loadPlaybackInfo();
+  }
+
+  Future<void> _loadEmbyServerUrl() async {
+    final url = await ref.read(storageServiceProvider).getServerUrl();
+    if (mounted && url != null) setState(() => _embyServerUrl = url);
   }
 
   // ── Data loading ──────────────────────────────────────────────────────
@@ -54,7 +58,6 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
         await ref.read(storageServiceProvider).getServerUrl();
     if (token == null || serverUrl == null) return;
 
-    setState(() => _loadingStream = true);
     try {
       final userId =
           ref.read(authProvider).authResult?.user.id ?? '';
@@ -67,21 +70,12 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
       if (mounted) setState(() => _streamInfo = info);
     } catch (_) {
       // silently ignore
-    } finally {
-      if (mounted) setState(() => _loadingStream = false);
     }
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────
 
   MediaItem get _item => widget.item;
-
-  List<MediaStream> get _videoStreams =>
-      _streamInfo?.mediaSources
-          .expand((s) => s.mediaStreams)
-          .where((s) => s.isVideo)
-          .toList() ??
-      [];
 
   List<MediaStream> get _audioStreams =>
       _streamInfo?.mediaSources
@@ -102,9 +96,6 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
           ? _streamInfo!.mediaSources.first
           : null;
 
-  String _formatBitrate(int bps) =>
-      '${(bps / 1000000).toStringAsFixed(1)} Mbps';
-
   String _formatSize(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) {
@@ -114,23 +105,6 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
       return '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB';
     }
     return '${(bytes / 1024 / 1024 / 1024).toStringAsFixed(2)} GB';
-  }
-
-  String _streamTitle(MediaStream s) {
-    if (s.displayTitle.isNotEmpty) return s.displayTitle;
-    final parts = <String>[];
-    if (s.codec.isNotEmpty) parts.add(s.codec.toUpperCase());
-    if (s.resolution.isNotEmpty) parts.add(s.resolution);
-    if (s.language.isNotEmpty) parts.add(s.language);
-    return parts.join(' · ');
-  }
-
-  String _streamSubtitle(MediaStream s) {
-    final parts = <String>[];
-    if (s.bitRate > 0) parts.add(_formatBitrate(s.bitRate));
-    if (s.channelLayout.isNotEmpty) parts.add(s.channelLayout);
-    if (s.width > 0 && s.height > 0) parts.add('${s.width}×${s.height}');
-    return parts.join(' · ');
   }
 
   // ── Build ─────────────────────────────────────────────────────────────
@@ -174,10 +148,20 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
                   padding: EdgeInsets.fromLTRB(padding, 16, padding, 0),
                   child: Align(
                     alignment: Alignment.centerLeft,
-                    child: IconButton(
-                      icon: const Icon(Icons.arrow_back_rounded,
-                          color: AppColors.textPrimary),
-                      onPressed: () => Navigator.of(context).pop(),
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: AppColors.nebulaDark,
+                        border: Border.all(color: AppColors.borderSubtle, width: 1),
+                        borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                      ),
+                      child: IconButton(
+                        iconSize: 19,
+                        icon: const Icon(Icons.arrow_back_rounded,
+                            color: AppColors.textSecondary),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
                     ),
                   ),
                 ),
@@ -310,6 +294,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
                 headers: {
                   'Accept': 'image/*',
                   'X-Emby-Token': token ?? '',
+                  'X-Emby-Server': _embyServerUrl,
                 },
                 errorBuilder: (_, __, ___) => _fallbackImage(),
               )
@@ -371,6 +356,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
                   headers: {
                     'Accept': 'image/*',
                     'X-Emby-Token': token ?? '',
+                    'X-Emby-Server': _embyServerUrl,
                   },
                   errorBuilder: (_, __, ___) => _fallbackImage(),
                 )
@@ -450,8 +436,10 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
           ],
           Text(
             parts[i],
-            style: const TextStyle(
-              color: AppColors.textTertiary,
+            style: TextStyle(
+              color: (i == parts.length - 1 && parts.length > 1)
+                  ? AppColors.celestialCyan
+                  : AppColors.textTertiary,
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
@@ -582,6 +570,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
                       headers: {
                         'Accept': 'image/*',
                         'X-Emby-Token': token ?? '',
+                        'X-Emby-Server': _embyServerUrl,
                       },
                       errorBuilder: (_, __, ___) => Container(
                         color: AppColors.chipBg,
@@ -734,6 +723,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
                   serverUrl: 'http://localhost:19800',
                   token:
                       ref.read(authProvider).authResult?.token,
+                  embyServerUrl: _embyServerUrl,
                 );
               },
             ),
@@ -752,6 +742,31 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
   // ── Control Panel ─────────────────────────────────────────────────────
 
   Widget _buildControlPanel() {
+    // 构建媒体源选项
+    final sources = _streamInfo?.mediaSources ?? [];
+    final sourceOptions = sources
+        .map((s) => AetherDropdownOption(
+              label: s.name.isNotEmpty ? s.name : '未知',
+              subtitle: s.container.isNotEmpty ? s.container.toUpperCase() : null,
+            ))
+        .toList();
+    final selectedSourceIndex = sources.isEmpty ? 0 : 0;
+
+    // 构建音频选项
+    final audioOptions = _audioStreams
+        .map((s) => AetherDropdownOption(
+              label: s.displayTitle.isNotEmpty ? s.displayTitle : s.language,
+              subtitle: s.codec.isNotEmpty ? s.codec.toUpperCase() : null,
+            ))
+        .toList();
+
+    // 构建字幕选项
+    final subtitleOptions = _subtitleStreams
+        .map((s) => AetherDropdownOption(
+              label: s.displayTitle.isNotEmpty ? s.displayTitle : s.language,
+            ))
+        .toList();
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.nebulaDark,
@@ -762,283 +777,82 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── 媒体源 (Media Source) ─────────────────────────────────────
-          _buildPanelSectionLabel('媒体源'),
-          const SizedBox(height: 8),
-          _buildMediaSourceDropdown(),
+          // ── 媒体源 ──
+          if (sourceOptions.isNotEmpty)
+            AetherDropdown(
+              label: '媒体源',
+              options: sourceOptions,
+              selectedIndex: selectedSourceIndex,
+              onChanged: (i) {},
+            ),
           const SizedBox(height: 18),
 
-          // ── 音频 (Audio) ──────────────────────────────────────────────
-          _buildPanelSectionLabel('音频'),
-          const SizedBox(height: 8),
-          _buildAudioDropdown(),
+          // ── 音频 ──
+          if (audioOptions.isNotEmpty)
+            AetherDropdown(
+              label: '音频',
+              options: audioOptions,
+              selectedIndex: _selectedAudioIndex,
+              onChanged: (i) => setState(() => _selectedAudioIndex = i),
+            ),
           const SizedBox(height: 18),
 
-          // ── 字幕 (Subtitle) ──────────────────────────────────────────
-          _buildPanelSectionLabel('字幕'),
-          const SizedBox(height: 8),
-          _buildSubtitleDropdown(),
+          // ── 字幕 ──
+          if (subtitleOptions.isNotEmpty)
+            AetherDropdown(
+              label: '字幕',
+              options: subtitleOptions,
+              selectedIndex: _selectedSubtitleIndex,
+              onChanged: (i) => setState(() => _selectedSubtitleIndex = i),
+            ),
           const SizedBox(height: 22),
 
-          // ── 播放 Button ──────────────────────────────────────────────
+          // ── 播放按钮（渐变色） ──
           SizedBox(
             width: double.infinity,
             height: 48,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.celestialCyan,
-                foregroundColor: AppColors.deepVoid,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppColors.radiusSm),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [AppColors.celestialCyan, AppColors.novaPurple],
                 ),
-                elevation: 0,
+                borderRadius: BorderRadius.circular(AppColors.radiusMd),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.celestialCyan.withValues(alpha: 0.25),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-              onPressed: () {
-                // TODO: launch player
-              },
-              child: const Text(
-                '播放',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(AppColors.radiusMd),
+                  onTap: () {
+                    // TODO: launch player
+                  },
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.play_arrow_rounded, color: AppColors.deepVoid, size: 22),
+                      SizedBox(width: 8),
+                      Text(
+                        '播放',
+                        style: TextStyle(
+                          color: AppColors.deepVoid,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildPanelSectionLabel(String label) {
-    return Text(
-      label,
-      style: const TextStyle(
-        color: AppColors.textSecondary,
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0.5,
-      ),
-    );
-  }
-
-  // ── Media Source Dropdown ─────────────────────────────────────────────
-
-  Widget _buildMediaSourceDropdown() {
-    if (_loadingStream) {
-      return const _PanelDropdownPlaceholder(text: '加载中…');
-    }
-
-    final sources = _streamInfo?.mediaSources ?? [];
-    if (sources.isEmpty) {
-      return const _PanelDropdownPlaceholder(text: '无可用媒体源');
-    }
-
-    final currentSource = sources.first;
-    final displayText = currentSource.name.isNotEmpty
-        ? currentSource.name
-        : '未知';
-
-    return _PanelDropdown(
-      displayText: displayText,
-      onTap: () => _showMediaSourceMenu(sources),
-    );
-  }
-
-  void _showMediaSourceMenu(List<MediaSource> sources) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.nebulaDark,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 12),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.borderSubtle,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              for (int i = 0; i < sources.length; i++)
-                ListTile(
-                  leading: Icon(
-                    i == 0 ? Icons.check_circle_rounded : Icons.circle_outlined,
-                    color: i == 0 ? AppColors.celestialCyan : AppColors.textTertiary,
-                    size: 20,
-                  ),
-                  title: Text(
-                    sources[i].name.isNotEmpty ? sources[i].name : '源 ${i + 1}',
-                    style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
-                  ),
-                  subtitle: sources[i].container.isNotEmpty
-                      ? Text(
-                          sources[i].container.toUpperCase(),
-                          style: const TextStyle(color: AppColors.textTertiary, fontSize: 12),
-                        )
-                      : null,
-                  onTap: () => Navigator.pop(context),
-                ),
-              const SizedBox(height: 12),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // ── Audio Dropdown ────────────────────────────────────────────────────
-
-  Widget _buildAudioDropdown() {
-    if (_loadingStream) {
-      return const _PanelDropdownPlaceholder(text: '加载中…');
-    }
-
-    if (_audioStreams.isEmpty) {
-      return const _PanelDropdownPlaceholder(text: '无可用音频');
-    }
-
-    final idx = _selectedAudioIndex.clamp(0, _audioStreams.length - 1);
-    return _PanelDropdown(
-      displayText: _streamTitle(_audioStreams[idx]),
-      onTap: () => _showAudioMenu(),
-    );
-  }
-
-  void _showAudioMenu() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.nebulaDark,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 12),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.borderSubtle,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              for (int i = 0; i < _audioStreams.length; i++)
-                ListTile(
-                  leading: Icon(
-                    i == _selectedAudioIndex
-                        ? Icons.check_circle_rounded
-                        : Icons.circle_outlined,
-                    color: i == _selectedAudioIndex
-                        ? AppColors.celestialCyan
-                        : AppColors.textTertiary,
-                    size: 20,
-                  ),
-                  title: Text(
-                    _streamTitle(_audioStreams[i]),
-                    style: const TextStyle(
-                        color: AppColors.textPrimary, fontSize: 14),
-                  ),
-                  subtitle: Text(
-                    _streamSubtitle(_audioStreams[i]),
-                    style: const TextStyle(
-                        color: AppColors.textTertiary, fontSize: 12),
-                  ),
-                  onTap: () {
-                    setState(() => _selectedAudioIndex = i);
-                    Navigator.pop(context);
-                  },
-                ),
-              const SizedBox(height: 12),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // ── Subtitle Dropdown ────────────────────────────────────────────────
-
-  Widget _buildSubtitleDropdown() {
-    if (_loadingStream) {
-      return const _PanelDropdownPlaceholder(text: '加载中…');
-    }
-
-    if (_subtitleStreams.isEmpty) {
-      return const _PanelDropdownPlaceholder(text: '无可用字幕');
-    }
-
-    final idx = _selectedSubtitleIndex.clamp(0, _subtitleStreams.length - 1);
-    return _PanelDropdown(
-      displayText: _streamTitle(_subtitleStreams[idx]),
-      onTap: () => _showSubtitleMenu(),
-    );
-  }
-
-  void _showSubtitleMenu() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.nebulaDark,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 12),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.borderSubtle,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              for (int i = 0; i < _subtitleStreams.length; i++)
-                ListTile(
-                  leading: Icon(
-                    i == _selectedSubtitleIndex
-                        ? Icons.check_circle_rounded
-                        : Icons.circle_outlined,
-                    color: i == _selectedSubtitleIndex
-                        ? AppColors.celestialCyan
-                        : AppColors.textTertiary,
-                    size: 20,
-                  ),
-                  title: Text(
-                    _streamTitle(_subtitleStreams[i]),
-                    style: const TextStyle(
-                        color: AppColors.textPrimary, fontSize: 14),
-                  ),
-                  subtitle: Text(
-                    _streamSubtitle(_subtitleStreams[i]),
-                    style: const TextStyle(
-                        color: AppColors.textTertiary, fontSize: 12),
-                  ),
-                  onTap: () {
-                    setState(() => _selectedSubtitleIndex = i);
-                    Navigator.pop(context);
-                  },
-                ),
-              const SizedBox(height: 12),
-            ],
-          ),
-        );
-      },
     );
   }
 
@@ -1272,9 +1086,8 @@ class _HoverPlayButtonState extends State<_HoverPlayButton> {
           height: 60,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: AppColors.celestialCyan.withValues(
-              alpha: _hovered ? 0.95 : 0.3,
-            ),
+            gradient: _hovered ? AppColors.accentGradient : null,
+            color: _hovered ? null : AppColors.celestialCyan.withValues(alpha: 0.3),
             boxShadow: _hovered
                 ? [
                     BoxShadow(
@@ -1290,83 +1103,6 @@ class _HoverPlayButtonState extends State<_HoverPlayButton> {
             size: 32,
             color: _hovered ? AppColors.deepVoid : Colors.white,
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Panel dropdown trigger that shows the current selection and opens a menu.
-class _PanelDropdown extends StatelessWidget {
-  final String displayText;
-  final VoidCallback onTap;
-
-  const _PanelDropdown({
-    required this.displayText,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppColors.radiusSm),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: AppColors.chipBg,
-            border: Border.all(color: AppColors.borderSubtle, width: 0.5),
-            borderRadius: BorderRadius.circular(AppColors.radiusSm),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  displayText,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Icon(
-                Icons.keyboard_arrow_down_rounded,
-                color: AppColors.textTertiary,
-                size: 20,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Placeholder for dropdowns while loading or when empty.
-class _PanelDropdownPlaceholder extends StatelessWidget {
-  final String text;
-
-  const _PanelDropdownPlaceholder({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.chipBg,
-        border: Border.all(color: AppColors.borderSubtle, width: 0.5),
-        borderRadius: BorderRadius.circular(AppColors.radiusSm),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: AppColors.textTertiary,
-          fontSize: 14,
         ),
       ),
     );
@@ -1416,11 +1152,13 @@ class _CastCard extends StatelessWidget {
   final Person person;
   final String serverUrl;
   final String? token;
+  final String embyServerUrl;
 
   const _CastCard({
     required this.person,
     required this.serverUrl,
     this.token,
+    required this.embyServerUrl,
   });
 
   @override
@@ -1435,16 +1173,31 @@ class _CastCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           // Avatar
-          CircleAvatar(
-            radius: 28,
-            backgroundColor: AppColors.chipBg,
-            backgroundImage:
-                imageUrl != null ? NetworkImage(imageUrl) : null,
-            onBackgroundImageError: imageUrl != null ? (_, __) {} : null,
-            child: imageUrl == null
-                ? const Icon(Icons.person,
-                    color: AppColors.textSecondary, size: 28)
-                : null,
+          ClipOval(
+            child: SizedBox(
+              width: 56,
+              height: 56,
+              child: imageUrl != null
+                  ? Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      headers: {
+                        'Accept': 'image/*',
+                        'X-Emby-Token': token ?? '',
+                        'X-Emby-Server': embyServerUrl,
+                      },
+                      errorBuilder: (_, __, ___) => Container(
+                        color: AppColors.chipBg,
+                        child: const Icon(Icons.person,
+                            color: AppColors.textSecondary, size: 28),
+                      ),
+                    )
+                  : Container(
+                      color: AppColors.chipBg,
+                      child: const Icon(Icons.person,
+                          color: AppColors.textSecondary, size: 28),
+                    ),
+            ),
           ),
           const SizedBox(height: 6),
           // Name
