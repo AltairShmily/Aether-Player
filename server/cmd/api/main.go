@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 	"strings"
 
 	"aether-server/internal/emby"
@@ -48,56 +49,60 @@ func main() {
 	mux.HandleFunc("/api/users/profile", userHandler.HandleGetUserProfile)
 
 	// Catch-all proxy: forwards unmatched /api/* to Emby server
-	// This enables access to ALL Emby endpoints (System/Info, Configuration, Plugins, etc.)
 	mux.Handle("/api/", proxyHandler)
 
-	h := middleware.Logger(middleware.CORS(mux))
+	h := middleware.Logger(middleware.CORS(middleware.BodyLimit(mux)))
 
-	log.Println("Starting Aether Server on :19800")
-	if err := http.ListenAndServe(":19800", h); err != nil {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "19800"
+	}
+
+	log.Printf("Starting Aether Server on :%s", port)
+	if err := http.ListenAndServe(":"+port, h); err != nil {
 		log.Fatal(err)
 	}
 }
 
 // playbackRouter dispatches /api/playback/ sub-routes
 func playbackRouter(h *handler.PlaybackHandler) http.HandlerFunc {
+	userHandler := handler.NewUserHandler(h.EmbyClient)
 	return func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path[len("/api/playback/"):]
 
 		// POST /api/playback/started
-		if path == "started" && r.Method == "POST" {
+		if path == "started" {
 			h.HandleReportPlaybackStarted(w, r)
 			return
 		}
 
 		// POST /api/playback/progress
-		if path == "progress" && r.Method == "POST" {
+		if path == "progress" {
 			h.HandleReportPlaybackProgress(w, r)
 			return
 		}
 
 		// POST /api/playback/stopped
-		if path == "stopped" && r.Method == "POST" {
+		if path == "stopped" {
 			h.HandleReportPlaybackStopped(w, r)
 			return
 		}
 
-		// GET /api/playback/{itemId}/info
-		if strings.HasSuffix(path, "/info") && r.Method == "GET" {
-			h.HandleGetPlaybackInfo(w, r)
-			return
-		}
-
 		// GET /api/playback/{itemId}/audio/stream (must check before /stream)
-		if strings.HasSuffix(path, "/audio/stream") && r.Method == "GET" {
-			userHandler := handler.NewUserHandler(h.EmbyClient)
+		if strings.HasSuffix(path, "/audio/stream") {
 			userHandler.HandleGetAudioStreamURL(w, r)
 			return
 		}
 
 		// GET /api/playback/{itemId}/stream (video)
-		if strings.HasSuffix(path, "/stream") && r.Method == "GET" {
+		if strings.HasSuffix(path, "/stream") {
 			h.HandleGetVideoStreamURL(w, r)
+			return
+		}
+
+		// GET /api/playback/{itemId}/info
+		if strings.HasSuffix(path, "/info") {
+			h.HandleGetPlaybackInfo(w, r)
 			return
 		}
 

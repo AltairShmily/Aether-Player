@@ -78,7 +78,7 @@ class MediaSourceInfo {
   final String path;
   final int size;
   final int bitrate;
-  final List<MediaStreamInfo> mediaStreams;
+  final List<PlaybackStreamInfo> mediaStreams;
   final String directStreamUrl;
   final String transcodeUrl;
 
@@ -104,7 +104,7 @@ class MediaSourceInfo {
       bitrate: json['Bitrate'] as int? ?? 0,
       mediaStreams: (json['MediaStreams'] as List<dynamic>?)
               ?.map((e) =>
-                  MediaStreamInfo.fromJson(e as Map<String, dynamic>))
+                  PlaybackStreamInfo.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
       directStreamUrl: json['DirectStreamUrl'] as String? ?? '',
@@ -147,13 +147,13 @@ class MediaSourceInfo {
     return '${(size / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 
-  List<MediaStreamInfo> get videoStreams =>
+  List<PlaybackStreamInfo> get videoStreams =>
       mediaStreams.where((s) => s.isVideo).toList();
 
-  List<MediaStreamInfo> get audioStreams =>
+  List<PlaybackStreamInfo> get audioStreams =>
       mediaStreams.where((s) => s.isAudio).toList();
 
-  List<MediaStreamInfo> get subtitleStreams =>
+  List<PlaybackStreamInfo> get subtitleStreams =>
       mediaStreams.where((s) => s.isSubtitle).toList();
 }
 
@@ -162,7 +162,7 @@ class MediaSourceInfo {
 /// This replaces the per-stream data that was previously in
 /// [MediaStream] from media_models.dart, with a richer model
 /// for playback use.
-class MediaStreamInfo {
+class PlaybackStreamInfo {
   final String type;
   final int index;
   final String codec;
@@ -172,7 +172,7 @@ class MediaStreamInfo {
   final int height;
   final int bitrate;
 
-  const MediaStreamInfo({
+  const PlaybackStreamInfo({
     required this.type,
     this.index = 0,
     this.codec = '',
@@ -183,8 +183,8 @@ class MediaStreamInfo {
     this.bitrate = 0,
   });
 
-  factory MediaStreamInfo.fromJson(Map<String, dynamic> json) {
-    return MediaStreamInfo(
+  factory PlaybackStreamInfo.fromJson(Map<String, dynamic> json) {
+    return PlaybackStreamInfo(
       type: json['Type'] as String? ?? '',
       index: json['Index'] as int? ?? 0,
       codec: json['Codec'] as String? ?? '',

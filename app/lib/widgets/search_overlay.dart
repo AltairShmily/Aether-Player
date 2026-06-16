@@ -99,8 +99,10 @@ class _SearchOverlayState extends State<SearchOverlay>
     with SingleTickerProviderStateMixin {
   late final TextEditingController _controller;
   late final FocusNode _focusNode;
+  late final FocusNode _keyboardListenerFocusNode;
   late final AnimationController _animController;
   late final Animation<double> _scaleAnimation;
+  late final Animation<double> _translateYAnimation;
   late final Animation<double> _fadeAnimation;
 
   @override
@@ -109,6 +111,7 @@ class _SearchOverlayState extends State<SearchOverlay>
 
     _controller = TextEditingController(text: widget.initialQuery);
     _focusNode = FocusNode();
+    _keyboardListenerFocusNode = FocusNode();
 
     // ── 动画设置 ──
     // 缩放: 0.97 → 1.0，弹性 cubic-bezier
@@ -118,6 +121,13 @@ class _SearchOverlayState extends State<SearchOverlay>
     );
 
     _scaleAnimation = Tween<double>(begin: 0.97, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animController,
+        curve: const Cubic(0.34, 1.56, 0.64, 1),
+      ),
+    );
+
+    _translateYAnimation = Tween<double>(begin: -12.0, end: 0.0).animate(
       CurvedAnimation(
         parent: _animController,
         curve: const Cubic(0.34, 1.56, 0.64, 1),
@@ -142,6 +152,7 @@ class _SearchOverlayState extends State<SearchOverlay>
   void dispose() {
     _controller.dispose();
     _focusNode.dispose();
+    _keyboardListenerFocusNode.dispose();
     _animController.dispose();
     super.dispose();
   }
@@ -203,22 +214,28 @@ class _SearchOverlayState extends State<SearchOverlay>
   /// 居中搜索面板
   Widget _buildSearchPanel() {
     return AnimatedBuilder(
-      animation: _scaleAnimation,
+      animation: _animController,
       builder: (context, child) {
-        return Transform.scale(
-          scale: _scaleAnimation.value,
-          child: Opacity(
-            opacity: _fadeAnimation.value,
-            child: Center(
+        return Transform.translate(
+          offset: Offset(0, _translateYAnimation.value),
+          child: Transform.scale(
+            scale: _scaleAnimation.value,
+            child: Opacity(
+              opacity: _fadeAnimation.value,
               child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: MediaQuery.of(context).size.width < 600
-                      ? 24
-                      : 48,
-                ),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 560),
-                  child: _buildSearchBox(),
+                padding: const EdgeInsets.only(top: 120),
+                child: Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: MediaQuery.of(context).size.width < 600
+                          ? 24
+                          : 48,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 560),
+                      child: _buildSearchBox(),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -240,16 +257,10 @@ class _SearchOverlayState extends State<SearchOverlay>
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.celestialCyan.withValues(alpha: 0.08),
-            blurRadius: 24,
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 64,
             spreadRadius: 0,
-            offset: const Offset(0, 4),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 32,
-            spreadRadius: 0,
-            offset: const Offset(0, 8),
+            offset: const Offset(0, 24),
           ),
         ],
       ),
@@ -273,7 +284,7 @@ class _SearchOverlayState extends State<SearchOverlay>
   /// 搜索图标 + 文本输入
   Widget _buildInputRow() {
     return KeyboardListener(
-      focusNode: FocusNode(),
+      focusNode: _keyboardListenerFocusNode,
       onKeyEvent: (event) {
         // Esc 关闭
         if (event is KeyDownEvent &&
@@ -287,14 +298,14 @@ class _SearchOverlayState extends State<SearchOverlay>
         autofocus: true,
         style: const TextStyle(
           color: AppColors.textPrimary,
-          fontSize: 16,
+          fontSize: 14,
           fontWeight: FontWeight.w400,
         ),
         decoration: InputDecoration(
           hintText: '搜索电影、电视剧、演员...',
           hintStyle: const TextStyle(
             color: AppColors.textTertiary,
-            fontSize: 16,
+            fontSize: 11.2,
           ),
           prefixIcon: const Padding(
             padding: EdgeInsets.only(left: 20, right: 8),
@@ -310,8 +321,8 @@ class _SearchOverlayState extends State<SearchOverlay>
           ),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 18,
+            horizontal: 20,
+            vertical: 16,
           ),
         ),
         textInputAction: TextInputAction.search,
@@ -332,7 +343,7 @@ class _SearchOverlayState extends State<SearchOverlay>
             '输入关键词搜索，或按 Esc 关闭',
             style: TextStyle(
               color: AppColors.textTertiary,
-              fontSize: 13,
+              fontSize: 11.2,
               fontWeight: FontWeight.w400,
             ),
           ),

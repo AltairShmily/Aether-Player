@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_colors.dart';
 import '../models/media_models.dart' show SearchHint;
 import '../providers/auth_provider.dart';
+import '../services/api_client.dart';
 
 /// TV 搜索界面 — 全屏覆盖层
 ///
@@ -135,7 +136,7 @@ class _TvSearchOverlayState extends ConsumerState<TvSearchOverlay> {
 
   Widget _buildSearchInput() {
     return Container(
-      width: 500,
+      width: 560,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
         color: AppColors.stardust,
@@ -236,7 +237,7 @@ class _TvSearchOverlayState extends ConsumerState<TvSearchOverlay> {
   }
 
   Widget _buildResultCard(SearchHint item) {
-    final serverUrl = 'http://localhost:19800';
+    final serverUrl = ApiClient.proxyBaseUrl;
     final imageUrl = item.hasImage
         ? '$serverUrl/api/images/${item.id}/Primary?maxWidth=300'
         : null;

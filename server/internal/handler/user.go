@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -20,6 +21,11 @@ func NewUserHandler(client *emby.Client) *UserHandler {
 // HandleToggleFavorite toggles favorite status.
 // POST /api/users/favorites/toggle
 func (h *UserHandler) HandleToggleFavorite(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	serverURL := r.Header.Get("X-Emby-Server")
 	token := r.Header.Get("X-Emby-Token")
 	userID := r.Header.Get("X-Emby-User")
@@ -40,17 +46,25 @@ func (h *UserHandler) HandleToggleFavorite(w http.ResponseWriter, r *http.Reques
 
 	newState, err := h.EmbyClient.ToggleFavorite(serverURL, token, userID, req.ItemID, req.IsFavorite)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		log.Printf("ToggleFavorite error: %v", err)
+		http.Error(w, "Failed to toggle favorite", http.StatusBadGateway)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"isFavorite": newState})
+	if err := json.NewEncoder(w).Encode(map[string]bool{"isFavorite": newState}); err != nil {
+		log.Printf("JSON encode error: %v", err)
+	}
 }
 
 // HandleGetFavorites returns all favorited items.
 // GET /api/users/favorites
 func (h *UserHandler) HandleGetFavorites(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	serverURL := r.Header.Get("X-Emby-Server")
 	token := r.Header.Get("X-Emby-Token")
 	userID := r.Header.Get("X-Emby-User")
@@ -67,17 +81,25 @@ func (h *UserHandler) HandleGetFavorites(w http.ResponseWriter, r *http.Request)
 
 	result, err := h.EmbyClient.GetFavoriteItems(serverURL, token, userID, limit)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		log.Printf("GetFavorites error: %v", err)
+		http.Error(w, "Failed to get favorites", http.StatusBadGateway)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		log.Printf("JSON encode error: %v", err)
+	}
 }
 
 // HandleGetAudioStreamURL returns the audio stream URL.
 // GET /api/playback/{itemId}/audio/stream
 func (h *UserHandler) HandleGetAudioStreamURL(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	serverURL := r.Header.Get("X-Emby-Server")
 	token := r.Header.Get("X-Emby-Token")
 
@@ -98,12 +120,19 @@ func (h *UserHandler) HandleGetAudioStreamURL(w http.ResponseWriter, r *http.Req
 	streamURL := h.EmbyClient.GetAudioStreamURL(serverURL, token, itemID)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"streamUrl": streamURL})
+	if err := json.NewEncoder(w).Encode(map[string]string{"streamUrl": streamURL}); err != nil {
+		log.Printf("JSON encode error: %v", err)
+	}
 }
 
 // HandleGetUserProfile returns user profile info.
 // GET /api/users/profile
 func (h *UserHandler) HandleGetUserProfile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	serverURL := r.Header.Get("X-Emby-Server")
 	token := r.Header.Get("X-Emby-Token")
 	userID := r.Header.Get("X-Emby-User")
@@ -115,10 +144,13 @@ func (h *UserHandler) HandleGetUserProfile(w http.ResponseWriter, r *http.Reques
 
 	profile, err := h.EmbyClient.GetUserProfile(serverURL, token, userID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		log.Printf("GetUserProfile error: %v", err)
+		http.Error(w, "Failed to get user profile", http.StatusBadGateway)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(profile)
+	if err := json.NewEncoder(w).Encode(profile); err != nil {
+		log.Printf("JSON encode error: %v", err)
+	}
 }

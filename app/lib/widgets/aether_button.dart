@@ -121,9 +121,16 @@ class _AetherButtonState extends State<AetherButton>
           builder: (context, child) {
             final scale = _isPressed ? 0.97 : (_isHovered ? 1.02 : 1.0);
 
-            return AnimatedScale(
-              scale: scale,
-              duration: const Duration(milliseconds: 120),
+            return TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 1.0, end: scale),
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.elasticOut,
+              builder: (context, animScale, child) {
+                return Transform.scale(
+                  scale: animScale,
+                  child: child,
+                );
+              },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 width: widget.width,

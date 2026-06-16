@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
+	"time"
 )
 
 type Client struct {
@@ -192,7 +194,7 @@ type SubtitleProfile struct {
 
 func NewClient() *Client {
 	return &Client{
-		HTTPClient: &http.Client{},
+		HTTPClient: &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
@@ -205,7 +207,7 @@ func (c *Client) TestConnection(serverURL string) (*SystemInfo, error) {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Dev-001", Version="0.0.1"`)
+	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Client", Version="0.0.1"`)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -241,7 +243,7 @@ func (c *Client) Authenticate(serverURL, username, password string) (*AuthResult
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Dev-001", Version="0.0.1"`)
+	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Client", Version="0.0.1"`)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -291,7 +293,7 @@ func (c *Client) GetItems(serverURL, token string, params map[string]string) (*I
 	}
 
 	req.Header.Set("X-Emby-Token", token)
-	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Dev-001", Version="0.0.1"`)
+	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Client", Version="0.0.1"`)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -323,7 +325,7 @@ func (c *Client) GetItemDetail(serverURL, token, userID, itemID string) (*MediaI
 	}
 
 	req.Header.Set("X-Emby-Token", token)
-	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Dev-001", Version="0.0.1"`)
+	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Client", Version="0.0.1"`)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -356,7 +358,7 @@ func (c *Client) GetItemImage(serverURL, token, itemID, imageType string, maxWid
 	}
 
 	req.Header.Set("X-Emby-Token", token)
-	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Dev-001", Version="0.0.1"`)
+	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Client", Version="0.0.1"`)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -382,7 +384,7 @@ func (c *Client) Search(serverURL, token, userID, searchTerm string, limit int) 
 	}
 
 	req.Header.Set("X-Emby-Token", token)
-	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Dev-001", Version="0.0.1"`)
+	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Client", Version="0.0.1"`)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -408,7 +410,7 @@ func (c *Client) GetPlaybackInfo(serverURL, token, userID, itemID string) (*Medi
 	url := fmt.Sprintf("%s/Items/%s/PlaybackInfo", serverURL, itemID)
 
 	reqBody := PlaybackInfoRequest{
-		DeviceId: "Aether-Dev-001",
+		DeviceId:           "Aether-Client",
 		MaxStreamingBitrate: 80000000,
 		DeviceProfile: &DeviceProfile{
 			Name: "Aether Player",
@@ -458,7 +460,7 @@ func (c *Client) GetPlaybackInfo(serverURL, token, userID, itemID string) (*Medi
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Emby-Token", token)
-	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Dev-001", Version="0.0.1"`)
+	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Client", Version="0.0.1"`)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -507,7 +509,7 @@ func (c *Client) ReportPlaybackStarted(serverURL, token, itemID, mediaSourceID, 
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Emby-Token", token)
-	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Dev-001", Version="0.0.1"`)
+	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Client", Version="0.0.1"`)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -544,7 +546,7 @@ func (c *Client) ReportPlaybackProgress(serverURL, token, itemID, mediaSourceID,
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Emby-Token", token)
-	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Dev-001", Version="0.0.1"`)
+	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Client", Version="0.0.1"`)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -579,7 +581,7 @@ func (c *Client) ReportPlaybackStopped(serverURL, token, itemID, mediaSourceID, 
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Emby-Token", token)
-	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Dev-001", Version="0.0.1"`)
+	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Client", Version="0.0.1"`)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -603,7 +605,7 @@ func (c *Client) GetUserViews(serverURL, token, userID string) (*UserViewsRespon
 	}
 
 	req.Header.Set("X-Emby-Token", token)
-	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Dev-001", Version="0.0.1"`)
+	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Client", Version="0.0.1"`)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -633,7 +635,7 @@ func (c *Client) GetResumeItems(serverURL, token, userID string, limit int) (*It
 	}
 
 	req.Header.Set("X-Emby-Token", token)
-	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Dev-001", Version="0.0.1"`)
+	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Client", Version="0.0.1"`)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -663,7 +665,7 @@ func (c *Client) GetSeasons(serverURL, token, userID, seriesID string) (*ItemLis
 	}
 
 	req.Header.Set("X-Emby-Token", token)
-	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Dev-001", Version="0.0.1"`)
+	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Client", Version="0.0.1"`)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -693,7 +695,7 @@ func (c *Client) GetEpisodes(serverURL, token, seriesID, seasonID string, limit 
 	}
 
 	req.Header.Set("X-Emby-Token", token)
-	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Dev-001", Version="0.0.1"`)
+	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Client", Version="0.0.1"`)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -733,7 +735,7 @@ func (c *Client) ToggleFavorite(serverURL, token, userID, itemID string, isFavor
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Emby-Token", token)
-	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Dev-001", Version="0.0.1"`)
+	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Client", Version="0.0.1"`)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -756,7 +758,7 @@ func (c *Client) GetFavoriteItems(serverURL, token, userID string, limit int) (*
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("X-Emby-Token", token)
-	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Dev-001", Version="0.0.1"`)
+	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Client", Version="0.0.1"`)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -819,7 +821,7 @@ func (c *Client) GetUserProfile(serverURL, token, userID string) (*UserProfile, 
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("X-Emby-Token", token)
-	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Dev-001", Version="0.0.1"`)
+	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Client", Version="0.0.1"`)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {

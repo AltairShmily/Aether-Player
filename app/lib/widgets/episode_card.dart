@@ -40,7 +40,7 @@ class _EpisodeCardState extends State<EpisodeCard> {
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOutCubic,
           transform: _isHovered
-              ? (Matrix4.identity()..translateByDouble(0.0, -4.0, 0.0, 1.0))
+              ? (Matrix4.identity()..translateByDouble(0.0, -4.0, 0.0, 1.0))..scale(1.03)
               : Matrix4.identity(),
           width: 160,
           child: Column(

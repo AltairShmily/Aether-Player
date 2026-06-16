@@ -36,11 +36,19 @@ class PlayerPage extends ConsumerStatefulWidget {
   /// 起始播放位置（毫秒），用于恢复播放
   final int startAtMs;
 
+  /// 预选音频轨道索引（在流加载后自动应用）
+  final int? audioTrackIndex;
+
+  /// 预选字幕轨道索引（-1 = 关闭字幕，在流加载后自动应用）
+  final int? subtitleTrackIndex;
+
   const PlayerPage({
     super.key,
     required this.itemId,
     required this.title,
     this.startAtMs = 0,
+    this.audioTrackIndex,
+    this.subtitleTrackIndex,
   });
 
   @override
@@ -115,11 +123,19 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       setState(() => _isInitialized = true);
 
       // 开始播放
-      controller.loadAndPlay(
+      await controller.loadAndPlay(
         widget.itemId,
         title: widget.title,
         startAtMs: widget.startAtMs,
       );
+
+      // 应用预选的音频/字幕轨道（在流加载完成后）
+      if (widget.audioTrackIndex != null && widget.audioTrackIndex! > 0) {
+        await controller.selectAudioTrack(widget.audioTrackIndex!);
+      }
+      if (widget.subtitleTrackIndex != null) {
+        await controller.selectSubtitleTrack(widget.subtitleTrackIndex!);
+      }
     }
   }
 
@@ -277,7 +293,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                       color: Colors.white,
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      fontFamily: 'JetBrains Mono',
+                      fontFamily: 'DM Mono',
                     ),
                   ),
                 ),
@@ -551,7 +567,7 @@ class _PlayerControlsOverlay extends StatelessWidget {
         Text(
           PlayerController.formatDuration(state.position),
           style: const TextStyle(
-            fontFamily: 'JetBrains Mono',
+            fontFamily: 'DM Mono',
             fontSize: 12,
             color: AppColors.textSecondary,
           ),
@@ -582,7 +598,7 @@ class _PlayerControlsOverlay extends StatelessWidget {
         Text(
           PlayerController.formatDuration(state.duration),
           style: const TextStyle(
-            fontFamily: 'JetBrains Mono',
+            fontFamily: 'DM Mono',
             fontSize: 12,
             color: AppColors.textTertiary,
           ),
@@ -763,7 +779,7 @@ class _PlayerControlsOverlay extends StatelessWidget {
               style: const TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 12,
-                fontFamily: 'JetBrains Mono',
+                fontFamily: 'DM Mono',
               ),
             ),
           ),

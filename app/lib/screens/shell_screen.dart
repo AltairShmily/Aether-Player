@@ -29,6 +29,14 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
     PhoneLibraryScreen(),
   ];
 
+  final FocusNode _keyboardFocusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _keyboardFocusNode.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = Translations.of(context);
@@ -40,7 +48,7 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
 
     Widget buildKeyboardShortcuts(Widget child) {
       return KeyboardListener(
-        focusNode: FocusNode(),
+        focusNode: _keyboardFocusNode,
         onKeyEvent: (event) {
           if (event is KeyDownEvent &&
               event.logicalKey == LogicalKeyboardKey.keyK &&
@@ -131,7 +139,16 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
                 ),
                 // ── Main Content ──
                 Expanded(
-                  child: _tabs[_selectedIndex.clamp(0, _tabs.length - 1)],
+                  child: Navigator(
+                    key: ValueKey(_selectedIndex),
+                    onGenerateRoute: (settings) {
+                      return MaterialPageRoute(
+                        builder: (_) =>
+                            _tabs[_selectedIndex.clamp(0, _tabs.length - 1)],
+                        settings: settings,
+                      );
+                    },
+                  ),
                 ),
               ],
             ),
@@ -182,7 +199,7 @@ class _Sidebar extends ConsumerWidget {
       child: Column(
         children: [
           // ── Logo ──
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           _buildLogo(),
           const SizedBox(height: 20),
 
@@ -197,12 +214,15 @@ class _Sidebar extends ConsumerWidget {
 
           // ── Divider ──
           const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Divider(height: 1, color: AppColors.borderSubtle),
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: SizedBox(
+              width: 28,
+              child: Divider(height: 1, color: AppColors.borderSubtle),
+            ),
           ),
 
           // ── Library Buttons ──
-          for (final lib in homeState.libraries)
+          for (final lib in homeState.libraries) ...[
             _SidebarButton(
               icon: _iconForLibraryType(lib.collectionType),
               activeIcon: _iconForLibraryType(lib.collectionType),
@@ -211,6 +231,8 @@ class _Sidebar extends ConsumerWidget {
               iconColor: _colorForLibraryType(lib.collectionType),
               onTap: () => onLibrarySelected?.call(lib.id),
             ),
+            const SizedBox(height: 2),
+          ],
 
           const SizedBox(height: 4),
 
@@ -237,7 +259,7 @@ class _Sidebar extends ConsumerWidget {
           // ── Bottom Section ──
           // Server Switcher
           const ServerSwitcher(),
-          const SizedBox(height: 12),
+          const SizedBox(height: 4),
 
           _SidebarButton(
             icon: Icons.settings_outlined,
@@ -254,11 +276,11 @@ class _Sidebar extends ConsumerWidget {
 
   Widget _buildLogo() {
     return Container(
-      width: 32,
-      height: 32,
+      width: 40,
+      height: 40,
       decoration: BoxDecoration(
         gradient: AppColors.accentGradient,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppColors.radiusMd),
       ),
       child: const Icon(
         Icons.play_arrow_rounded,
@@ -359,7 +381,7 @@ class _SidebarButtonState extends State<_SidebarButton> {
             height: 44,
             decoration: BoxDecoration(
               color: bgColor,
-              borderRadius: BorderRadius.circular(AppColors.radiusSm),
+              borderRadius: BorderRadius.circular(AppColors.radiusMd),
             ),
             child: Icon(
               isActive ? widget.activeIcon : widget.icon,

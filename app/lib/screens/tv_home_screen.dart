@@ -21,6 +21,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_colors.dart';
 import '../providers/home_provider.dart';
 import '../providers/auth_provider.dart';
+import '../services/api_client.dart';
 import '../models/media_models.dart';
 import 'series_detail_screen.dart';
 import 'episode_detail_screen.dart';
@@ -43,7 +44,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
   // ── 时钟定时器 ──
   Timer? _clockTimer;
   String _clockText = '';
-  String _serverUrl = 'http://localhost:19800';
+  String _serverUrl = ApiClient.proxyBaseUrl;
 
   // ── 顶部导航栏 ──
   final List<_TabItem> _tabs = [
@@ -484,7 +485,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
 
   Widget _buildTopBar(AuthState authState) {
     return Container(
-      padding: const EdgeInsets.only(top: 24, left: 56, right: 56),
+      padding: const EdgeInsets.only(top: 24, bottom: 16, left: 56, right: 56),
       height: 80,
       child: Row(
         children: [
@@ -496,9 +497,9 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
             child: const Text(
               'AETHER',
               style: TextStyle(
-                fontSize: 24,
+                fontSize: 19.6,
                 fontWeight: FontWeight.w800,
-                letterSpacing: 3,
+                letterSpacing: -0.5,
                 color: Colors.white, // ShaderMask 会替换颜色
               ),
             ),
@@ -511,7 +512,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
             children: List.generate(_tabs.length, (index) {
               final isActive = _activeTabIndex == index;
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 3),
                 child: Focus(
                   focusNode: _tabFocusNodes[index],
                   child: GestureDetector(
@@ -522,17 +523,20 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
+                          horizontal: 20, vertical: 8),
                       decoration: BoxDecoration(
-                        color: isActive
-                            ? AppColors.celestialCyan
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(20),
+                        gradient: isActive
+                            ? const LinearGradient(
+                                colors: [AppColors.celestialCyan, AppColors.novaPurple],
+                              )
+                            : null,
+                        color: isActive ? null : Colors.transparent,
+                        borderRadius: BorderRadius.circular(24),
                       ),
                       child: Text(
                         _tabs[index].label,
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 12.3,
                           fontWeight:
                               isActive ? FontWeight.w600 : FontWeight.w500,
                           color: isActive
@@ -581,7 +585,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
             _clockText,
             style: const TextStyle(
               fontFamily: 'DM Mono',
-              fontSize: 14,
+              fontSize: 11.9,
               color: AppColors.textSecondary,
             ),
           ),
@@ -614,7 +618,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(24),
                   border: isFocused
                       ? Border.all(
                           color: AppColors.celestialCyan,
@@ -635,7 +639,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
                 child: AspectRatio(
                   aspectRatio: 21 / 9,
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(24),
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
@@ -693,11 +697,11 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
                                 // 推荐观看徽章
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.celestialCyan
-                                        .withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(6),
+                                      horizontal: 12, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppColors.celestialCyan
+                                      .withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
                                       color: AppColors.celestialCyan
                                           .withValues(alpha: 0.3),
@@ -707,7 +711,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
                                   child: const Text(
                                     '推荐观看',
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 10.1,
                                       fontWeight: FontWeight.w600,
                                       color: AppColors.celestialCyan,
                                     ),
@@ -723,7 +727,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
                                       : featuredItem.name,
                                   style: const TextStyle(
                                     fontSize: 28,
-                                    fontWeight: FontWeight.bold,
+                                    fontWeight: FontWeight.w800,
                                     color: AppColors.textPrimary,
                                     letterSpacing: -0.5,
                                   ),
@@ -754,7 +758,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
                                   onTap: () => _navigateToItem(featuredItem),
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 28, vertical: 12),
+                                        horizontal: 28, vertical: 10),
                                     decoration: BoxDecoration(
                                       gradient: const LinearGradient(
                                         colors: [AppColors.celestialCyan, AppColors.novaPurple],
@@ -780,7 +784,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
                                         Text(
                                           '立即播放',
                                           style: TextStyle(
-                                            fontSize: 14,
+                                            fontSize: 12.3,
                                             fontWeight: FontWeight.w600,
                                             color: AppColors.deepVoid,
                                           ),
@@ -850,7 +854,7 @@ class _TvSection extends StatelessWidget {
       children: [
         // ── 标题栏 ──
         Padding(
-          padding: const EdgeInsets.only(left: 56, bottom: 16),
+          padding: const EdgeInsets.only(left: 56, bottom: 10),
           child: Row(
             children: [
               // 3px 强调色渐变线
@@ -862,11 +866,11 @@ class _TvSection extends StatelessWidget {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 20,
+                  fontSize: 16.8,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary,
                   letterSpacing: -0.3,
@@ -897,7 +901,7 @@ class _TvMediaRow extends StatelessWidget {
     required this.items,
     this.focusNodes,
     required this.onItemTap,
-    this.serverUrl = 'http://localhost:19800',
+    this.serverUrl = ApiClient.proxyBaseUrl,
   });
 
   @override
@@ -908,7 +912,7 @@ class _TvMediaRow extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 56),
         itemCount: items.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 16),
+        separatorBuilder: (_, __) => const SizedBox(width: 18),
         itemBuilder: (context, index) {
           final item = items[index];
           final focusNode =
@@ -944,7 +948,7 @@ class _TvMediaCard extends StatelessWidget {
     this.focusNode,
     this.isFirst = false,
     required this.onTap,
-    this.serverUrl = 'http://localhost:19800',
+    this.serverUrl = ApiClient.proxyBaseUrl,
   });
 
   @override
@@ -964,13 +968,13 @@ class _TvMediaCard extends StatelessWidget {
               onTap: onTap,
               child: AnimatedScale(
                 scale: isFocused ? 1.08 : 1.0,
-                duration: const Duration(milliseconds: 200),
+                duration: const Duration(milliseconds: 300),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // ── 海报 (2:3 比例) ──
                     AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
+                      duration: const Duration(milliseconds: 300),
                       width: 190,
                       height: 285, // 2:3 ratio (190 * 1.5)
                       decoration: BoxDecoration(
@@ -1068,7 +1072,7 @@ class _TvMediaCard extends StatelessWidget {
                     Text(
                       item.name,
                       style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: 12.9,
                         fontWeight: FontWeight.w500,
                         color: AppColors.textPrimary,
                       ),
@@ -1084,7 +1088,7 @@ class _TvMediaCard extends StatelessWidget {
                         '${item.productionYear}',
                         style: const TextStyle(
                           fontFamily: 'DM Mono',
-                          fontSize: 12,
+                          fontSize: 10.5,
                           color: AppColors.textTertiary,
                         ),
                       ),
@@ -1141,7 +1145,7 @@ class _TvLibraryRow extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 56),
         itemCount: libraries.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 16),
+        separatorBuilder: (_, __) => const SizedBox(width: 18),
         itemBuilder: (context, index) {
           final lib = libraries[index];
           final itemCount = libraryItems[lib.id]?.length ?? 0;
@@ -1220,9 +1224,9 @@ class _TvLibraryCard extends StatelessWidget {
               },
               child: AnimatedScale(
                 scale: isFocused ? 1.05 : 1.0,
-                duration: const Duration(milliseconds: 200),
+                duration: const Duration(milliseconds: 300),
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
+                  duration: const Duration(milliseconds: 300),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16),
                     border: isFocused
@@ -1278,7 +1282,7 @@ class _TvLibraryCard extends StatelessWidget {
                         // ── 内容区域 ──
                         Positioned(
                           left: 20,
-                          bottom: 16,
+                          bottom: 20,
                           right: 20,
                           child: Row(
                             children: [
@@ -1294,7 +1298,7 @@ class _TvLibraryCard extends StatelessWidget {
                                 child: Icon(
                                   _getLibraryIcon(library.collectionType),
                                   color: AppColors.celestialCyan,
-                                  size: 22,
+                                  size: 28,
                                 ),
                               ),
 
@@ -1309,8 +1313,8 @@ class _TvLibraryCard extends StatelessWidget {
                                     Text(
                                       library.name,
                                       style: const TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w600,
+                                        fontSize: 16.1,
+                                        fontWeight: FontWeight.w700,
                                         color: AppColors.textPrimary,
                                       ),
                                       maxLines: 1,
@@ -1321,7 +1325,7 @@ class _TvLibraryCard extends StatelessWidget {
                                       '$itemCount 部内容',
                                       style: const TextStyle(
                                         fontFamily: 'DM Mono',
-                                        fontSize: 12,
+                                        fontSize: 10.5,
                                         color: AppColors.textTertiary,
                                       ),
                                     ),

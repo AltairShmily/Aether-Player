@@ -89,11 +89,11 @@ class _PhoneLibraryScreenState extends ConsumerState<PhoneLibraryScreen> {
         SliverPadding(
           padding: EdgeInsets.symmetric(horizontal: pad),
           sliver: SliverGrid(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 16 / 10,
+           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+             crossAxisCount: 2,
+              mainAxisSpacing: 14,
+              crossAxisSpacing: 14,
+             childAspectRatio: 16 / 10,
             ),
             delegate: SliverChildBuilderDelegate(
               (context, index) {
@@ -130,13 +130,9 @@ class _PhoneLibraryScreenState extends ConsumerState<PhoneLibraryScreen> {
         color = AppColors.celestialCyan;
     }
 
-    return GestureDetector(
+    return _HoverableLibCard(
       onTap: () {
-        // 通知父组件选中了这个库
-        // 如果在 PhoneLibraryScreen 内部点击，直接显示内容
         if (widget.selectedLibId == null) {
-          // 在 ShellScreen 中，需要通过回调更新状态
-          // 这里我们直接用 Navigator.push 显示内容
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => _LibraryContentPage(
@@ -151,7 +147,7 @@ class _PhoneLibraryScreenState extends ConsumerState<PhoneLibraryScreen> {
       },
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppColors.radiusMd),
+          borderRadius: BorderRadius.circular(AppColors.radiusLg),
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -167,7 +163,7 @@ class _PhoneLibraryScreenState extends ConsumerState<PhoneLibraryScreen> {
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(AppColors.radiusMd),
+                  borderRadius: BorderRadius.circular(AppColors.radiusLg),
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
@@ -175,25 +171,25 @@ class _PhoneLibraryScreenState extends ConsumerState<PhoneLibraryScreen> {
                       Colors.transparent,
                       AppColors.deepVoid.withValues(alpha: 0.6),
                     ],
-                    stops: const [0.35, 1.0],
+                    stops: const [0.3, 1.0],
                   ),
                 ),
               ),
             ),
             // 内容
             Padding(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(18),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.end,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(icon, color: color, size: 22),
+                  Icon(icon, color: color.withValues(alpha: 0.8), size: 26),
                   const SizedBox(height: 4),
                   Text(
                     lib.name,
                     style: const TextStyle(
                       color: AppColors.textPrimary,
-                      fontSize: 14,
+                      fontSize: 16.1,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -201,7 +197,7 @@ class _PhoneLibraryScreenState extends ConsumerState<PhoneLibraryScreen> {
                   Text(
                     '点击查看',
                     style: const TextStyle(
-                      color: AppColors.textTertiary,
+                      color: AppColors.textSecondary,
                       fontSize: 11,
                       fontFamily: 'DM Mono',
                     ),
@@ -581,6 +577,70 @@ class _LibraryContentPage extends StatelessWidget {
                 : Icons.play_circle_outline,
         size: 28,
         color: AppColors.cosmicGray,
+      ),
+    );
+  }
+}
+
+/// 可悬浮的库卡片 — 添加 MouseRegion hover 动画 (translateY -4, scale 1.02)
+class _HoverableLibCard extends StatefulWidget {
+  final VoidCallback onTap;
+  final Widget child;
+
+  const _HoverableLibCard({required this.onTap, required this.child});
+
+  @override
+  State<_HoverableLibCard> createState() => _HoverableLibCardState();
+}
+
+class _HoverableLibCardState extends State<_HoverableLibCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _scaleAnim;
+  late final Animation<double> _translateAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _scaleAnim = Tween<double>(begin: 1.0, end: 1.02).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeOut),
+    );
+    _translateAnim = Tween<double>(begin: 0.0, end: -4.0).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => _ctrl.forward(),
+      onExit: (_) => _ctrl.reverse(),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedBuilder(
+          animation: _ctrl,
+          builder: (context, child) {
+            return Transform.translate(
+              offset: Offset(0, _translateAnim.value),
+              child: Transform.scale(
+                scale: _scaleAnim.value,
+                child: child,
+              ),
+            );
+          },
+          child: widget.child,
+        ),
       ),
     );
   }

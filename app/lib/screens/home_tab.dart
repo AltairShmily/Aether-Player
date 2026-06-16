@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../i18n/strings.g.dart';
 import '../providers/auth_provider.dart';
 import '../providers/home_provider.dart';
+import '../services/api_client.dart';
 import '../models/media_models.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_breakpoints.dart';
@@ -28,6 +29,7 @@ class HomeTab extends ConsumerStatefulWidget {
 class _HomeTabState extends ConsumerState<HomeTab> {
   String? _serverUrl;
   final PageController _heroController = PageController(viewportFraction: 0.92);
+  int _currentPage = 0;
 
   @override
   void initState() {
@@ -58,7 +60,39 @@ class _HomeTabState extends ConsumerState<HomeTab> {
     final token = authState.authResult?.token;
     final pad = AetherBreakpoints.pagePadding(context);
 
-    return CustomScrollView(
+    return Stack(
+      children: [
+        // ── 双层径向渐变光晕背景 ──
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: const Alignment(-0.6, -0.4),
+                radius: 0.8,
+                colors: [
+                  AppColors.celestialCyan.withValues(alpha: 0.04),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        ),
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: const Alignment(0.7, 0.3),
+                radius: 0.9,
+                colors: [
+                  AppColors.novaPurple.withValues(alpha: 0.03),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        ),
+        // ── 主内容 ──
+        CustomScrollView(
       slivers: [
         // ── App Bar ──
         SliverAppBar(
@@ -133,40 +167,69 @@ class _HomeTabState extends ConsumerState<HomeTab> {
         // ── Hero Banner (Resume 首项) ──
         if (homeState.resumeItems.isNotEmpty)
           SliverToBoxAdapter(
-            child: SizedBox(
-              height: AetherBreakpoints.heroHeight(context),
-              child: PageView.builder(
-                controller: _heroController,
-                itemCount: homeState.resumeItems.length.clamp(0, 5),
-                itemBuilder: (context, index) {
-                  final item = homeState.resumeItems[index];
-                  final imageUrl =
-                      'http://localhost:19800/api/images/${item.id}/Backdrop?maxWidth=800';
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: AetherHero.carousel(
-                      imageUrl: imageUrl,
-                      title: item.isEpisode ? item.seriesName : item.name,
-                      subtitle: item.isEpisode
-                          ? '${item.episodeLabel} · ${item.overview}'
-                          : item.overview,
-                      tags: [
-                        if (item.isEpisode) '剧集',
-                        if (item.isMovie) '电影',
-                        if (item.productionYear > 0) '${item.productionYear}',
-                      ],
-                      rating: item.communityRating,
-                      primaryAction: AetherButton.primary(
-                        label: '继续播放',
-                        icon: Icons.play_arrow_rounded,
-                        compact: true,
-                        onPressed: () => _navigateToItem(context, item),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  height: AetherBreakpoints.heroHeight(context),
+                  child: PageView.builder(
+                    controller: _heroController,
+                    itemCount: homeState.resumeItems.length.clamp(0, 5),
+                    onPageChanged: (index) => setState(() => _currentPage = index),
+                    itemBuilder: (context, index) {
+                      final item = homeState.resumeItems[index];
+                      final imageUrl =
+                          '${ApiClient.proxyBaseUrl}/api/images/${item.id}/Backdrop?maxWidth=800';
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        child: AetherHero.carousel(
+                          imageUrl: imageUrl,
+                          title: item.isEpisode ? item.seriesName : item.name,
+                          subtitle: item.isEpisode
+                              ? '${item.episodeLabel} · ${item.overview}'
+                              : item.overview,
+                          tags: [
+                            if (item.isEpisode) '剧集',
+                            if (item.isMovie) '电影',
+                            if (item.productionYear > 0) '${item.productionYear}',
+                          ],
+                          rating: item.communityRating,
+                          primaryAction: AetherButton.primary(
+                            label: '继续播放',
+                            icon: Icons.play_arrow_rounded,
+                            compact: true,
+                            onPressed: () => _navigateToItem(context, item),
+                          ),
+                          onTap: () => _navigateToItem(context, item),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                // ── Carousel dot indicators ──
+                if (homeState.resumeItems.length > 1)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(
+                        homeState.resumeItems.length.clamp(0, 5),
+                        (index) => AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          margin: const EdgeInsets.symmetric(horizontal: 3),
+                          width: _currentPage == index ? 16 : 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: _currentPage == index
+                                ? AppColors.celestialCyan
+                                : AppColors.textTertiary.withValues(alpha: 0.4),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
                       ),
-                      onTap: () => _navigateToItem(context, item),
                     ),
-                  );
-                },
-              ),
+                  ),
+              ],
             ),
           ),
 
@@ -212,6 +275,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
               items: homeState.resumeItems,
               serverUrl: _serverUrl,
               token: token,
+              titleIcon: Icons.play_circle_outline,
             ),
           ),
 
@@ -235,6 +299,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                 items: homeState.libraryItems[lib.id]!,
                 serverUrl: _serverUrl,
                 token: token,
+                titleIcon: _iconForType(lib.collectionType),
               ),
             ),
         ],
@@ -296,6 +361,9 @@ class _HomeTabState extends ConsumerState<HomeTab> {
           ),
         ),
       ],
+    ),
+        ],
+      ),
     );
   }
 
@@ -341,6 +409,20 @@ class _HomeTabState extends ConsumerState<HomeTab> {
       ),
     );
   }
+
+  IconData _iconForType(String type) {
+    switch (type) {
+      case 'movies':
+        return Icons.movie_creation;
+      case 'tvshows':
+        return Icons.tv;
+      case 'music':
+        return Icons.music_note;
+      default:
+        return Icons.video_library;
+    }
+  }
+  }
 }
 
 // ══════════════════════════════════════════════════
@@ -351,12 +433,14 @@ class _SectionRow extends StatefulWidget {
   final List<MediaItem> items;
   final String? serverUrl;
   final String? token;
+  final IconData? titleIcon;
 
   const _SectionRow({
     required this.title,
     required this.items,
     this.serverUrl,
     this.token,
+    this.titleIcon,
   });
 
   @override
@@ -385,20 +469,17 @@ class _SectionRowState extends State<_SectionRow> {
           padding: EdgeInsets.fromLTRB(pad, 28, pad, 14),
           child: Row(
             children: [
-              Container(
-                width: 3,
-                height: 14,
-                decoration: BoxDecoration(
-                  gradient: AppColors.accentGradient,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+              Icon(
+                widget.titleIcon ?? Icons.local_movies,
+                size: 20,
+                color: AppColors.celestialCyan,
               ),
               const SizedBox(width: 10),
               Text(
                 widget.title,
                 style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary,
                   letterSpacing: -0.2,
                 ),
@@ -463,12 +544,10 @@ class _HomeItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cardW = height * 0.68;
     final imageUrl =
-        'http://localhost:19800/api/images/${item.id}/Primary?maxWidth=300';
-
+        '${ApiClient.proxyBaseUrl}/api/images/${item.id}/Primary?maxWidth=300';
     return SizedBox(
-      width: cardW,
+      width: 152,
       child: AetherCard.simple(
         onTap: () {
           Widget dest;
@@ -488,45 +567,48 @@ class _HomeItemCard extends StatelessWidget {
             Expanded(
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(16),
+                  top: Radius.circular(12),
                 ),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Container(
-                      color: AppColors.stardust,
-                      child: item.hasPrimaryImage
-                          ? Image.network(
-                              imageUrl,
-                              fit: BoxFit.cover,
-                              headers: {
-                                'Accept': 'image/*',
-                                'X-Emby-Server': serverUrl ?? '',
-                                'X-Emby-Token': token ?? '',
-                              },
-                              errorBuilder: (_, __, ___) => _placeholder(),
-                            )
-                          : _placeholder(),
-                    ),
-                    // 进度条
-                    if (item.userData != null &&
-                        item.userData!.progressPercent > 0)
-                      Positioned(
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        child: AetherProgress.mini(
-                          value: item.userData!.progressPercent,
+                child: AspectRatio(
+                  aspectRatio: 2 / 3,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Container(
+                        color: AppColors.stardust,
+                        child: item.hasPrimaryImage
+                            ? Image.network(
+                                imageUrl,
+                                fit: BoxFit.cover,
+                                headers: {
+                                  'Accept': 'image/*',
+                                  'X-Emby-Server': serverUrl ?? '',
+                                  'X-Emby-Token': token ?? '',
+                                },
+                                errorBuilder: (_, __, ___) => _placeholder(),
+                              )
+                            : _placeholder(),
+                      ),
+                      // 进度条
+                      if (item.userData != null &&
+                          item.userData!.progressPercent > 0)
+                        Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          child: AetherProgress.mini(
+                            value: item.userData!.progressPercent,
+                          ),
                         ),
-                      ),
-                    // 评分角标
-                    if (item.communityRating > 0)
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: AetherBadge.rating(score: item.communityRating),
-                      ),
-                  ],
+                      // 评分角标
+                      if (item.communityRating > 0)
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: AetherBadge.rating(score: item.communityRating),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -623,20 +705,17 @@ class _LibraryRowState extends State<_LibraryRow> {
           padding: EdgeInsets.fromLTRB(pad, 28, pad, 14),
           child: Row(
             children: [
-              Container(
-                width: 3,
-                height: 14,
-                decoration: BoxDecoration(
-                  gradient: AppColors.accentGradient,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+              const Icon(
+                Icons.video_library,
+                size: 20,
+                color: AppColors.celestialCyan,
               ),
               const SizedBox(width: 10),
               const Text(
                 '媒体库',
                 style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary,
                   letterSpacing: -0.2,
                 ),
@@ -763,7 +842,7 @@ class _SeeAllButtonState extends State<_SeeAllButton> {
         child: Text(
           '查看全部 →',
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 10.9,
             color: _isHovered ? AppColors.celestialCyan : AppColors.textTertiary,
             fontWeight: FontWeight.w500,
           ),

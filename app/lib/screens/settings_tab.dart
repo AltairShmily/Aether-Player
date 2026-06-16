@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../i18n/strings.g.dart';
 import '../providers/auth_provider.dart';
+import '../providers/saved_servers_provider.dart';
 import '../providers/locale_provider.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_breakpoints.dart';
@@ -22,7 +23,11 @@ class SettingsTab extends ConsumerWidget {
     final pad = AetherBreakpoints.pagePadding(context);
     final serverName = authState.authResult?.server.serverName ?? '';
     final userName = authState.authResult?.user.name ?? '';
-    final serverUrl = '';
+    final savedServers = ref.watch(savedServersProvider);
+    final serverUrl = savedServers
+        .where((s) => s.userId == authState.authResult?.user.id)
+        .map((s) => s.serverUrl)
+        .firstOrNull ?? '';
 
     return CustomScrollView(
       slivers: [

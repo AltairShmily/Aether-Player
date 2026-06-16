@@ -15,7 +15,7 @@ class SettingsModal extends StatefulWidget {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Settings',
-      barrierColor: Colors.black54,
+      barrierColor: Colors.black.withAlpha(153),
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (context, animation, secondaryAnimation) {
         return const SettingsModal();
@@ -23,7 +23,7 @@ class SettingsModal extends StatefulWidget {
       transitionBuilder: (context, animation, secondaryAnimation, child) {
         final curvedAnimation = CurvedAnimation(
           parent: animation,
-          curve: Curves.easeOutCubic,
+          curve: Curves.elasticOut,
         );
         return BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
@@ -229,7 +229,7 @@ class _SettingsModalState extends State<SettingsModal> {
           const Text(
             '设置',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 16.1,
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
             ),
@@ -279,9 +279,9 @@ class _SettingsGroup extends StatelessWidget {
         Text(
           title.toUpperCase(),
           style: const TextStyle(
-            fontSize: 11,
+            fontSize: 10.5,
             fontWeight: FontWeight.w600,
-            letterSpacing: 1.2,
+            letterSpacing: 0.63,
             color: AppColors.celestialCyan,
           ),
         ),
@@ -327,7 +327,7 @@ class _SettingsRow extends StatelessWidget {
                 Text(
                   label,
                   style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: 12.6,
                     fontWeight: FontWeight.w400,
                     color: AppColors.textPrimary,
                   ),
@@ -337,7 +337,7 @@ class _SettingsRow extends StatelessWidget {
                   Text(
                     description!,
                     style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 10.5,
                       color: AppColors.textTertiary,
                     ),
                   ),
@@ -377,7 +377,7 @@ class _AetherToggle extends StatelessWidget {
     return GestureDetector(
       onTap: () => onChanged(!value),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
+        duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
         width: 44,
         height: 24,
@@ -391,12 +391,12 @@ class _AetherToggle extends StatelessWidget {
           ),
         ),
         child: AnimatedAlign(
-          duration: const Duration(milliseconds: 250),
+          duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
           alignment: value ? Alignment.centerRight : Alignment.centerLeft,
           child: Container(
-            width: 18,
-            height: 18,
+            width: 16,
+            height: 16,
             margin: const EdgeInsets.symmetric(horizontal: 3),
             decoration: BoxDecoration(
               color: value ? AppColors.deepVoid : AppColors.textTertiary,

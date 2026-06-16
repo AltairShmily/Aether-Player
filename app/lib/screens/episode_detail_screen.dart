@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_colors.dart';
+import '../widgets/meta_chip.dart';
 import '../theme/app_breakpoints.dart';
 import '../widgets/diamond_badge.dart';
 import '../widgets/pill_button.dart';
@@ -9,6 +10,8 @@ import '../widgets/track_selector.dart';
 import '../widgets/aether_dropdown.dart';
 import '../models/media_models.dart';
 import '../providers/auth_provider.dart';
+import '../services/api_client.dart';
+import 'player_page.dart';
 
 /// Episode Detail Page — shown when viewing a specific episode.
 ///
@@ -35,6 +38,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
   bool _overviewExpanded = false;
   String _embyServerUrl = '';
 
+  int _selectedSourceIndex = 0;
   int _selectedAudioIndex = 0;
   int _selectedSubtitleIndex = 0;
 
@@ -107,15 +111,37 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
     return '${(bytes / 1024 / 1024 / 1024).toStringAsFixed(2)} GB';
   }
 
+  // ── Launch player with selected track indices ─────────────────────────
+
+  void _launchPlayer() {
+    final progress = _item.userData?.progressPercent ?? 0;
+    final startAtMs = progress > 0 && _item.userData != null
+        ? _item.userData!.playbackPositionTicks ~/ 10000
+        : 0;
+
+    // Pass selected audio/subtitle track indices to the player.
+    // PlayerController.selectAudioTrack / selectSubtitleTrack are called
+    // after the stream is loaded so the engine can apply the selection.
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => PlayerPage(
+        itemId: _item.id,
+        title: _item.name,
+        startAtMs: startAtMs,
+        audioTrackIndex: _selectedAudioIndex,
+        subtitleTrackIndex: _selectedSubtitleIndex,
+      ),
+    ));
+  }
+
   // ── Build ─────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final token = ref.read(authProvider).authResult?.token;
-    const serverUrl = 'http://localhost:19800';
+    const serverUrl = ApiClient.proxyBaseUrl;
 
     return Scaffold(
-      backgroundColor: AppColors.episodeBg,
+      backgroundColor: AppColors.bgPrimary,
       body: LayoutBuilder(
         builder: (context, constraints) {
           final isDesktop = AetherBreakpoints.isDesktop(context);
@@ -172,6 +198,8 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
             ],
           ),
         ),
+
+        const SizedBox(width: 32),
 
         // ── Right column: sticky control panel ──────────────────────────
         SizedBox(
@@ -274,7 +302,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
     return SliverAppBar(
       expandedHeight: 320,
       pinned: true,
-      backgroundColor: AppColors.episodeBg,
+      backgroundColor: AppColors.bgPrimary,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_rounded,
             color: AppColors.textPrimary),
@@ -310,7 +338,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
                   colors: [
                     Colors.transparent,
                     Color(0x88000000),
-                    AppColors.episodeBg,
+                    AppColors.bgPrimary,
                   ],
                   stops: [0.3, 0.7, 1.0],
                 ),
@@ -382,7 +410,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
               Center(
                 child: _HoverPlayButton(
                   onPressed: () {
-                    // TODO: launch player
+                    _launchPlayer();
                   },
                 ),
               ),
@@ -423,7 +451,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
       children: [
         for (int i = 0; i < parts.length; i++) ...[
           if (i > 0) ...[
-            const SizedBox(width: 8),
+            const SizedBox(width: 7),
             const Text(
               '·',
               style: TextStyle(
@@ -432,7 +460,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 7),
           ],
           Text(
             parts[i],
@@ -440,7 +468,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
               color: (i == parts.length - 1 && parts.length > 1)
                   ? AppColors.celestialCyan
                   : AppColors.textTertiary,
-              fontSize: 13,
+              fontSize: 10.9,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -451,7 +479,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
 
   Widget _fallbackImage() {
     return Container(
-      color: AppColors.episodeBg,
+      color: AppColors.bgPrimary,
       child: const Center(
         child: Icon(Icons.movie_outlined,
             size: 64, color: AppColors.textSecondary),
@@ -470,7 +498,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
           _item.name,
           style: const TextStyle(
             color: AppColors.textPrimary,
-            fontSize: 26,
+            fontSize: 19.6,
             fontWeight: FontWeight.bold,
             height: 1.2,
           ),
@@ -498,20 +526,42 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
     final chips = <Widget>[];
 
     if (_item.productionYear > 0) {
-      chips.add(_MetaChip(label: '${_item.productionYear}'));
+      chips.add(MetaChip(
+        label: '${_item.productionYear}',
+        backgroundColor: AppColors.chipBg,
+        border: const BorderSide(color: AppColors.borderSubtle, width: 0.5),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        textStyle: const TextStyle(color: AppColors.textPrimary, fontSize: 12, fontWeight: FontWeight.w500),
+      ));
     }
     if (_item.communityRating > 0) {
-      chips.add(_MetaChip(
+      chips.add(MetaChip(
         label: _item.communityRating.toStringAsFixed(1),
         icon: Icons.star_rounded,
         iconColor: AppColors.playGold,
+        backgroundColor: AppColors.chipBg,
+        border: const BorderSide(color: AppColors.borderSubtle, width: 0.5),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        textStyle: const TextStyle(color: AppColors.textPrimary, fontSize: 12, fontWeight: FontWeight.w500),
       ));
     }
     if (_item.officialRating.isNotEmpty) {
-      chips.add(_MetaChip(label: _item.officialRating));
+      chips.add(MetaChip(
+        label: _item.officialRating,
+        backgroundColor: AppColors.chipBg,
+        border: const BorderSide(color: AppColors.borderSubtle, width: 0.5),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        textStyle: const TextStyle(color: AppColors.textPrimary, fontSize: 12, fontWeight: FontWeight.w500),
+      ));
     }
     if (_item.durationText.isNotEmpty) {
-      chips.add(_MetaChip(label: _item.durationText));
+      chips.add(MetaChip(
+        label: _item.durationText,
+        backgroundColor: AppColors.chipBg,
+        border: const BorderSide(color: AppColors.borderSubtle, width: 0.5),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        textStyle: const TextStyle(color: AppColors.textPrimary, fontSize: 12, fontWeight: FontWeight.w500),
+      ));
     }
 
     if (chips.isEmpty) return const SizedBox.shrink();
@@ -532,10 +582,10 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
     return PillButton(
       icon: Icons.play_arrow_rounded,
       label: playLabel,
-      backgroundColor: AppColors.playGold,
+      backgroundColor: AppColors.auroraGreen,
       textColor: AppColors.textPrimary,
       onPressed: () {
-        // TODO: launch player
+        _launchPlayer();
       },
       onMenuPressed: () => _showMoreOptions(),
     );
@@ -546,7 +596,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
   Widget _buildSeriesCard() {
     if (_item.seriesName.isEmpty) return const SizedBox.shrink();
 
-    const serverUrl = 'http://localhost:19800';
+    const serverUrl = ApiClient.proxyBaseUrl;
     final token = ref.read(authProvider).authResult?.token;
 
     return Container(
@@ -659,8 +709,8 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
             displayText,
             style: const TextStyle(
               color: AppColors.textWarmGray,
-              fontSize: 14,
-              height: 1.65,
+              fontSize: 11.9,
+              height: 1.8,
             ),
           ),
           if (needsTruncation)
@@ -720,7 +770,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
                 final person = _allPeople[index];
                 return _CastCard(
                   person: person,
-                  serverUrl: 'http://localhost:19800',
+                  serverUrl: ApiClient.proxyBaseUrl,
                   token:
                       ref.read(authProvider).authResult?.token,
                   embyServerUrl: _embyServerUrl,
@@ -750,7 +800,6 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
               subtitle: s.container.isNotEmpty ? s.container.toUpperCase() : null,
             ))
         .toList();
-    final selectedSourceIndex = sources.isEmpty ? 0 : 0;
 
     // 构建音频选项
     final audioOptions = _audioStreams
@@ -782,8 +831,8 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
             AetherDropdown(
               label: '媒体源',
               options: sourceOptions,
-              selectedIndex: selectedSourceIndex,
-              onChanged: (i) {},
+              selectedIndex: _selectedSourceIndex,
+              onChanged: (i) => setState(() => _selectedSourceIndex = i),
             ),
           const SizedBox(height: 18),
 
@@ -819,7 +868,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
                 borderRadius: BorderRadius.circular(AppColors.radiusMd),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.celestialCyan.withValues(alpha: 0.25),
+                    color: AppColors.celestialCyan.withValues(alpha: 0.3),
                     blurRadius: 20,
                     offset: const Offset(0, 4),
                   ),
@@ -830,7 +879,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
                 child: InkWell(
                   borderRadius: BorderRadius.circular(AppColors.radiusMd),
                   onTap: () {
-                    // TODO: launch player
+                    _launchPlayer();
                   },
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -841,7 +890,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
                         '播放',
                         style: TextStyle(
                           color: AppColors.deepVoid,
-                          fontSize: 15,
+                          fontSize: 12.9,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -880,7 +929,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
                   : Icons.play_circle_rounded,
               size: 24,
               color: userData.played
-                  ? Colors.green.shade400
+                  ? AppColors.auroraGreen
                   : AppColors.playGold,
             ),
             const SizedBox(width: 12),
@@ -929,7 +978,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
   void _showMoreOptions() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.episodeBg,
+      backgroundColor: AppColors.bgPrimary,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -981,7 +1030,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: AppColors.episodeBg,
+          backgroundColor: AppColors.bgPrimary,
           title: const Text(
             '媒体详情',
             style: TextStyle(color: AppColors.textPrimary),
@@ -1110,42 +1159,7 @@ class _HoverPlayButtonState extends State<_HoverPlayButton> {
 }
 
 /// Small meta chip (year, rating, duration, etc.)
-class _MetaChip extends StatelessWidget {
-  final String label;
-  final IconData? icon;
-  final Color? iconColor;
 
-  const _MetaChip({required this.label, this.icon, this.iconColor});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppColors.chipBg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.borderSubtle, width: 0.5),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 14, color: iconColor ?? AppColors.textPrimary),
-            const SizedBox(width: 4),
-          ],
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 /// Cast / crew avatar card for horizontal scrolling list
 class _CastCard extends StatelessWidget {

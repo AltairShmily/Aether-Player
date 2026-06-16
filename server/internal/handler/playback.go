@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"aether-server/internal/emby"
@@ -17,6 +18,11 @@ func NewPlaybackHandler(client *emby.Client) *PlaybackHandler {
 
 // HandleGetPlaybackInfo proxies POST /Items/{Id}/PlaybackInfo to Emby
 func (h *PlaybackHandler) HandleGetPlaybackInfo(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	serverURL := r.Header.Get("X-Emby-Server")
 	token := r.Header.Get("X-Emby-Token")
 	userID := r.Header.Get("X-Emby-User")
@@ -38,16 +44,24 @@ func (h *PlaybackHandler) HandleGetPlaybackInfo(w http.ResponseWriter, r *http.R
 
 	result, err := h.EmbyClient.GetPlaybackInfo(serverURL, token, userID, itemID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		log.Printf("PlaybackInfo error: %v", err)
+		http.Error(w, "Failed to get playback info", http.StatusBadGateway)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		log.Printf("JSON encode error: %v", err)
+	}
 }
 
 // HandleGetVideoStreamURL returns the direct play / transcode URL
 func (h *PlaybackHandler) HandleGetVideoStreamURL(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	serverURL := r.Header.Get("X-Emby-Server")
 	token := r.Header.Get("X-Emby-Token")
 
@@ -74,20 +88,25 @@ func (h *PlaybackHandler) HandleGetVideoStreamURL(w http.ResponseWriter, r *http
 	streamURL := h.EmbyClient.GetVideoStreamURL(serverURL, token, itemID, container)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"streamUrl": streamURL,
-	})
+	if err := json.NewEncoder(w).Encode(map[string]string{"streamUrl": streamURL}); err != nil {
+		log.Printf("JSON encode error: %v", err)
+	}
 }
 
 // HandleReportPlaybackStarted reports playback started to Emby
 func (h *PlaybackHandler) HandleReportPlaybackStarted(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	serverURL := r.Header.Get("X-Emby-Server")
 	token := r.Header.Get("X-Emby-Token")
 
 	var req struct {
-		ItemId         string `json:"itemId"`
-		MediaSourceId  string `json:"mediaSourceId"`
-		PlaySessionId  string `json:"playSessionId"`
+		ItemId        string `json:"itemId"`
+		MediaSourceId string `json:"mediaSourceId"`
+		PlaySessionId string `json:"playSessionId"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -101,7 +120,8 @@ func (h *PlaybackHandler) HandleReportPlaybackStarted(w http.ResponseWriter, r *
 
 	err := h.EmbyClient.ReportPlaybackStarted(serverURL, token, req.ItemId, req.MediaSourceId, req.PlaySessionId)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		log.Printf("Playback started error: %v", err)
+		http.Error(w, "Failed to report playback", http.StatusBadGateway)
 		return
 	}
 
@@ -110,15 +130,20 @@ func (h *PlaybackHandler) HandleReportPlaybackStarted(w http.ResponseWriter, r *
 
 // HandleReportPlaybackProgress reports playback progress to Emby
 func (h *PlaybackHandler) HandleReportPlaybackProgress(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	serverURL := r.Header.Get("X-Emby-Server")
 	token := r.Header.Get("X-Emby-Token")
 
 	var req struct {
-		ItemId         string `json:"itemId"`
-		MediaSourceId  string `json:"mediaSourceId"`
-		PlaySessionId  string `json:"playSessionId"`
-		PositionTicks  int64  `json:"positionTicks"`
-		IsPaused       bool   `json:"isPaused"`
+		ItemId        string `json:"itemId"`
+		MediaSourceId string `json:"mediaSourceId"`
+		PlaySessionId string `json:"playSessionId"`
+		PositionTicks int64  `json:"positionTicks"`
+		IsPaused      bool   `json:"isPaused"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -132,7 +157,8 @@ func (h *PlaybackHandler) HandleReportPlaybackProgress(w http.ResponseWriter, r 
 
 	err := h.EmbyClient.ReportPlaybackProgress(serverURL, token, req.ItemId, req.MediaSourceId, req.PlaySessionId, req.PositionTicks, req.IsPaused)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		log.Printf("Playback progress error: %v", err)
+		http.Error(w, "Failed to report playback", http.StatusBadGateway)
 		return
 	}
 
@@ -141,14 +167,19 @@ func (h *PlaybackHandler) HandleReportPlaybackProgress(w http.ResponseWriter, r 
 
 // HandleReportPlaybackStopped reports playback stopped to Emby
 func (h *PlaybackHandler) HandleReportPlaybackStopped(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	serverURL := r.Header.Get("X-Emby-Server")
 	token := r.Header.Get("X-Emby-Token")
 
 	var req struct {
-		ItemId         string `json:"itemId"`
-		MediaSourceId  string `json:"mediaSourceId"`
-		PlaySessionId  string `json:"playSessionId"`
-		PositionTicks  int64  `json:"positionTicks"`
+		ItemId        string `json:"itemId"`
+		MediaSourceId string `json:"mediaSourceId"`
+		PlaySessionId string `json:"playSessionId"`
+		PositionTicks int64  `json:"positionTicks"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -162,7 +193,8 @@ func (h *PlaybackHandler) HandleReportPlaybackStopped(w http.ResponseWriter, r *
 
 	err := h.EmbyClient.ReportPlaybackStopped(serverURL, token, req.ItemId, req.MediaSourceId, req.PlaySessionId, req.PositionTicks)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		log.Printf("Playback stopped error: %v", err)
+		http.Error(w, "Failed to report playback", http.StatusBadGateway)
 		return
 	}
 

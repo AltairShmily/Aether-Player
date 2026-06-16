@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -29,12 +30,15 @@ func (h *LibraryHandler) HandleGetUserViews(w http.ResponseWriter, r *http.Reque
 
 	result, err := h.EmbyClient.GetUserViews(serverURL, token, userID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		log.Printf("GetUserViews error: %v", err)
+		http.Error(w, "Failed to get user views", http.StatusBadGateway)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		log.Printf("JSON encode error: %v", err)
+	}
 }
 
 func (h *LibraryHandler) HandleGetItems(w http.ResponseWriter, r *http.Request) {
@@ -75,12 +79,15 @@ func (h *LibraryHandler) HandleGetItems(w http.ResponseWriter, r *http.Request) 
 
 	result, err := h.EmbyClient.GetItems(serverURL, token, params)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		log.Printf("GetItems error: %v", err)
+		http.Error(w, "Failed to get items", http.StatusBadGateway)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		log.Printf("JSON encode error: %v", err)
+	}
 }
 
 func (h *LibraryHandler) HandleGetItemDetail(w http.ResponseWriter, r *http.Request) {
@@ -96,12 +103,15 @@ func (h *LibraryHandler) HandleGetItemDetail(w http.ResponseWriter, r *http.Requ
 
 	item, err := h.EmbyClient.GetItemDetail(serverURL, token, userID, itemID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		log.Printf("GetItemDetail error: %v", err)
+		http.Error(w, "Failed to get item detail", http.StatusBadGateway)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(item)
+	if err := json.NewEncoder(w).Encode(item); err != nil {
+		log.Printf("JSON encode error: %v", err)
+	}
 }
 
 func (h *LibraryHandler) HandleGetItemImage(w http.ResponseWriter, r *http.Request) {
@@ -121,7 +131,8 @@ func (h *LibraryHandler) HandleGetItemImage(w http.ResponseWriter, r *http.Reque
 
 	body, contentType, err := h.EmbyClient.GetItemImage(serverURL, token, itemID, imageType, maxWidth)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		log.Printf("GetItemImage error: %v", err)
+		http.Error(w, "Failed to get image", http.StatusBadGateway)
 		return
 	}
 	defer body.Close()
@@ -148,12 +159,15 @@ func (h *LibraryHandler) HandleGetResumeItems(w http.ResponseWriter, r *http.Req
 
 	result, err := h.EmbyClient.GetResumeItems(serverURL, token, userID, limit)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		log.Printf("GetResumeItems error: %v", err)
+		http.Error(w, "Failed to get resume items", http.StatusBadGateway)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		log.Printf("JSON encode error: %v", err)
+	}
 }
 
 func (h *LibraryHandler) HandleGetSeasons(w http.ResponseWriter, r *http.Request) {
@@ -169,12 +183,15 @@ func (h *LibraryHandler) HandleGetSeasons(w http.ResponseWriter, r *http.Request
 
 	result, err := h.EmbyClient.GetSeasons(serverURL, token, userID, seriesID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		log.Printf("GetSeasons error: %v", err)
+		http.Error(w, "Failed to get seasons", http.StatusBadGateway)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		log.Printf("JSON encode error: %v", err)
+	}
 }
 
 func (h *LibraryHandler) HandleGetEpisodes(w http.ResponseWriter, r *http.Request) {
@@ -195,12 +212,15 @@ func (h *LibraryHandler) HandleGetEpisodes(w http.ResponseWriter, r *http.Reques
 
 	result, err := h.EmbyClient.GetEpisodes(serverURL, token, seriesID, seasonID, limit)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		log.Printf("GetEpisodes error: %v", err)
+		http.Error(w, "Failed to get episodes", http.StatusBadGateway)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		log.Printf("JSON encode error: %v", err)
+	}
 }
 
 func (h *LibraryHandler) HandleSearch(w http.ResponseWriter, r *http.Request) {
@@ -222,12 +242,15 @@ func (h *LibraryHandler) HandleSearch(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.EmbyClient.Search(serverURL, token, userID, term, limit)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		log.Printf("Search error: %v", err)
+		http.Error(w, "Failed to search", http.StatusBadGateway)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		log.Printf("JSON encode error: %v", err)
+	}
 }
 
 func splitImagePath(path string) []string {

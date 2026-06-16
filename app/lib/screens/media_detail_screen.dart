@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../screens/player_page.dart';
 import '../models/media_models.dart';
 import '../providers/auth_provider.dart';
+import '../services/api_client.dart';
+import '../theme/app_colors.dart';
+import '../utils/episode_utils.dart';
+import '../widgets/meta_chip.dart';
 
 class MediaDetailScreen extends ConsumerStatefulWidget {
   final MediaItem item;
@@ -22,7 +26,7 @@ class _MediaDetailScreenState extends ConsumerState<MediaDetailScreen> {
   bool _loadingSeasons = false;
   bool _loadingEpisodes = false;
 
-  static const _proxyUrl = 'http://localhost:19800';
+  static final _proxyUrl = ApiClient.proxyBaseUrl;
   String? _serverUrl;
 
   @override
@@ -108,7 +112,7 @@ class _MediaDetailScreenState extends ConsumerState<MediaDetailScreen> {
             seasonId: seasonId,
           );
       if (mounted) {
-        final merged = _mergeEpisodes(result.items);
+        final merged = mergeEpisodes(result.items);
         setState(() {
           _episodes = merged;
           _loadingEpisodes = false;
@@ -121,29 +125,7 @@ class _MediaDetailScreenState extends ConsumerState<MediaDetailScreen> {
 
   // ── Version merging ──────────────────────────────────────────────
 
-  /// Merge episodes with the same IndexNumber (episode number) into a single
-  /// MergedEpisode with multiple versions.
-  List<MergedEpisode> _mergeEpisodes(List<MediaItem> raw) {
-    final Map<int, List<MediaItem>> grouped = {};
-    for (final ep in raw) {
-      final key = ep.indexNumber > 0 ? ep.indexNumber : raw.indexOf(ep);
-      grouped.putIfAbsent(key, () => []).add(ep);
-    }
 
-    final keys = grouped.keys.toList()..sort();
-    return keys.map((key) {
-      final items = grouped[key]!;
-      // Pick the primary version: prefer the one with an image, then the first
-      final primary = items.firstWhere(
-        (e) => e.hasPrimaryImage,
-        orElse: () => items.first,
-      );
-      final versions = items.map((e) =>
-        EpisodeVersion(id: e.id, name: e.name),
-      ).toList();
-      return MergedEpisode(primary: primary, versions: versions);
-    }).toList();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -215,16 +197,16 @@ class _MediaDetailScreenState extends ConsumerState<MediaDetailScreen> {
                     spacing: 12,
                     runSpacing: 8,
                     children: [
-                      if (item.productionYear > 0) _MetaChip(label: '${item.productionYear}'),
+                      if (item.productionYear > 0) MetaChip(label: '${item.productionYear}'),
                       if (item.communityRating > 0)
-                        _MetaChip(
+                        MetaChip(
                           label: item.communityRating.toStringAsFixed(1),
                           icon: Icons.star_rounded,
-                          iconColor: Colors.amber.shade600,
+                          iconColor: AppColors.supernova,
                         ),
-                      if (item.officialRating.isNotEmpty) _MetaChip(label: item.officialRating),
-                      if (item.durationText.isNotEmpty) _MetaChip(label: item.durationText),
-                      if (item.type.isNotEmpty) _MetaChip(label: _typeLabel(item.type)),
+                      if (item.officialRating.isNotEmpty) MetaChip(label: item.officialRating),
+                      if (item.durationText.isNotEmpty) MetaChip(label: item.durationText),
+                      if (item.type.isNotEmpty) MetaChip(label: _typeLabel(item.type)),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -258,8 +240,8 @@ class _MediaDetailScreenState extends ConsumerState<MediaDetailScreen> {
                             (item.userData?.progressPercent ?? 0) > 0 ? '继续播放' : '播放',
                           ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme.of(context).colorScheme.primary,
-                            foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                            backgroundColor: AppColors.celestialCyan,
+                            foregroundColor: AppColors.deepVoid,
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -293,7 +275,7 @@ class _MediaDetailScreenState extends ConsumerState<MediaDetailScreen> {
                     Text(
                       item.overview,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                        color: AppColors.textSecondary,
                         height: 1.6,
                       ),
                     ),
@@ -398,7 +380,7 @@ class _MediaDetailScreenState extends ConsumerState<MediaDetailScreen> {
                                     Text(
                                       item.episodeLabel,
                                       style: theme.textTheme.bodySmall?.copyWith(
-                                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                                        color: AppColors.textTertiary,
                                       ),
                                     ),
                                 ],
@@ -422,8 +404,8 @@ class _MediaDetailScreenState extends ConsumerState<MediaDetailScreen> {
                               item.userData!.played ? Icons.check_circle : Icons.play_circle,
                               size: 20,
                               color: item.userData!.played
-                                  ? Colors.green
-                                  : theme.colorScheme.primary,
+                                  ? AppColors.auroraGreen
+                                  : AppColors.celestialCyan,
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -439,7 +421,7 @@ class _MediaDetailScreenState extends ConsumerState<MediaDetailScreen> {
                                       padding: const EdgeInsets.only(top: 4),
                                       child: LinearProgressIndicator(
                                         value: item.userData!.progressPercent,
-                                        backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                                        backgroundColor: AppColors.stardust,
                                       ),
                                     ),
                                 ],
@@ -470,9 +452,9 @@ class _MediaDetailScreenState extends ConsumerState<MediaDetailScreen> {
 
   Widget _buildHeaderFallback(ThemeData theme) {
     return Container(
-      color: theme.colorScheme.surfaceContainerHighest,
+      color: AppColors.stardust,
       child: Center(
-        child: Icon(Icons.movie_outlined, size: 64, color: theme.colorScheme.onSurface.withValues(alpha: 0.2)),
+        child: Icon(Icons.movie_outlined, size: 64, color: AppColors.textTertiary),
       ),
     );
   }
@@ -531,12 +513,12 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                         fit: BoxFit.cover,
                         headers: {'Accept': 'image/*', 'X-Emby-Token': widget.token ?? '', 'X-Emby-Server': widget.serverUrl},
                         errorBuilder: (_, __, ___) => Container(
-                          color: theme.colorScheme.surfaceContainerHighest,
+                          color: AppColors.stardust,
                           child: const Center(child: Icon(Icons.play_circle_outline, size: 20)),
                         ),
                       )
                     : Container(
-                        color: theme.colorScheme.surfaceContainerHighest,
+                        color: AppColors.stardust,
                         child: const Center(child: Icon(Icons.play_circle_outline, size: 20)),
                       ),
               ),
@@ -553,7 +535,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      color: AppColors.textTertiary,
                     ),
                   )
                 : null,
@@ -563,18 +545,18 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                        color: AppColors.accentSoft,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.layers_outlined, size: 12, color: theme.colorScheme.primary),
+                          Icon(Icons.layers_outlined, size: 12, color: AppColors.celestialCyan),
                           const SizedBox(width: 4),
                           Text(
                             '${merged.versions.length}版本',
                             style: TextStyle(
-                              color: theme.colorScheme.primary,
+                              color: AppColors.celestialCyan,
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
                             ),
@@ -582,7 +564,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                           Icon(
                             _showVersions ? Icons.expand_less : Icons.expand_more,
                             size: 14,
-                            color: theme.colorScheme.primary,
+                            color: AppColors.celestialCyan,
                           ),
                         ],
                       ),
@@ -592,7 +574,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                     ? Text(
                         episode.durationText,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                          color: AppColors.textTertiary,
                         ),
                       )
                     : null),
@@ -604,9 +586,9 @@ class _EpisodeTileState extends State<_EpisodeTile> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest,
+                  color: AppColors.stardust,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.2)),
+                  border: Border.all(color: AppColors.accentMedium),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -614,7 +596,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                     Text(
                       '选择版本',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                        color: AppColors.textTertiary,
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -635,19 +617,19 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
-                                  : theme.colorScheme.surfaceContainerHighest,
+                                  ? AppColors.accentSoft
+                                  : AppColors.stardust,
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(
                                 color: isSelected
-                                    ? theme.colorScheme.primary
-                                    : theme.colorScheme.outline.withValues(alpha: 0.2),
+                                    ? AppColors.celestialCyan
+                                    : AppColors.borderSubtle,
                               ),
                             ),
                             child: Text(
                               v.name.isNotEmpty ? v.name : '版本 ${i + 1}',
                               style: TextStyle(
-                                color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                                color: isSelected ? AppColors.celestialCyan : AppColors.textSecondary,
                                 fontSize: 12,
                                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                               ),
@@ -666,35 +648,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
   }
 }
 
-class _MetaChip extends StatelessWidget {
-  final String label;
-  final IconData? icon;
-  final Color? iconColor;
 
-  const _MetaChip({required this.label, this.icon, this.iconColor});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 14, color: iconColor),
-            const SizedBox(width: 4),
-          ],
-          Text(label, style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
-        ],
-      ),
-    );
-  }
-}
 
 class _StreamSection extends StatelessWidget {
   final String title;
@@ -729,7 +683,7 @@ class _StreamSection extends StatelessWidget {
                       child: Text(
                         s.displayTitle,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                          color: AppColors.textSecondary,
                         ),
                       ),
                     )
@@ -738,7 +692,7 @@ class _StreamSection extends StatelessWidget {
                       Text(
                         s.codec.toUpperCase(),
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                          color: AppColors.textSecondary,
                         ),
                       ),
                     if (s.resolution.isNotEmpty) ...[
@@ -746,7 +700,7 @@ class _StreamSection extends StatelessWidget {
                       Text(
                         s.resolution,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                          color: AppColors.textTertiary,
                         ),
                       ),
                     ],
@@ -755,7 +709,7 @@ class _StreamSection extends StatelessWidget {
                       Text(
                         s.language,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                          color: AppColors.textTertiary,
                         ),
                       ),
                     ],
@@ -773,21 +727,21 @@ class _StreamSection extends StatelessWidget {
                   Text(
                     container!.toUpperCase(),
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 if (bitrate != null && bitrate! > 0)
                   Text(
                     '${(bitrate! / 1000000).toStringAsFixed(1)} Mbps',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      color: AppColors.textTertiary,
                     ),
                   ),
                 if (size != null && size! > 0)
                   Text(
                     _formatSize(size!),
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      color: AppColors.textTertiary,
                     ),
                   ),
               ],

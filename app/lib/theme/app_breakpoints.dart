@@ -64,7 +64,7 @@ class AetherBreakpoints {
     final w = MediaQuery.sizeOf(context).width;
     if (w < mobile) return 10;
     if (w < tablet) return 14;
-    return 16;
+    return 14;
   }
 
   // ══════════════════════════════════════════════════

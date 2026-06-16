@@ -3,8 +3,11 @@ package handler
 import (
 	"io"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
+	"time"
 )
 
 // ProxyHandler transparently proxies unmatched /api/* requests to the Emby server.
@@ -15,14 +18,43 @@ func NewProxyHandler() *ProxyHandler {
 	return &ProxyHandler{}
 }
 
+// validateServerURL checks that the server URL is safe to proxy to.
+func validateServerURL(serverURL string) error {
+	u, err := url.Parse(serverURL)
+	if err != nil {
+		return err
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return &url.Error{Op: "validate", URL: serverURL, Err: net.InvalidAddrError("scheme must be http or https")}
+	}
+	if u.Hostname() == "" {
+		return &url.Error{Op: "validate", URL: serverURL, Err: net.InvalidAddrError("empty host")}
+	}
+	// Block cloud metadata endpoints
+	host := u.Hostname()
+	if strings.HasPrefix(host, "169.254.") || host == "0.0.0.0" {
+		return &url.Error{Op: "validate", URL: serverURL, Err: net.InvalidAddrError("blocked host")}
+	}
+	return nil
+}
+
 // ServeHTTP forwards the request to the Emby server.
 // Only activates for paths not matched by explicit routes above.
 func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	serverURL := r.Header.Get("X-Emby-Server")
 	token := r.Header.Get("X-Emby-Token")
+	deviceID := r.Header.Get("X-Device-Id")
+	if deviceID == "" {
+		deviceID = "Aether-Client"
+	}
 
 	if serverURL == "" {
 		http.Error(w, `{"error":"Missing X-Emby-Server header"}`, http.StatusBadRequest)
+		return
+	}
+
+	if err := validateServerURL(serverURL); err != nil {
+		http.Error(w, `{"error":"Invalid server URL"}`, http.StatusBadRequest)
 		return
 	}
 
@@ -63,10 +95,10 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if token != "" {
 		req.Header.Set("X-Emby-Token", token)
 	}
-	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="Aether-Dev-001", Version="0.0.1"`)
+	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="`+deviceID+`", Version="0.0.1"`)
 
-	// Execute request
-	client := &http.Client{}
+	// Execute request with timeout
+	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("Proxy error: %v", err)

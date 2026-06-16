@@ -66,6 +66,7 @@ class AppTheme {
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppColors.deepVoid,
       textTheme: textTheme,
+      fontFamily: 'Sora',
 
       // ── 导航 ──
       navigationRailTheme: NavigationRailThemeData(
@@ -306,6 +307,18 @@ class AppTheme {
           }
           return AppColors.cosmicGray;
         }),
+      ),
+
+      // ── 滚动条 ──
+      scrollbarTheme: ScrollbarThemeData(
+        thickness: WidgetStateProperty.all(5),
+        thumbColor: WidgetStateProperty.all(
+          AppColors.cosmicGray.withValues(alpha: 0.6),
+        ),
+        trackColor: WidgetStateProperty.all(Colors.transparent),
+        trackBorderColor: WidgetStateProperty.all(Colors.transparent),
+        radius: const Radius.circular(3),
+        crossAxisMargin: 2,
       ),
     );
   }

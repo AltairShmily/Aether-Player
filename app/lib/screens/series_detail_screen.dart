@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_colors.dart';
+import '../utils/episode_utils.dart';
+import '../widgets/meta_chip.dart';
 import '../widgets/diamond_badge.dart';
 import '../widgets/pill_button.dart';
 import '../widgets/aether_chip.dart';
 import '../widgets/episode_card.dart';
 import '../models/media_models.dart';
 import '../providers/auth_provider.dart';
+import '../services/api_client.dart';
 import '../widgets/aether_page_route.dart';
 import 'episode_detail_screen.dart';
 
@@ -38,7 +41,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
   bool _loadingEpisodes = false;
   String _embyServerUrl = '';
 
-  static const _serverUrl = 'http://localhost:19800';
+  static final _serverUrl = ApiClient.proxyBaseUrl;
 
   @override
   void initState() {
@@ -96,7 +99,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
           );
       if (!mounted) return;
       setState(() {
-        _episodes = _mergeEpisodes(result.items);
+        _episodes = mergeEpisodes(result.items);
         _loadingEpisodes = false;
       });
     } catch (_) {
@@ -104,28 +107,6 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
     }
   }
 
-  /// 合并同一集的不同版本 (如 1080p / 4K) 为单个 MergedEpisode
-  List<MergedEpisode> _mergeEpisodes(List<MediaItem> raw) {
-    final Map<int, List<MediaItem>> grouped = {};
-    for (final ep in raw) {
-      final key = ep.indexNumber > 0 ? ep.indexNumber : raw.indexOf(ep);
-      grouped.putIfAbsent(key, () => []).add(ep);
-    }
-
-    final keys = grouped.keys.toList()..sort();
-    return keys.map((key) {
-      final items = grouped[key]!;
-      // 优先选择有图片的版本作为主版本
-      final primary = items.firstWhere(
-        (e) => e.hasPrimaryImage,
-        orElse: () => items.first,
-      );
-      final versions = items.map((e) =>
-        EpisodeVersion(id: e.id, name: e.name),
-      ).toList();
-      return MergedEpisode(primary: primary, versions: versions);
-    }).toList();
-  }
 
   // ── Navigation ────────────────────────────────────────────────
 
@@ -165,8 +146,8 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                     width: 170,
                     height: 255,
                     decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.borderSubtle, width: 2),
-                      borderRadius: BorderRadius.circular(AppColors.radiusMd),
+                      border: Border.all(color: const Color(0x1F00D4FF), width: 2),
+                      borderRadius: BorderRadius.circular(AppColors.radiusLg),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.5),
@@ -181,7 +162,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                       ],
                     ),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(AppColors.radiusMd),
+                      borderRadius: BorderRadius.circular(AppColors.radiusLg),
                       child: series.hasPrimaryImage
                           ? Image.network(
                               '$_serverUrl/api/images/${series.id}/Primary?maxWidth=400',
@@ -232,28 +213,6 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
         height: 300,
         child: Stack(
           children: [
-            // Back button
-            Positioned(
-              top: 12,
-              left: 16,
-              child: GestureDetector(
-                onTap: () => Navigator.of(context).pop(),
-                child: Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: AppColors.nebulaDark.withValues(alpha: 0.8),
-                    borderRadius: BorderRadius.circular(AppColors.radiusSm),
-                    border: Border.all(color: AppColors.borderSubtle),
-                  ),
-                  child: const Icon(
-                    Icons.arrow_back_rounded,
-                    color: AppColors.textSecondary,
-                    size: 19,
-                  ),
-                ),
-              ),
-            ),
             // Rounded hero backdrop card
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -280,7 +239,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                         )
                       else
                         _heroFallback(),
-                      // Gradient overlay
+                      // Gradient overlay (dual layer: to top + to right)
                       Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -291,7 +250,42 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                           ),
                         ),
                       ),
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                            colors: [
+                              AppColors.seriesBg.withValues(alpha: 0.6),
+                              Colors.transparent,
+                            ],
+                            stops: const [0.0, 0.5],
+                          ),
+                        ),
+                      ),
                     ],
+                  ),
+                ),
+              ),
+            ),
+            // Back button (on top of backdrop)
+            Positioned(
+              top: 12,
+              left: 16,
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: AppColors.nebulaDark.withValues(alpha: 0.8),
+                    borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                    border: Border.all(color: AppColors.borderSubtle),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back_rounded,
+                    color: AppColors.textSecondary,
+                    size: 19,
                   ),
                 ),
               ),
@@ -339,8 +333,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                       series.name,
                       style: const TextStyle(
                         color: AppColors.textPrimary,
-                        fontSize: 22,
+                        fontSize: 26,
                         fontWeight: FontWeight.bold,
+                        letterSpacing: -0.03,
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -378,15 +373,26 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
             runSpacing: 8,
             children: [
               if (series.productionYear > 0)
-                _MetaChip(label: '${series.productionYear}'),
+                MetaChip(
+                  label: '${series.productionYear}',
+                  backgroundColor: AppColors.cardBg,
+                  textStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 10.9, fontWeight: FontWeight.w500),
+                ),
               if (series.communityRating > 0)
-                _MetaChip(
+                MetaChip(
                   label: series.communityRating.toStringAsFixed(1),
                   icon: Icons.star_rounded,
                   iconColor: AppColors.ratingStar,
+                  backgroundColor: AppColors.accentSoft,
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                  textStyle: const TextStyle(color: AppColors.celestialCyan, fontSize: 10.9, fontWeight: FontWeight.w600),
                 ),
               if (series.officialRating.isNotEmpty)
-                _MetaChip(label: series.officialRating),
+                MetaChip(
+                  label: series.officialRating,
+                  backgroundColor: AppColors.cardBg,
+                  textStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 10.9, fontWeight: FontWeight.w500),
+                ),
             ],
           ),
           const SizedBox(height: 14),
@@ -441,8 +447,8 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
             series.overview,
             style: const TextStyle(
               color: AppColors.textWarmGray,
-              fontSize: 14,
-              height: 1.6,
+              fontSize: 11.9,
+              height: 1.7,
             ),
           ),
         ],
@@ -484,36 +490,42 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                   return GestureDetector(
                     onTap: () => _loadEpisodes(season.id),
                     child: Padding(
-                      padding: const EdgeInsets.only(right: 24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SizedBox(height: 8),
-                          Text(
-                            season.name,
-                            style: TextStyle(
-                              color: isSelected
-                                  ? AppColors.celestialCyan
-                                  : AppColors.textSecondary,
-                              fontSize: 14,
-                              fontWeight:
-                                  isSelected ? FontWeight.w600 : FontWeight.w400,
+                      padding: const EdgeInsets.only(right: 4),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 18),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              season.name,
+                              style: TextStyle(
+                                color: isSelected
+                                    ? AppColors.celestialCyan
+                                    : AppColors.textSecondary,
+                                fontSize: 11.5,
+                                fontWeight:
+                                    isSelected ? FontWeight.w600 : FontWeight.w400,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 6),
-                          // Animated underline indicator
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 250),
-                            curve: Curves.easeInOut,
-                            height: 2,
-                            width: isSelected ? 28 : 0,
-                            decoration: BoxDecoration(
-                              gradient: AppColors.accentGradient,
-                              borderRadius: BorderRadius.circular(1),
+                            const SizedBox(height: 6),
+                            // Animated underline indicator (scaleX)
+                            AnimatedScale(
+                              duration: const Duration(milliseconds: 250),
+                              curve: Curves.easeInOut,
+                              scaleX: isSelected ? 1.0 : 0.0,
+                              scaleY: 1.0,
+                              alignment: Alignment.center,
+                              child: Container(
+                                height: 2,
+                                width: 28,
+                                decoration: BoxDecoration(
+                                  gradient: AppColors.accentGradient,
+                                  borderRadius: BorderRadius.circular(1),
+                                ),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   );
@@ -679,42 +691,6 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
 // Private helper widgets
 // ═══════════════════════════════════════════════════════════════════
 
-/// Meta info chip (year, rating, etc.)
-class _MetaChip extends StatelessWidget {
-  final String label;
-  final IconData? icon;
-  final Color? iconColor;
-
-  const _MetaChip({required this.label, this.icon, this.iconColor});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.cardBg,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 14, color: iconColor),
-            const SizedBox(width: 4),
-          ],
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 /// Episode tile for the full list view
 class _EpisodeTile extends StatefulWidget {
@@ -750,7 +726,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
     return GestureDetector(
       onTap: widget.onTap,
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+        margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 2),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: AppColors.nebulaDark,
@@ -837,15 +813,33 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Episode label + title
-                  Text(
-                    '${widget.episode.episodeLabel} ${widget.episode.name}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: isWatched ? AppColors.textWarmGray : AppColors.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  Row(
+                    children: [
+                      if (widget.episode.episodeLabel.isNotEmpty)
+                        Text(
+                          '${widget.episode.episodeLabel} ',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: isWatched ? AppColors.textWarmGray : AppColors.textPrimary,
+                            fontSize: 10.9,
+                            fontWeight: FontWeight.w500,
+                            fontFamily: 'DM Mono',
+                          ),
+                        ),
+                      Expanded(
+                        child: Text(
+                          widget.episode.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: isWatched ? AppColors.textWarmGray : AppColors.textPrimary,
+                            fontSize: 11.9,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   // Version count badge
                   if (widget.versions != null && widget.versions!.length > 1) ...[
@@ -874,7 +868,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: AppColors.textSecondary,
-                        fontSize: 12,
+                        fontSize: 10.5,
                         height: 1.5,
                       ),
                     ),
@@ -945,19 +939,19 @@ class _CastMember extends StatelessWidget {
     final gradient = _gradientPalette[index % _gradientPalette.length];
 
     return SizedBox(
-      width: 64,
+      width: 74,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           CircleAvatar(
-            radius: 26,
+            radius: 29,
             backgroundColor: AppColors.cardBg,
             child: personId != null && personId!.isNotEmpty
                 ? ClipOval(
                     child: Image.network(
                       '$serverUrl/api/images/$personId/Primary?maxWidth=80',
-                      width: 52,
-                      height: 52,
+                      width: 58,
+                      height: 58,
                       fit: BoxFit.cover,
                       headers: token != null ? {'X-Emby-Token': token!, 'X-Emby-Server': embyServerUrl} : null,
                       errorBuilder: (_, __, ___) => _gradientFallback(gradient),
@@ -971,7 +965,7 @@ class _CastMember extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: AppColors.textPrimary, fontSize: 11),
+            style: const TextStyle(color: AppColors.textPrimary, fontSize: 9.5),
           ),
           if (role != null && role!.isNotEmpty)
             Text(
@@ -979,7 +973,7 @@ class _CastMember extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textWarmGray, fontSize: 10),
+              style: const TextStyle(color: AppColors.textWarmGray, fontSize: 8.7),
             ),
         ],
       ),
@@ -988,8 +982,8 @@ class _CastMember extends StatelessWidget {
 
   Widget _gradientFallback(List<Color> colors) {
     return Container(
-      width: 52,
-      height: 52,
+      width: 58,
+      height: 58,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(

@@ -44,16 +44,31 @@ class _MediaCardState extends State<MediaCard>
       cursor: SystemMouseCursors.click,
       child: AnimatedScale(
         scale: _isHovered ? 1.03 : 1.0,
-        duration: const Duration(milliseconds: 220),
+        duration: const Duration(milliseconds: 350),
         curve: Curves.easeOutCubic,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
+          duration: const Duration(milliseconds: 350),
           curve: Curves.easeOutCubic,
           transform: Matrix4.translationValues(0, _isHovered ? -6 : 0, 0),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppColors.radiusMd),
             boxShadow: [
-              if (_isHovered) AppColors.glowCyan(blur: 18, spread: 1),
+              if (_isHovered) ...[
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 32,
+                  offset: const Offset(0, 12),
+                ),
+                BoxShadow(
+                  color: AppColors.celestialCyan.withValues(alpha: 0.15),
+                  blurRadius: 0,
+                  spreadRadius: 1,
+                ),
+                BoxShadow(
+                  color: AppColors.celestialCyan.withValues(alpha: 0.08),
+                  blurRadius: 20,
+                ),
+              ],
             ],
           ),
           child: Card(
@@ -86,42 +101,47 @@ class _MediaCardState extends State<MediaCard>
 
                   // ── Title ──
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
-                    child: Text(
-                      item.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                    padding: const EdgeInsets.fromLTRB(8, 8, 2, 0),
+                    child: SizedBox(
+                      width: 95,
+                      child: Text(
+                        item.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 10.9,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ),
 
                   // ── Year / Rating / Duration meta row ──
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+                    padding: const EdgeInsets.fromLTRB(8, 0, 2, 8),
                     child: Row(
                       children: [
                         if (item.productionYear > 0)
                           Text(
                             '${item.productionYear}',
                             style: const TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 11,
+                              color: AppColors.textTertiary,
+                              fontSize: 10,
+                              fontFamily: 'DM Mono',
                             ),
                           ),
                         if (item.communityRating > 0) ...[
                           if (item.productionYear > 0) const SizedBox(width: 8),
                           const Icon(Icons.star_rounded,
-                              size: 13, color: Colors.amber),
+                              size: 13, color: AppColors.supernova),
                           const SizedBox(width: 2),
                           Text(
                             item.communityRating.toStringAsFixed(1),
                             style: const TextStyle(
                               color: AppColors.textSecondary,
-                              fontSize: 11,
+                              fontSize: 10,
+                              fontFamily: 'DM Mono',
                             ),
                           ),
                         ],
@@ -204,10 +224,28 @@ class _PosterSection extends StatelessWidget {
             const DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Color(0xCC0A0E14)],
-                  stops: [0.5, 1.0],
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [Color(0xCC0A0E14), Colors.transparent],
+                  stops: [0.0, 0.6],
+                ),
+              ),
+            ),
+
+            // ── Poster inner title (bottom overlay) ──
+            Positioned(
+              left: 14,
+              right: 14,
+              bottom: 14,
+              child: Text(
+                item.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xE6F0F4F8), // rgba(240,244,248,0.9)
+                  fontSize: 9.8,
+                  fontWeight: FontWeight.w600,
+                  height: 1.3,
                 ),
               ),
             ),
@@ -218,26 +256,31 @@ class _PosterSection extends StatelessWidget {
               duration: const Duration(milliseconds: 200),
               curve: Curves.easeOutCubic,
               child: Container(
-                color: AppColors.deepVoid.withValues(alpha: 0.45),
+                color: AppColors.deepVoid.withValues(alpha: 0.35),
                 child: Center(
-                  child: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: AppColors.celestialCyan,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.celestialCyan.withValues(alpha: 0.4),
-                          blurRadius: 16,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.play_arrow_rounded,
-                      size: 28,
-                      color: AppColors.deepVoid,
+                  child: AnimatedScale(
+                    scale: isHovered ? 1.0 : 0.8,
+                    duration: const Duration(milliseconds: 350),
+                    curve: Curves.elasticOut,
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.celestialCyan.withValues(alpha: 0.9),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.celestialCyan.withValues(alpha: 0.3),
+                            blurRadius: 20,
+                            spreadRadius: 0,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.play_arrow_rounded,
+                        size: 20,
+                        color: AppColors.deepVoid,
+                      ),
                     ),
                   ),
                 ),
@@ -321,7 +364,7 @@ class SearchHintCard extends StatelessWidget {
           ? Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.star_rounded, size: 16, color: Colors.amber.shade600),
+                Icon(Icons.star_rounded, size: 16, color: AppColors.supernova),
                 const SizedBox(width: 2),
                 Text(
                   hint.communityRating.toStringAsFixed(1),

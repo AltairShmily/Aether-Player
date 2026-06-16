@@ -5,9 +5,9 @@ import 'package:flutter/material.dart';
 ///
 /// 模拟设计稿中的 SVG feTurbulence 效果，
 /// 为界面添加细腻的噪点纹理质感。
-/// 使用 CustomPainter 绘制随机噪点，opacity 默认 0.025。
+/// 使用 CustomPainter 绘制随机噪点，opacity 默认 0.03。
 class NoiseTexture extends StatelessWidget {
-  /// 噪点透明度，默认 0.025 匹配设计稿
+  /// 噪点透明度，默认 0.03 匹配设计稿
   final double opacity;
 
   /// 噪点密度，默认 800 个点
@@ -15,7 +15,7 @@ class NoiseTexture extends StatelessWidget {
 
   const NoiseTexture({
     super.key,
-    this.opacity = 0.025,
+    this.opacity = 0.03,
     this.density = 800,
   });
 
