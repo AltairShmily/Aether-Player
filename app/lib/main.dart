@@ -30,11 +30,13 @@ void main() async {
   }
 
   runApp(
-    ProviderScope(
-      overrides: [
-        backendServiceProvider.overrideWithValue(backend),
-      ],
-      child: AetherApp(backendReady: backendReady),
+    TranslationProvider(
+      child: ProviderScope(
+        overrides: [
+          backendServiceProvider.overrideWithValue(backend),
+        ],
+        child: AetherApp(backendReady: backendReady),
+      ),
     ),
   );
 }
