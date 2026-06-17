@@ -6,7 +6,7 @@ import '../services/api_client.dart';
 import '../services/player_engine.dart';
 import '../services/mpv_engine.dart';
 import '../services/playback_strategy.dart';
-import '../models/playback_models.dart';
+import '../models/playback_models.dart' hide TrackInfo;
 
 // ══════════════════════════════════════════════════════════════════
 //  播放器 UI 状态
