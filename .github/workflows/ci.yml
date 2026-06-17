@@ -130,10 +130,11 @@ jobs:
 
   # ──────────────────────────────────────────────
   #  Windows 构建 + 产物上传
+  #  使用 windows-2022 (VS 2022 + NativeDesktop workload)
   # ──────────────────────────────────────────────
   build-windows:
     name: Build Windows
-    runs-on: windows-latest
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
 
@@ -148,12 +149,12 @@ jobs:
           go-version: "1.24"
           cache-dependency-path: server/go.sum
 
-      # ── 安装 Clang + Ninja ──
-      - name: Install LLVM + Ninja
+      # ── 验证 VS 2022 安装 ──
+      - name: Verify Visual Studio
         shell: bash
         run: |
-          choco install llvm ninja -y
-          echo "C:/Program Files/LLVM/bin" >> $GITHUB_PATH
+          "/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe" -latest -property installationPath
+          "/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe" -latest -property installationVersion
 
       # ── Go 后端 (Windows) ──
       - name: Build Go backend
@@ -162,7 +163,7 @@ jobs:
           cd server
           go build -ldflags="-s -w" -o ../build/output/aether-server.exe ./cmd/api/
 
-      # ── Flutter Windows ──
+      # ── Flutter Windows (VS 2022) ──
       - name: Flutter pub get
         working-directory: app
         run: flutter pub get
@@ -173,11 +174,7 @@ jobs:
 
       - name: Build Flutter Windows
         working-directory: app
-        shell: bash
-        run: |
-          export CC="clang"
-          export CXX="clang++"
-          flutter build windows --release --cmake-args="-G Ninja"
+        run: flutter build windows --release
 
       # ── 合并 Go 后端到 Flutter bundle ──
       - name: Bundle Go backend
