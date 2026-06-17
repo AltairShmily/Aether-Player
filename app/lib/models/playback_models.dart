@@ -81,6 +81,9 @@ class MediaSourceInfo {
   final List<PlaybackStreamInfo> mediaStreams;
   final String directStreamUrl;
   final String transcodeUrl;
+  final bool supportsDirectPlay;
+  final bool supportsDirectStream;
+  final bool supportsTranscoding;
 
   const MediaSourceInfo({
     required this.id,
@@ -92,6 +95,9 @@ class MediaSourceInfo {
     this.mediaStreams = const [],
     this.directStreamUrl = '',
     this.transcodeUrl = '',
+    this.supportsDirectPlay = true,
+    this.supportsDirectStream = true,
+    this.supportsTranscoding = false,
   });
 
   factory MediaSourceInfo.fromJson(Map<String, dynamic> json) {
@@ -109,6 +115,9 @@ class MediaSourceInfo {
           [],
       directStreamUrl: json['DirectStreamUrl'] as String? ?? '',
       transcodeUrl: json['TranscodingUrl'] as String? ?? '',
+      supportsDirectPlay: json['SupportsDirectPlay'] as bool? ?? true,
+      supportsDirectStream: json['SupportsDirectStream'] as bool? ?? true,
+      supportsTranscoding: json['SupportsTranscoding'] as bool? ?? false,
     );
   }
 

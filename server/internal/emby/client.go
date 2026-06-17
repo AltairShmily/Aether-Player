@@ -108,8 +108,12 @@ type MediaSource struct {
 	Size         int64        `json:"Size,omitempty"`
 	Bitrate      int          `json:"Bitrate,omitempty"`
 	MediaStreams []MediaStream `json:"MediaStreams,omitempty"`
-	DirectStreamUrl string   `json:"DirectStreamUrl,omitempty"`
-	TranscodingUrl  string   `json:"TranscodingUrl,omitempty"`
+	DirectStreamUrl    string `json:"DirectStreamUrl,omitempty"`
+	TranscodingUrl     string `json:"TranscodingUrl,omitempty"`
+	IsRemote           bool   `json:"IsRemote"`
+	SupportsDirectPlay bool   `json:"SupportsDirectPlay"`
+	SupportsDirectStream bool `json:"SupportsDirectStream"`
+	SupportsTranscoding  bool `json:"SupportsTranscoding"`
 }
 
 type MediaStream struct {
@@ -484,6 +488,17 @@ func (c *Client) GetVideoStreamURL(serverURL, token, itemID, container string) s
 	serverURL = strings.TrimRight(serverURL, "/")
 	return fmt.Sprintf("%s/Videos/%s/stream?Static=true&api_key=%s&Container=%s",
 		serverURL, itemID, token, container)
+}
+
+// GetTranscodeStreamURL constructs a transcode stream URL with h264/aac codecs
+func (c *Client) GetTranscodeStreamURL(serverURL, token, itemID string, maxBitrate, maxHeight int) string {
+	serverURL = strings.TrimRight(serverURL, "/")
+	url := fmt.Sprintf("%s/Videos/%s/stream?api_key=%s&VideoCodec=h264&AudioCodec=aac&MaxStreamingBitrate=%d",
+		serverURL, itemID, token, maxBitrate)
+	if maxHeight > 0 {
+		url += fmt.Sprintf("&MaxHeight=%d", maxHeight)
+	}
+	return url
 }
 
 // ReportPlaybackStarted notifies Emby that playback has started

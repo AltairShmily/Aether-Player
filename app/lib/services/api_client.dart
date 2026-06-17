@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import '../models/auth_models.dart';
 import '../models/media_models.dart';
+import '../models/playback_models.dart';
 
 class ApiClient {
   /// Centralized proxy base URL for all image & API calls through the Go backend.
@@ -275,6 +276,28 @@ class ApiClient {
     } on DioException catch (e) {
       throw Exception('Failed to get playback info: $e');
     }
+  }
+
+  /// Simple GET helper that returns the response data as a Map.
+  Future<Map<String, dynamic>> _get(String path) async {
+    final response = await _dio.get(path);
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// 获取完整播放信息（含 DirectStreamUrl / TranscodingUrl）
+  Future<PlaybackInfo> getPlaybackInfoFull(String itemId) async {
+    final resp = await _get('/api/playback/$itemId/info');
+    return PlaybackInfo.fromJson(resp);
+  }
+
+  Future<String> getTranscodeStreamUrl(String itemId, {int? maxBitrate, int? maxHeight}) async {
+    var path = '/api/playback/$itemId/transcode';
+    final params = <String>[];
+    if (maxBitrate != null) params.add('maxBitrate=$maxBitrate');
+    if (maxHeight != null) params.add('maxHeight=$maxHeight');
+    if (params.isNotEmpty) path += '?${params.join('&')}';
+    final resp = await _get(path);
+    return resp['streamUrl'] as String;
   }
 
   // --- Playback Reporting ---

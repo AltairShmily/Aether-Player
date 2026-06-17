@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 
 	"aether-server/internal/emby"
 )
@@ -86,6 +87,45 @@ func (h *PlaybackHandler) HandleGetVideoStreamURL(w http.ResponseWriter, r *http
 	}
 
 	streamURL := h.EmbyClient.GetVideoStreamURL(serverURL, token, itemID, container)
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]string{"streamUrl": streamURL}); err != nil {
+		log.Printf("JSON encode error: %v", err)
+	}
+}
+
+// HandleGetTranscodeStream returns a transcode stream URL with configurable bitrate/resolution
+func (h *PlaybackHandler) HandleGetTranscodeStream(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	serverURL := r.Header.Get("X-Emby-Server")
+	token := r.Header.Get("X-Emby-Token")
+
+	// Extract itemID from path: /api/playback/{itemId}/transcode
+	path := r.URL.Path[len("/api/playback/"):]
+	itemID := ""
+	for _, c := range path {
+		if c == '/' {
+			break
+		}
+		itemID += string(c)
+	}
+
+	maxBitrate, _ := strconv.Atoi(r.URL.Query().Get("maxBitrate"))
+	if maxBitrate <= 0 {
+		maxBitrate = 20_000_000
+	}
+	maxHeight, _ := strconv.Atoi(r.URL.Query().Get("maxHeight"))
+
+	if serverURL == "" || token == "" || itemID == "" {
+		http.Error(w, "Missing required parameters", http.StatusBadRequest)
+		return
+	}
+
+	streamURL := h.EmbyClient.GetTranscodeStreamURL(serverURL, token, itemID, maxBitrate, maxHeight)
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]string{"streamUrl": streamURL}); err != nil {

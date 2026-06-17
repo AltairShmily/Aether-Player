@@ -106,6 +106,12 @@ func playbackRouter(h *handler.PlaybackHandler) http.HandlerFunc {
 			return
 		}
 
+		// GET /api/playback/{itemId}/transcode
+		if strings.HasSuffix(path, "/transcode") {
+			h.HandleGetTranscodeStream(w, r)
+			return
+		}
+
 		http.NotFound(w, r)
 	}
 }

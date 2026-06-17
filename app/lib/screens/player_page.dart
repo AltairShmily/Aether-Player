@@ -15,6 +15,8 @@ import '../services/mpv_engine.dart';
 import '../services/settings_service.dart';
 import '../services/api_client.dart';
 import '../services/player_engine_factory.dart';
+import '../services/playback_strategy.dart';
+import '../widgets/quality_selector.dart';
 
 // ══════════════════════════════════════════════════════════════════
 //  播放器页面 — 全屏视频播放
@@ -263,6 +265,49 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       _rightSeekAccum = 0;
     });
   }
+
+  // ── 画质选择 ──────────────────────────────────────────────
+
+  /// 显示画质选择面板
+  void _showQualitySelector(BuildContext context) {
+    final controller = _playerController;
+    if (controller == null) return;
+
+    final mediaSource = controller.currentMediaSource;
+    if (mediaSource == null) return;
+
+    final options = QualitySelector.fromMediaSource(mediaSource);
+    if (options.isEmpty) return;
+
+    // 根据当前播放模式确定选中项
+    final currentState = controller.currentState;
+    QualityOption? current;
+    if (currentState.currentPlayMode == PlayMode.transcode) {
+      current = options.where((o) => o.mode == PlayMode.transcode).firstOrNull;
+    } else {
+      current = options.where((o) => o.mode == PlayMode.directPlay).firstOrNull;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => QualitySelector(
+        options: options,
+        current: current,
+        onSelected: (opt) {
+          final itemId = controller.currentItemId;
+          if (itemId == null) return;
+          controller.switchQuality(
+            itemId: itemId,
+            mode: opt.mode,
+            maxBitrate: opt.maxBitrate,
+            maxHeight: opt.maxHeight,
+          );
+        },
+      ),
+    );
+  }
+
   // ── 自动播放下一集 ──────────────────────────────────────
 
   /// 播放完成回调
@@ -471,6 +516,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                   _playerController?.selectAudioTrack(i),
               onSubtitleTrackSelected: (i) =>
                   _playerController?.selectSubtitleTrack(i),
+              onQualityPressed: () => _showQualitySelector(context),
             ),
 
           // ── 错误提示 ──
@@ -497,6 +543,33 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                 ),
               ),
             ),
+
+          // ── 播放模式标签 ──
+          if (state != null && state.currentPlayMode != null)
+            Positioned(
+              top: 16,
+              right: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: state.currentPlayMode == PlayMode.directPlay
+                      ? Colors.green.withValues(alpha: 0.7)
+                      : Colors.orange.withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  state.currentPlayMode == PlayMode.directPlay
+                      ? 'Direct Play'
+                      : 'Transcode',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+
           // ── 自动播放下一集倒计时 ──
           if (_showAutoPlayOverlay)
             Center(
@@ -615,6 +688,7 @@ class _PlayerControlsOverlay extends StatelessWidget {
   final ValueChanged<double> onSpeedChanged;
   final ValueChanged<int> onAudioTrackSelected;
   final ValueChanged<int> onSubtitleTrackSelected;
+  final VoidCallback? onQualityPressed;
 
   const _PlayerControlsOverlay({
     required this.state,
@@ -628,6 +702,7 @@ class _PlayerControlsOverlay extends StatelessWidget {
     required this.onSpeedChanged,
     required this.onAudioTrackSelected,
     required this.onSubtitleTrackSelected,
+    this.onQualityPressed,
   });
 
   @override
@@ -1003,6 +1078,13 @@ class _PlayerControlsOverlay extends StatelessWidget {
           ),
 
         const SizedBox(width: 4),
+
+        // 画质按钮
+        if (onQualityPressed != null)
+          IconButton(
+            icon: const Icon(Icons.hd_outlined, color: Colors.white, size: 22),
+            onPressed: onQualityPressed,
+          ),
 
         // 倍速显示
         GestureDetector(

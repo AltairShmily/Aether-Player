@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/api_client.dart';
 import '../services/player_engine.dart';
 import '../services/mpv_engine.dart';
+import '../services/playback_strategy.dart';
+import '../models/playback_models.dart';
 
 // ══════════════════════════════════════════════════════════════════
 //  播放器 UI 状态
@@ -68,6 +70,12 @@ class PlayerUiState {
   /// 是否正在 seek（用于 UI 展示）
   final bool isSeeking;
 
+  /// 当前播放模式
+  final PlayMode? currentPlayMode;
+
+  /// 播放模式原因
+  final String? playModeReason;
+
   const PlayerUiState({
     this.playerState = PlayerState.idle,
     this.position = Duration.zero,
@@ -88,6 +96,8 @@ class PlayerUiState {
     this.itemId,
     this.speedOptions = const [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0],
     this.isSeeking = false,
+    this.currentPlayMode,
+    this.playModeReason,
   });
 
   /// 是否正在播放
@@ -122,6 +132,8 @@ class PlayerUiState {
     String? itemId,
     List<double>? speedOptions,
     bool? isSeeking,
+    PlayMode? currentPlayMode,
+    String? playModeReason,
   }) {
     return PlayerUiState(
       playerState: playerState ?? this.playerState,
@@ -144,6 +156,8 @@ class PlayerUiState {
       itemId: itemId ?? this.itemId,
       speedOptions: speedOptions ?? this.speedOptions,
       isSeeking: isSeeking ?? this.isSeeking,
+      currentPlayMode: currentPlayMode ?? this.currentPlayMode,
+      playModeReason: playModeReason ?? this.playModeReason,
     );
   }
 }
@@ -171,6 +185,12 @@ class PlayerController extends StateNotifier<PlayerUiState> {
   /// 播放完成回调（用于自动播放下一集等）
   void Function()? onPlaybackComplete;
 
+  /// 当前直连流 URL（用于切换画质时回退）
+  String? _currentStreamUrl;
+
+  /// 当前播放的媒体源信息（用于画质选择器）
+  MediaSourceInfo? _currentMediaSource;
+
   PlayerController({
     required this.serverUrl,
     required this.token,
@@ -188,6 +208,12 @@ class PlayerController extends StateNotifier<PlayerUiState> {
 
   /// 获取当前播放器 UI 状态（供外部读取）
   PlayerUiState get currentState => state;
+
+  /// 当前播放的媒体源信息
+  MediaSourceInfo? get currentMediaSource => _currentMediaSource;
+
+  /// 当前播放的媒体项 ID
+  String? get currentItemId => state.itemId;
 
   /// 监听引擎事件并更新 UI 状态
   void _listenToEngine() {
@@ -270,13 +296,8 @@ class PlayerController extends StateNotifier<PlayerUiState> {
         itemId: itemId,
       );
 
-      // ── 第 1 步：获取播放信息 ──
-      final playbackInfo = await _api.getPlaybackInfo(
-        serverUrl: serverUrl,
-        token: token,
-        userId: userId,
-        itemId: itemId,
-      );
+      // ── 第 1 步：获取完整播放信息 ──
+      final playbackInfo = await _api.getPlaybackInfoFull(itemId);
 
       final mediaSourceId = playbackInfo.mediaSources.isNotEmpty
           ? playbackInfo.mediaSources.first.id
@@ -288,14 +309,36 @@ class PlayerController extends StateNotifier<PlayerUiState> {
         playSessionId: playSessionId,
       );
 
-      // ── 第 2 步：获取流 URL ──
-      final streamUrl = await _api.getVideoStreamUrl(
-        serverUrl: serverUrl,
-        token: token,
-        itemId: itemId,
-      );
+      // ── 第 2 步：通过 PlaybackStrategy 决定流 URL ──
+      String streamUrl;
+      PlayMode? playMode;
+      String? playModeReason;
 
-      state = state.copyWith(streamUrl: streamUrl);
+      try {
+        final mediaSource = playbackInfo.mediaSources.first;
+        _currentMediaSource = mediaSource;
+        final decision = PlaybackStrategy.auto(mediaSource);
+        streamUrl = decision.streamUrl;
+        playMode = decision.mode;
+        playModeReason = decision.reason;
+      } catch (_) {
+        // Strategy 失败时，回退到原有的直连播放逻辑
+        streamUrl = await _api.getVideoStreamUrl(
+          serverUrl: serverUrl,
+          token: token,
+          itemId: itemId,
+        );
+        playMode = PlayMode.directPlay;
+        playModeReason = 'Fallback: direct play';
+      }
+
+      _currentStreamUrl = streamUrl;
+
+      state = state.copyWith(
+        streamUrl: streamUrl,
+        currentPlayMode: playMode,
+        playModeReason: playModeReason,
+      );
 
       // ── 第 3 步：打开播放器 ──
       await _engine.open(
@@ -332,6 +375,42 @@ class PlayerController extends StateNotifier<PlayerUiState> {
       if (!mounted) return;
       state = state.copyWith(error: e.toString());
     }
+  }
+
+  /// 切换画质
+  Future<void> switchQuality({
+    required String itemId,
+    required PlayMode mode,
+    int? maxBitrate,
+    int? maxHeight,
+  }) async {
+    final currentPosition = state.position;
+
+    String streamUrl;
+    if (mode == PlayMode.transcode && maxBitrate != null) {
+      streamUrl = await _api.getTranscodeStreamUrl(itemId, maxBitrate: maxBitrate, maxHeight: maxHeight);
+    } else {
+      // Direct play — use the stored mediaSource URL
+      streamUrl = _currentStreamUrl ?? '';
+    }
+
+    if (streamUrl.isEmpty) return;
+
+    await _engine.stop();
+    await _engine.open(streamUrl, headers: {
+      'Authorization': 'MediaBrowser Token="$token"',
+      'X-Emby-Token': token,
+    });
+
+    if (currentPosition.inMilliseconds > 0) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      await _engine.seek(currentPosition);
+    }
+
+    state = state.copyWith(
+      currentPlayMode: mode,
+      playModeReason: mode == PlayMode.transcode ? '画质: ${maxHeight ?? "auto"}p' : 'Direct Play',
+    );
   }
 
   // ══════════════════════════════════════════════════════════
