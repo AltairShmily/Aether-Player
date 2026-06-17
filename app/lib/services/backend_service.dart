@@ -38,12 +38,11 @@ class BackendService {
       final binaryPath = await _resolveBinaryPath();
       debugPrint('[BackendService] Starting: $binaryPath');
 
-      // 启动子进程
+      // 启动子进程（normal 模式以便管理生命周期）
       _process = await Process.start(
         binaryPath,
         [],
         environment: {'PORT': '$_port'},
-        mode: ProcessStartMode.detached,
       );
 
       // 监听进程退出
