@@ -512,8 +512,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                             AnimatedScale(
                               duration: const Duration(milliseconds: 250),
                               curve: Curves.easeInOut,
-                              scaleX: isSelected ? 1.0 : 0.0,
-                              scaleY: 1.0,
+                              scale: isSelected ? 1.0 : 0.0,
                               alignment: Alignment.center,
                               child: Container(
                                 height: 2,
