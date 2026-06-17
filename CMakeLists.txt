@@ -143,7 +143,7 @@ if(BUILD_FLUTTER)
             COMMAND ${CMAKE_COMMAND} -E copy
                 ${SERVER_OUTPUT}
                 ${FLUTTER_BUNDLE_DIR}/${SERVER_BIN}
-            COMMAND ${CMAKE_COMMAND} -E chmod +x
+            COMMAND chmod +x
                 ${FLUTTER_BUNDLE_DIR}/${SERVER_BIN}
             COMMENT "Bundling Go server into Flutter app..."
         )
@@ -164,7 +164,7 @@ if(PACKAGE_APPIMAGE AND HOST_OS STREQUAL "linux")
             ${PROJECT_ROOT}/packaging/linux/aether.desktop ${APPIMAGE_DIR}/
         COMMAND ${CMAKE_COMMAND} -E copy
             ${PROJECT_ROOT}/packaging/linux/AppRun ${APPIMAGE_DIR}/
-        COMMAND ${CMAKE_COMMAND} -E chmod +x
+        COMMAND chmod +x
             ${APPIMAGE_DIR}/AppRun
             ${APPIMAGE_DIR}/aether-server
         COMMENT "Packaging AppImage..."
