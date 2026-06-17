@@ -84,19 +84,12 @@ jobs:
           go-version: "1.24"
           cache-dependency-path: server/go.sum
 
-      # ── 安装 VS Build Tools C++ 组件 ──
-      - name: Install Visual Studio Build Tools
-        shell: powershell
+      # ── 安装 Clang + Ninja ──
+      - name: Install LLVM + Ninja
+        shell: bash
         run: |
-          $vsWhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          $vsPath = & $vsWhere -latest -property installationPath
-          Write-Host "VS Installation: $vsPath"
-
-          $installerPath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\setup.exe"
-          if (Test-Path $installerPath) {
-            & $installerPath modify --installPath "$vsPath" --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --quiet --wait 2>$null
-            Write-Host "✅ VS C++ Build Tools ready"
-          }
+          choco install llvm ninja -y
+          echo "C:/Program Files/LLVM/bin" >> $GITHUB_PATH
 
       - name: Build Go backend
         shell: bash
@@ -114,7 +107,12 @@ jobs:
 
       - name: Build Flutter Windows
         working-directory: app
-        run: flutter build windows --release
+        shell: bash
+        run: |
+          export CMAKE_GENERATOR="Ninja"
+          export CC="clang"
+          export CXX="clang++"
+          flutter build windows --release
 
       - name: Bundle Go backend
         shell: bash
