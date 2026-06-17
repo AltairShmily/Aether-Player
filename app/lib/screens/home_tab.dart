@@ -355,15 +355,15 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                     compact: true,
                     onPressed: () => _switchAccount(context, ref),
                   ),
-               ],
-             ),
-           ),
-         ),
-       ),
-     ],
-   ),
-    );
-  }
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+        ],
+      ),
 
   void _navigateToItem(BuildContext context, MediaItem item) {
     Widget destination;

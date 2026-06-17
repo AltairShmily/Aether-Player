@@ -169,7 +169,7 @@ class PlayerController extends StateNotifier<PlayerUiState> {
   final List<StreamSubscription> _subscriptions = [];
 
   /// 播放完成回调（用于自动播放下一集等）
-  VoidCallback? onPlaybackComplete;
+  void Function()? onPlaybackComplete;
 
   PlayerController({
     required this.serverUrl,
