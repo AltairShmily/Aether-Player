@@ -10,10 +10,10 @@ permissions:
 
 jobs:
   # ──────────────────────────────────────────────
-  #  构建 + 发布 GitHub Release
+  #  Linux 构建
   # ──────────────────────────────────────────────
-  release:
-    name: Build & Release
+  build-linux:
+    name: Build Linux
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -42,25 +42,178 @@ jobs:
       - name: CMake Build
         run: cmake --build build
 
-      - name: Verify bundle
-        run: |
-          ls -lh build/output/aether-server
-          ls -lh app/build/linux/x64/release/bundle/aether
-          ls -lh app/build/linux/x64/release/bundle/aether-server
-
-      # ── 打包产物 ──
       - name: Package artifacts
         run: |
           VERSION=${GITHUB_REF#refs/tags/}
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
-          # Go 后端单独包
           tar -czf aether-server-${VERSION}-linux-amd64.tar.gz -C build/output aether-server
-
-          # 完整应用包 (含内嵌 Go 后端)
           tar -czf aether-${VERSION}-linux-amd64.tar.gz -C app/build/linux/x64/release bundle
 
-      # ── 创建 Release ──
+      - name: Upload server artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-server
+          path: aether-server-${{ env.VERSION }}-linux-amd64.tar.gz
+
+      - name: Upload app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-app
+          path: aether-${{ env.VERSION }}-linux-amd64.tar.gz
+
+  # ──────────────────────────────────────────────
+  #  Windows 构建
+  # ──────────────────────────────────────────────
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.32.x"
+          channel: stable
+          cache: true
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache-dependency-path: server/go.sum
+
+      - name: Build Go backend
+        shell: bash
+        run: |
+          cd server
+          go build -ldflags="-s -w" -o ../build/output/aether-server.exe ./cmd/api/
+
+      - name: Flutter pub get
+        working-directory: app
+        run: flutter pub get
+
+      - name: Generate i18n
+        working-directory: app
+        run: dart run slang
+
+      - name: Build Flutter Windows
+        working-directory: app
+        run: flutter build windows --release
+
+      - name: Bundle Go backend
+        shell: bash
+        run: |
+          cp build/output/aether-server.exe app/build/windows/x64/runner/Release/
+
+      - name: Package artifacts
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+          cd app/build/windows/x64/runner/Release
+          7z a ../../../../../../aether-${VERSION}-windows-amd64.zip .
+          cd ../../../../../../
+          cp build/output/aether-server.exe aether-server-${VERSION}-windows-amd64.exe
+
+      - name: Upload server artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-windows-server
+          path: aether-server-${{ env.VERSION }}-windows-amd64.exe
+
+      - name: Upload app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-windows-app
+          path: aether-${{ env.VERSION }}-windows-amd64.zip
+
+  # ──────────────────────────────────────────────
+  #  Android 构建
+  # ──────────────────────────────────────────────
+  build-android:
+    name: Build Android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.32.x"
+          channel: stable
+          cache: true
+
+      - name: Flutter pub get
+        working-directory: app
+        run: flutter pub get
+
+      - name: Generate i18n
+        working-directory: app
+        run: dart run slang
+
+      - name: Build APK
+        working-directory: app
+        run: flutter build apk --release
+
+      - name: Build App Bundle
+        working-directory: app
+        run: flutter build appbundle --release
+
+      - name: Package artifacts
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+          cp app/build/app/outputs/flutter-apk/app-release.apk aether-${VERSION}-android.apk
+          cp app/build/app/outputs/bundle/release/app-release.aab aether-${VERSION}-android.aab
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-android-apk
+          path: aether-${{ env.VERSION }}-android.apk
+
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-android-aab
+          path: aether-${{ env.VERSION }}-android.aab
+
+  # ──────────────────────────────────────────────
+  #  创建 GitHub Release
+  # ──────────────────────────────────────────────
+  release:
+    name: Publish Release
+    needs: [build-linux, build-windows, build-android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List artifacts
+        run: find artifacts -type f | sort
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -70,25 +223,45 @@ jobs:
 
             ### 📦 下载
 
-            | 文件 | 说明 |
-            |:-----|:-----|
-            | `aether-${{ env.VERSION }}-linux-amd64.tar.gz` | 完整应用 (含 Go 后端) |
-            | `aether-server-${{ env.VERSION }}-linux-amd64.tar.gz` | 仅 Go 后端 |
+            | 平台 | 文件 | 说明 |
+            |:-----|:-----|:-----|
+            | Linux | `aether-${{ env.VERSION }}-linux-amd64.tar.gz` | 完整应用 (含 Go 后端) |
+            | Linux | `aether-server-${{ env.VERSION }}-linux-amd64.tar.gz` | 仅 Go 后端 |
+            | Windows | `aether-${{ env.VERSION }}-windows-amd64.zip` | 完整应用 (含 Go 后端) |
+            | Windows | `aether-server-${{ env.VERSION }}-windows-amd64.exe` | 仅 Go 后端 |
+            | Android | `aether-${{ env.VERSION }}-android.apk` | APK 安装包 |
+            | Android | `aether-${{ env.VERSION }}-android.aab` | App Bundle (上架用) |
 
             ### 🚀 使用
 
+            **Linux:**
             ```bash
-            # 解压完整应用
             tar -xzf aether-${{ env.VERSION }}-linux-amd64.tar.gz
             cd bundle
-            ./aether  # 启动应用 (自动启动内嵌 Go 后端)
+            ./aether
+            ```
+
+            **Windows:**
+            ```
+            解压 aether-${{ env.VERSION }}-windows-amd64.zip
+            运行 aether.exe (自动启动内嵌 Go 后端)
+            ```
+
+            **Android:**
+            ```
+            安装 aether-${{ env.VERSION }}-android.apk
+            首次启动需配置 Emby 服务器地址
             ```
 
             ### 📝 更新日志
 
             *(自动从 commits 生成)*
           files: |
-            aether-${{ env.VERSION }}-linux-amd64.tar.gz
-            aether-server-${{ env.VERSION }}-linux-amd64.tar.gz
+            artifacts/aether-${{ env.VERSION }}-linux-amd64.tar.gz
+            artifacts/aether-server-${{ env.VERSION }}-linux-amd64.tar.gz
+            artifacts/aether-${{ env.VERSION }}-windows-amd64.zip
+            artifacts/aether-server-${{ env.VERSION }}-windows-amd64.exe
+            artifacts/aether-${{ env.VERSION }}-android.apk
+            artifacts/aether-${{ env.VERSION }}-android.aab
           draft: false
           prerelease: ${{ contains(env.VERSION, 'beta') || contains(env.VERSION, 'alpha') || contains(env.VERSION, 'rc') }}

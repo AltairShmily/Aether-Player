@@ -68,10 +68,10 @@ jobs:
         run: flutter test
 
   # ──────────────────────────────────────────────
-  #  CMake + Ninja 全量构建 + 产物上传
+  #  Linux 构建 + 产物上传
   # ──────────────────────────────────────────────
-  cmake-build:
-    name: CMake + Ninja
+  build-linux:
+    name: Build Linux
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -108,14 +108,10 @@ jobs:
       # ── 打包 + 上传产物 ──
       - name: Package artifacts
         run: |
-          # 获取版本号 (从 tag 或 commit)
           VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev-$(git rev-parse --short HEAD)")
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
-          # 打包 Go 后端
           tar -czf aether-server-${VERSION}-linux-amd64.tar.gz -C build/output aether-server
-
-          # 打包完整 Flutter 应用 (含内嵌 Go 后端)
           tar -czf aether-${VERSION}-linux-amd64.tar.gz -C app/build/linux/x64/release bundle
 
       - name: Upload server artifact
@@ -130,4 +126,137 @@ jobs:
         with:
           name: aether-${{ env.VERSION }}-linux-amd64
           path: aether-${{ env.VERSION }}-linux-amd64.tar.gz
+          retention-days: 30
+
+  # ──────────────────────────────────────────────
+  #  Windows 构建 + 产物上传
+  # ──────────────────────────────────────────────
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.32.x"
+          channel: stable
+          cache: true
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache-dependency-path: server/go.sum
+
+      # ── Go 后端 (Windows) ──
+      - name: Build Go backend
+        shell: bash
+        run: |
+          cd server
+          go build -ldflags="-s -w" -o ../build/output/aether-server.exe ./cmd/api/
+
+      # ── Flutter Windows ──
+      - name: Flutter pub get
+        working-directory: app
+        run: flutter pub get
+
+      - name: Generate i18n
+        working-directory: app
+        run: dart run slang
+
+      - name: Build Flutter Windows
+        working-directory: app
+        run: flutter build windows --release
+
+      # ── 合并 Go 后端到 Flutter bundle ──
+      - name: Bundle Go backend
+        shell: bash
+        run: |
+          cp build/output/aether-server.exe app/build/windows/x64/runner/Release/
+          ls -lh app/build/windows/x64/runner/Release/aether-server.exe
+          echo "✅ Go server bundled into Flutter Windows app"
+
+      # ── 打包 + 上传产物 ──
+      - name: Package artifacts
+        shell: bash
+        run: |
+          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev-$(git rev-parse --short HEAD)")
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+          cd app/build/windows/x64/runner/Release
+          7z a ../../../../../../aether-${VERSION}-windows-amd64.zip .
+          cd ../../../../../../
+          cp build/output/aether-server.exe aether-server-${VERSION}-windows-amd64.exe
+
+      - name: Upload server artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aether-server-${{ env.VERSION }}-windows-amd64
+          path: aether-server-${{ env.VERSION }}-windows-amd64.exe
+          retention-days: 30
+
+      - name: Upload app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aether-${{ env.VERSION }}-windows-amd64
+          path: aether-${{ env.VERSION }}-windows-amd64.zip
+          retention-days: 30
+
+  # ──────────────────────────────────────────────
+  #  Android 构建 + 产物上传
+  # ──────────────────────────────────────────────
+  build-android:
+    name: Build Android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.32.x"
+          channel: stable
+          cache: true
+
+      - name: Flutter pub get
+        working-directory: app
+        run: flutter pub get
+
+      - name: Generate i18n
+        working-directory: app
+        run: dart run slang
+
+      - name: Build APK
+        working-directory: app
+        run: flutter build apk --release
+
+      - name: Build App Bundle
+        working-directory: app
+        run: flutter build appbundle --release
+
+      # ── 打包 + 上传产物 ──
+      - name: Package artifacts
+        run: |
+          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev-$(git rev-parse --short HEAD)")
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+          cp app/build/app/outputs/flutter-apk/app-release.apk aether-${VERSION}-android.apk
+          cp app/build/app/outputs/bundle/release/app-release.aab aether-${VERSION}-android.aab
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: aether-${{ env.VERSION }}-android-apk
+          path: aether-${{ env.VERSION }}-android.apk
+          retention-days: 30
+
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: aether-${{ env.VERSION }}-android-aab
+          path: aether-${{ env.VERSION }}-android.aab
           retention-days: 30

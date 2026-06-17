@@ -118,15 +118,17 @@ ls app/build/linux/x64/release/bundle/  # Flutter 完整包
 
 每次推送到 `main` 或 `dev` 分支会自动运行 CI：
 
-| Job | 内容 |
-|:----|:-----|
-| **Go Backend** | vet → test → build |
-| **Flutter Check** | analyze → test |
-| **CMake + Ninja** | Go 编译 → Flutter 构建 → 一体化打包 |
+| Job | 内容 | 产物 |
+|:----|:-----|:-----|
+| **Go Backend** | vet → test → build | — |
+| **Flutter Check** | analyze → test | — |
+| **Build Linux** | Go + Flutter + CMake 一体化 | `.tar.gz` |
+| **Build Windows** | Go + Flutter 打包 | `.zip` / `.exe` |
+| **Build Android** | Flutter APK + AAB | `.apk` / `.aab` |
 
-**构建产物：** CI 通过后会自动上传 Linux 构建包（`.tar.gz`），可在 Actions → 对应 Run → Artifacts 下载。
+**构建产物：** CI 通过后可在 Actions → 对应 Run → Artifacts 下载各平台构建包（保留 30 天）。
 
-**发布版本：** 推送 `v*` 标签（如 `v1.0.0`）会自动创建 GitHub Release 并附带构建产物。
+**发布版本：** 推送 `v*` 标签（如 `v1.0.0`）会自动创建 GitHub Release，附带 Linux / Windows / Android 全平台产物。
 
 ```bash
 # 发布版本
@@ -198,8 +200,8 @@ cmake -B build -G Ninja && cmake --build build
 
 ### CI/CD
 
-- Push to `main`/`dev` → CI runs + artifacts uploaded
-- Push `v*` tag → GitHub Release created with build artifacts
+- Push to `main`/`dev` → CI runs + multi-platform artifacts uploaded (Linux, Windows, Android)
+- Push `v*` tag → GitHub Release created with all platform build artifacts
 
 ### License
 
