@@ -10,7 +10,10 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../theme/app_colors.dart';
 import '../providers/auth_provider.dart';
 import '../providers/player_provider.dart';
+import '../providers/settings_provider.dart';
 import '../services/mpv_engine.dart';
+import '../services/player_engine.dart';
+import '../services/player_engine_factory.dart';
 
 // ══════════════════════════════════════════════════════════════════
 //  播放器页面 — 全屏视频播放
@@ -105,16 +108,22 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       return;
     }
 
-    // 创建控制器
+    // 根据用户设置创建对应引擎
+    final engineType = ref.read(playerEngineProvider);
+    final engine = PlayerEngineFactory.create(engineType);
+
+    // 创建控制器（传入指定引擎）
     final controller = PlayerController(
       serverUrl: serverUrl,
       token: auth.token,
       userId: auth.user.id,
+      engine: engine,
     );
 
-    // 获取引擎的 VideoController
-    final engine = controller.engine as MpvEngine;
-    _videoController = engine.videoController;
+    // 根据引擎类型获取 VideoController（仅 media_kit 引擎需要）
+    if (engine is MpvEngine) {
+      _videoController = engine.videoController;
+    }
 
     // 保存 controller 到 state 以便后续访问
     _playerController = controller;
@@ -253,6 +262,33 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               child: Video(
                 controller: _videoController!,
                 controls: NoVideoControls, // 使用自定义控制面板
+              ),
+            )
+          // 原生引擎占位（视频渲染需要平台 Texture 集成）
+          else if (_isInitialized && _videoController == null)
+            const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.play_circle_outline_rounded,
+                      color: AppColors.celestialCyan, size: 64),
+                  SizedBox(height: 16),
+                  Text(
+                    '原生引擎 · 音频播放中',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    '视频渲染开发中…',
+                    style: TextStyle(
+                      color: AppColors.textTertiary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ),
             ),
 
@@ -485,11 +521,12 @@ class _PlayerControlsOverlay extends StatelessWidget {
                       color: Colors.white70, size: 22),
                   color: AppColors.stardust,
                   onSelected: (speed) => onSpeedChanged(speed),
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 1.0,
-                      child: Text('倍速', style: TextStyle(color: AppColors.textPrimary)),
-                    ),
+                 itemBuilder: (context) => [
+                   const PopupMenuItem(
+                     value: 1.0,
+                      enabled: false,
+                     child: Text('倍速', style: TextStyle(color: AppColors.textPrimary)),
+                   ),
                     ...state.speedOptions
                         .where((s) => s != 1.0)
                         .map(

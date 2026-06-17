@@ -1,5 +1,26 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// 播放引擎类型
+enum PlayerEngineType {
+  /// media_kit (libmpv 封装，通过 Dart 包调用)
+  mediaKit('media_kit', 'Media Kit (默认)'),
+
+  /// 原生 C++ FFI (直接调用 libmpv)
+  nativeFfi('native_ffi', '原生 C++ 引擎');
+
+  const PlayerEngineType(this.key, this.label);
+
+  final String key;
+  final String label;
+
+  static PlayerEngineType fromKey(String key) {
+    return PlayerEngineType.values.firstWhere(
+      (e) => e.key == key,
+      orElse: () => PlayerEngineType.mediaKit,
+    );
+  }
+}
+
 /// 设置持久化服务
 ///
 /// 使用 SharedPreferences 存储用户设置
@@ -10,6 +31,7 @@ class SettingsService {
   static const _keyAnimations = 'settings_animations';
   static const _keyRemoteAccess = 'settings_remote_access';
   static const _keyBandwidthLimit = 'settings_bandwidth_limit';
+  static const _keyPlayerEngine = 'settings_player_engine';
 
   SharedPreferences? _prefs;
 
@@ -82,5 +104,18 @@ class SettingsService {
   Future<void> setBandwidthLimit(String value) async {
     final p = await prefs;
     await p.setString(_keyBandwidthLimit, value);
+  }
+
+  // ── 播放引擎设置 ──
+
+  Future<PlayerEngineType> getPlayerEngine() async {
+    final p = await prefs;
+    final key = p.getString(_keyPlayerEngine) ?? PlayerEngineType.mediaKit.key;
+    return PlayerEngineType.fromKey(key);
+  }
+
+  Future<void> setPlayerEngine(PlayerEngineType type) async {
+    final p = await prefs;
+    await p.setString(_keyPlayerEngine, type.key);
   }
 }

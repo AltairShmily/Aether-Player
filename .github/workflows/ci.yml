@@ -8,7 +8,7 @@ on:
 
 jobs:
   # ──────────────────────────────────────────────
-  #  Go Backend — Build & Vet
+  #  Go Backend — Build & Test
   # ──────────────────────────────────────────────
   go-build:
     name: Go Backend
@@ -37,14 +37,11 @@ jobs:
         run: go build -o /dev/null ./cmd/api/
 
   # ──────────────────────────────────────────────
-  #  Flutter App — Analyze & Build
+  #  Flutter App — Analyze & Test
   # ──────────────────────────────────────────────
-  flutter-build:
-    name: Flutter App
+  flutter-check:
+    name: Flutter Check
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: app
     steps:
       - uses: actions/checkout@v4
 
@@ -54,17 +51,56 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Install dependencies
+      - name: Install deps
+        working-directory: app
         run: flutter pub get
 
       - name: Generate i18n
+        working-directory: app
         run: dart run slang
 
       - name: Analyze
+        working-directory: app
         run: flutter analyze --no-pub
 
       - name: Test
+        working-directory: app
         run: flutter test
 
-      - name: Build (web release)
-        run: flutter build web --release
+  # ──────────────────────────────────────────────
+  #  CMake + Ninja 构建测试
+  # ──────────────────────────────────────────────
+  cmake-build:
+    name: CMake + Ninja
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.32.x"
+          channel: stable
+          cache: true
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache-dependency-path: server/go.sum
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgtk-3-dev libmpv-dev mpv
+
+      - name: CMake Configure
+        run: cmake -B build -G Ninja
+
+      - name: CMake Build
+        run: cmake --build build
+
+      - name: Verify bundle
+        run: |
+          ls -lh build/output/aether-server
+          ls -lh app/build/linux/x64/release/bundle/aether
+          ls -lh app/build/linux/x64/release/bundle/aether-server
+          echo "✅ Go server bundled into Flutter app"

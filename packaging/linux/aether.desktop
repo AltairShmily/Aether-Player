@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Aether Player
+Comment=Emby Media Client
+Exec=aether
+Icon=aether
+Type=Application
+Categories=AudioVideo;Video;Player;
+Terminal=false
+StartupWMClass=aether

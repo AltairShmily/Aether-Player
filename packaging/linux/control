@@ -1,0 +1,11 @@
+Package: aether
+Version: 1.0.0
+Section: video
+Priority: optional
+Architecture: amd64
+Depends: libmpv2 | libmpv1, libgtk-3-0, libsqlite3-0
+Maintainer: AltairShmily <AltairShmily@users.noreply.github.com>
+Description: Aether Player — Emby Media Client
+ A cross-platform Emby media player client built with
+ Flutter + Go + C++ (libmpv). Supports video playback,
+ media library browsing, and Emby server integration.

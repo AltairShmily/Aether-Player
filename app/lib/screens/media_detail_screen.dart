@@ -502,6 +502,19 @@ class _EpisodeTileState extends State<_EpisodeTile> {
       child: Column(
         children: [
           ListTile(
+            onTap: () {
+              final startAtMs = episode.userData != null &&
+                      episode.userData!.playbackPositionTicks > 0
+                  ? episode.userData!.playbackPositionTicks ~/ 10000
+                  : 0;
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => PlayerPage(
+                  itemId: merged.selectedVersion.id,
+                  title: '${episode.episodeLabel} ${episode.name}',
+                  startAtMs: startAtMs,
+                ),
+              ));
+            },
             leading: ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: SizedBox(
