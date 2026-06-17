@@ -44,9 +44,6 @@ typedef _EngineSetDoubleDart = void Function(Pointer<Void> handle, double val);
 typedef _EngineSetIntC = Void Function(Pointer<Void> handle, Int32 val);
 typedef _EngineSetIntDart = void Function(Pointer<Void> handle, int val);
 
-typedef _EngineGetDoubleC = Double Function(Pointer<Void> handle);
-typedef _EngineGetDoubleDart = double Function(Pointer<Void> handle);
-
 typedef _EngineGetIntC = Int32 Function(Pointer<Void> handle);
 typedef _EngineGetIntDart = int Function(Pointer<Void> handle);
 

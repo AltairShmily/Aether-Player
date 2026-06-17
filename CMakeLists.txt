@@ -110,7 +110,7 @@ if(BUILD_FLUTTER)
 
     # i18n 生成
     add_custom_target(flutter-i18n
-        COMMAND ${FLUTTER_EXECUTABLE} --suppress-analytics run slang
+        COMMAND dart run slang
         WORKING_DIRECTORY ${APP_DIR}
         COMMENT "Generating i18n..."
         DEPENDS flutter-deps

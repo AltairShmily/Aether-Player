@@ -93,275 +93,275 @@ class _HomeTabState extends ConsumerState<HomeTab> {
         ),
         // ── 主内容 ──
         CustomScrollView(
-      slivers: [
-        // ── App Bar ──
-        SliverAppBar(
-          floating: true,
-          backgroundColor: AppColors.deepVoid,
-          surfaceTintColor: Colors.transparent,
-          title: Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  gradient: AppColors.accentGradient,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.play_arrow_rounded,
-                  color: AppColors.deepVoid,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 10),
-              const Text(
-                'AETHER',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 3,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.refresh_rounded, color: AppColors.textSecondary),
-              onPressed: () => ref.read(homeProvider.notifier).loadAll(),
-            ),
-          ],
-        ),
-
-        // ── Welcome ──
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(pad, 8, pad, 20),
-            child: Text(
-              t.home.welcome(name: userName),
-              style: const TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-                letterSpacing: -0.3,
-              ),
-            ),
-          ),
-        ),
-
-        // ── Loading ──
-        if (homeState.isLoading && homeState.resumeItems.isEmpty)
-          const SliverToBoxAdapter(
-            child: SizedBox(
-              height: 200,
-              child: Center(
-                child: CircularProgressIndicator(
-                  color: AppColors.celestialCyan,
-                  strokeWidth: 2,
-                ),
-              ),
-            ),
-          ),
-
-        // ── Hero Banner (Resume 首项) ──
-        if (homeState.resumeItems.isNotEmpty)
-          SliverToBoxAdapter(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  height: AetherBreakpoints.heroHeight(context),
-                  child: PageView.builder(
-                    controller: _heroController,
-                    itemCount: homeState.resumeItems.length.clamp(0, 5),
-                    onPageChanged: (index) => setState(() => _currentPage = index),
-                    itemBuilder: (context, index) {
-                      final item = homeState.resumeItems[index];
-                      final imageUrl =
-                          '${ApiClient.proxyBaseUrl}/api/images/${item.id}/Backdrop?maxWidth=800';
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        child: AetherHero.carousel(
-                          imageUrl: imageUrl,
-                          title: item.isEpisode ? item.seriesName : item.name,
-                          subtitle: item.isEpisode
-                              ? '${item.episodeLabel} · ${item.overview}'
-                              : item.overview,
-                          tags: [
-                            if (item.isEpisode) '剧集',
-                            if (item.isMovie) '电影',
-                            if (item.productionYear > 0) '${item.productionYear}',
-                          ],
-                          rating: item.communityRating,
-                          primaryAction: AetherButton.primary(
-                            label: '继续播放',
-                            icon: Icons.play_arrow_rounded,
-                            compact: true,
-                            onPressed: () => _navigateToItem(context, item),
-                          ),
-                          onTap: () => _navigateToItem(context, item),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                // ── Carousel dot indicators ──
-                if (homeState.resumeItems.length > 1)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(
-                        homeState.resumeItems.length.clamp(0, 5),
-                        (index) => AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          margin: const EdgeInsets.symmetric(horizontal: 3),
-                          width: _currentPage == index ? 16 : 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: _currentPage == index
-                                ? AppColors.celestialCyan
-                                : AppColors.textTertiary.withValues(alpha: 0.4),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                        ),
-                      ),
+          slivers: [
+            // ── App Bar ──
+            SliverAppBar(
+              floating: true,
+              backgroundColor: AppColors.deepVoid,
+              surfaceTintColor: Colors.transparent,
+              title: Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      gradient: AppColors.accentGradient,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.play_arrow_rounded,
+                      color: AppColors.deepVoid,
+                      size: 20,
                     ),
                   ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'AETHER',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 3,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.refresh_rounded, color: AppColors.textSecondary),
+                  onPressed: () => ref.read(homeProvider.notifier).loadAll(),
+                ),
               ],
             ),
-          ),
 
-        // ── Error ──
-        if (homeState.error != null)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: pad, vertical: 12),
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppColors.error.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: AppColors.error.withValues(alpha: 0.2),
-                    width: 0.5,
+            // ── Welcome ──
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(pad, 8, pad, 20),
+                child: Text(
+                  t.home.welcome(name: userName),
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                    letterSpacing: -0.3,
                   ),
                 ),
-                child: Row(
+              ),
+            ),
+
+            // ── Loading ──
+            if (homeState.isLoading && homeState.resumeItems.isEmpty)
+              const SliverToBoxAdapter(
+                child: SizedBox(
+                  height: 200,
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.celestialCyan,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                ),
+              ),
+
+            // ── Hero Banner (Resume 首项) ──
+            if (homeState.resumeItems.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.error_outline, color: AppColors.error, size: 20),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        homeState.error!,
-                        style: const TextStyle(
-                          color: AppColors.error,
-                          fontSize: 13,
-                        ),
+                    SizedBox(
+                      height: AetherBreakpoints.heroHeight(context),
+                      child: PageView.builder(
+                        controller: _heroController,
+                        itemCount: homeState.resumeItems.length.clamp(0, 5),
+                        onPageChanged: (index) => setState(() => _currentPage = index),
+                        itemBuilder: (context, index) {
+                          final item = homeState.resumeItems[index];
+                          final imageUrl =
+                              '${ApiClient.proxyBaseUrl}/api/images/${item.id}/Backdrop?maxWidth=800';
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            child: AetherHero.carousel(
+                              imageUrl: imageUrl,
+                              title: item.isEpisode ? item.seriesName : item.name,
+                              subtitle: item.isEpisode
+                                  ? '${item.episodeLabel} · ${item.overview}'
+                                  : item.overview,
+                              tags: [
+                                if (item.isEpisode) '剧集',
+                                if (item.isMovie) '电影',
+                                if (item.productionYear > 0) '${item.productionYear}',
+                              ],
+                              rating: item.communityRating,
+                              primaryAction: AetherButton.primary(
+                                label: '继续播放',
+                                icon: Icons.play_arrow_rounded,
+                                compact: true,
+                                onPressed: () => _navigateToItem(context, item),
+                              ),
+                              onTap: () => _navigateToItem(context, item),
+                            ),
+                          );
+                        },
                       ),
                     ),
+                    // ── Carousel dot indicators ──
+                    if (homeState.resumeItems.length > 1)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(
+                            homeState.resumeItems.length.clamp(0, 5),
+                            (index) => AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              margin: const EdgeInsets.symmetric(horizontal: 3),
+                              width: _currentPage == index ? 16 : 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: _currentPage == index
+                                    ? AppColors.celestialCyan
+                                    : AppColors.textTertiary.withValues(alpha: 0.4),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
-            ),
-          ),
 
-        // ── Continue Watching ──
-        if (homeState.resumeItems.isNotEmpty)
-          SliverToBoxAdapter(
-            child: _SectionRow(
-              title: t.home.continueWatching,
-              items: homeState.resumeItems,
-              serverUrl: _serverUrl,
-              token: token,
-              titleIcon: Icons.play_circle_outline,
-            ),
-          ),
-
-        // ── Library Shortcuts ──
-        if (homeState.libraries.isNotEmpty)
-          SliverToBoxAdapter(
-            child: _LibraryRow(
-              libraries: homeState.libraries,
-              serverUrl: _serverUrl,
-              token: token,
-            ),
-          ),
-
-        // ── Per-library rows ──
-        for (final lib in homeState.libraries) ...[
-          if (homeState.libraryItems.containsKey(lib.id) &&
-              homeState.libraryItems[lib.id]!.isNotEmpty)
-            SliverToBoxAdapter(
-              child: _SectionRow(
-                title: lib.name,
-                items: homeState.libraryItems[lib.id]!,
-                serverUrl: _serverUrl,
-                token: token,
-                titleIcon: _iconForType(lib.collectionType),
-              ),
-            ),
-        ],
-
-        // ── Account Card ──
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(pad, 40, pad, 32),
-            child: AetherCard.simple(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
+            // ── Error ──
+            if (homeState.error != null)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: pad, vertical: 12),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      gradient: AppColors.accentGradient,
-                      borderRadius: BorderRadius.circular(22),
+                      color: AppColors.error.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.error.withValues(alpha: 0.2),
+                        width: 0.5,
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.person_rounded,
-                      color: AppColors.deepVoid,
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        Text(
-                          userName,
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 15,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          authState.authResult?.server.serverName ?? '',
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 13,
+                        const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            homeState.error!,
+                            style: const TextStyle(
+                              color: AppColors.error,
+                              fontSize: 13,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  AetherButton.ghost(
-                    label: '切换',
-                    icon: Icons.swap_horiz_rounded,
-                    compact: true,
-                    onPressed: () => _switchAccount(context, ref),
+                ),
+              ),
+
+            // ── Continue Watching ──
+            if (homeState.resumeItems.isNotEmpty)
+              SliverToBoxAdapter(
+                child: _SectionRow(
+                  title: t.home.continueWatching,
+                  items: homeState.resumeItems,
+                  serverUrl: _serverUrl,
+                  token: token,
+                  titleIcon: Icons.play_circle_outline,
+                ),
+              ),
+
+            // ── Library Shortcuts ──
+            if (homeState.libraries.isNotEmpty)
+              SliverToBoxAdapter(
+                child: _LibraryRow(
+                  libraries: homeState.libraries,
+                  serverUrl: _serverUrl,
+                  token: token,
+                ),
+              ),
+
+            // ── Per-library rows ──
+            for (final lib in homeState.libraries) ...[
+              if (homeState.libraryItems.containsKey(lib.id) &&
+                  homeState.libraryItems[lib.id]!.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: _SectionRow(
+                    title: lib.name,
+                    items: homeState.libraryItems[lib.id]!,
+                    serverUrl: _serverUrl,
+                    token: token,
+                    titleIcon: _iconForType(lib.collectionType),
                   ),
-                ],
+                ),
+            ],
+
+            // ── Account Card ──
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(pad, 40, pad, 32),
+                child: AetherCard.simple(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          gradient: AppColors.accentGradient,
+                          borderRadius: BorderRadius.circular(22),
+                        ),
+                        child: const Icon(
+                          Icons.person_rounded,
+                          color: AppColors.deepVoid,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              userName,
+                              style: const TextStyle(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              authState.authResult?.server.serverName ?? '',
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      AetherButton.ghost(
+                        label: '切换',
+                        icon: Icons.swap_horiz_rounded,
+                        compact: true,
+                        onPressed: () => _switchAccount(context, ref),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
+          ],
         ),
-      ],
-    ),
       ],
     ),
   }

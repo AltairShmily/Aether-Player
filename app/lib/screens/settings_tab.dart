@@ -36,7 +36,7 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
 
   Future<void> _loadSettings() async {
     final s = SettingsService();
-    final results = await Future.wait([
+    final results = await Future.wait<bool>([
       s.getAutoPlayNext(),
       s.getHardwareAcceleration(),
       s.getNoiseTexture(),
@@ -45,11 +45,11 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
     ]);
     if (mounted) {
       setState(() {
-        _autoPlayNext = results[0],
-        _hwAcceleration = results[1],
-        _noiseTexture = results[2],
-        _animations = results[3],
-        _remoteAccess = results[4],
+        _autoPlayNext = results[0];
+        _hwAcceleration = results[1];
+        _noiseTexture = results[2];
+        _animations = results[3];
+        _remoteAccess = results[4];
       });
     }
   }
