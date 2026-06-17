@@ -90,6 +90,10 @@ if(BUILD_FLUTTER)
     # Flutter 子命令封装
     set(FLUTTER_CMD ${FLUTTER_EXECUTABLE} --suppress-analytics)
 
+    # Dart 可执行文件 (与 Flutter 同目录)
+    get_filename_component(FLUTTER_BIN_DIR ${FLUTTER_EXECUTABLE} DIRECTORY)
+    set(DART_EXECUTABLE ${FLUTTER_BIN_DIR}/dart)
+
     # 初始化平台目录（如果不存在）
     if(NOT EXISTS ${APP_DIR}/linux/CMakeLists.txt)
         add_custom_command(
@@ -110,7 +114,7 @@ if(BUILD_FLUTTER)
 
     # i18n 生成
     add_custom_target(flutter-i18n
-        COMMAND dart run slang
+        COMMAND ${DART_EXECUTABLE} run slang
         WORKING_DIRECTORY ${APP_DIR}
         COMMENT "Generating i18n..."
         DEPENDS flutter-deps

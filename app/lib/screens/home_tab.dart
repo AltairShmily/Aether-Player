@@ -363,7 +363,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
           ],
         ),
       ],
-    ),
+    );
   }
 
   void _navigateToItem(BuildContext context, MediaItem item) {
