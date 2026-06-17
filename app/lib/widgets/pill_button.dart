@@ -54,9 +54,9 @@ class _PillButtonState extends State<PillButton> {
                 curve: Curves.easeOutCubic,
                 height: 54,
                 transform: _isPressed
-                    ? (Matrix4.identity()..scaleByDouble(0.98, 0.98, 1.0, 1.0))
+                    ? (Matrix4.identity()..scale(0.98, 0.98, 1.0))
                     : (_isHovered
-                        ? (Matrix4.identity()..scaleByDouble(1.02, 1.02, 1.0, 1.0))
+                        ? (Matrix4.identity()..scale(1.02, 1.02, 1.0))
                         : Matrix4.identity()),
                 decoration: BoxDecoration(
                   gradient: widget.backgroundColor != null

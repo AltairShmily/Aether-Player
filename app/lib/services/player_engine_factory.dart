@@ -1,6 +1,7 @@
 import 'player_engine.dart';
 import 'mpv_engine.dart';
 import 'settings_service.dart';
+import 'package:flutter/foundation.dart';
 
 // 延迟导入原生引擎，避免在不支持的平台上崩溃
 import 'native_engine.dart' as native;
@@ -22,7 +23,7 @@ class PlayerEngineFactory {
           return native.NativeFfiEngine();
         } catch (e) {
           // 原生引擎不可用时回退到 media_kit
-          print('[PlayerEngineFactory] Native engine unavailable, '
+          debugPrint('[PlayerEngineFactory] Native engine unavailable, '
               'falling back to media_kit: $e');
           return MpvEngine();
         }
