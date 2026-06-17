@@ -12,7 +12,7 @@ import 'package:path_provider/path_provider.dart';
 /// - 应用退出时自动清理
 class BackendService {
   Process? _process;
-  int _port = 19800;
+  final int _port = 19800;
   bool _started = false;
   Timer? _healthCheckTimer;
 

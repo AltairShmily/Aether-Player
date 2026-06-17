@@ -17,12 +17,6 @@ typedef _DurationCallbackC = Void Function(Double seconds);
 typedef _BufferingCallbackC = Void Function(Int32 buffering);
 typedef _CompletionCallbackC = Void Function();
 
-typedef _StateCallbackDart = void Function(int state);
-typedef _PositionCallbackDart = void Function(double seconds);
-typedef _DurationCallbackDart = void Function(double seconds);
-typedef _BufferingCallbackDart = void Function(int buffering);
-typedef _CompletionCallbackDart = void Function();
-
 // 引擎函数签名
 typedef _EngineCreateC = Pointer<Void> Function();
 typedef _EngineCreateDart = Pointer<Void> Function();
@@ -56,11 +50,6 @@ typedef _EngineGetDoubleDart = double Function(Pointer<Void> handle);
 typedef _EngineGetIntC = Int32 Function(Pointer<Void> handle);
 typedef _EngineGetIntDart = int Function(Pointer<Void> handle);
 
-typedef _EngineSetCallbackC = Void Function(
-    Pointer<Void> handle, Pointer<NativeFunction<_StateCallbackC>> fn);
-typedef _EngineSetCallbackDart = void Function(
-    Pointer<Void> handle, Pointer<NativeFunction<_StateCallbackC>> fn);
-
 // ══════════════════════════════════════════════════════════════════
 //  NativeFfiEngine — 基于 C++ FFI 的播放器引擎实现
 // ══════════════════════════════════════════════════════════════════
@@ -88,13 +77,7 @@ class NativeFfiEngine implements PlayerEngine {
   late final _EngineSetDoubleDart _setPlaybackSpeed;
   late final _EngineSetIntDart _setAudioTrack;
   late final _EngineSetIntDart _setSubtitleTrack;
-  late final _EngineGetDoubleDart _getPosition;
-  late final _EngineGetDoubleDart _getDuration;
-  late final _EngineGetDoubleDart _getVolume;
-  late final _EngineGetDoubleDart _getPlaybackSpeed;
-  late final _EngineGetIntDart _getState;
   late final _EngineGetIntDart _isPlaying;
-  late final _EngineGetIntDart _isBuffering;
 
   // ── 流控制器 ──
   final StreamController<PlayerState> _stateController =
@@ -115,8 +98,8 @@ class NativeFfiEngine implements PlayerEngine {
   bool _isBufferingState = false;
   double _volume = 100.0; // 原生使用 0-100
   double _playbackSpeed = 1.0;
-  List<TrackInfo> _audioTracks = [];
-  List<TrackInfo> _subtitleTracks = [];
+  final List<TrackInfo> _audioTracks = [];
+  final List<TrackInfo> _subtitleTracks = [];
   int _currentAudioTrackIndex = -1;
   int _currentSubtitleTrackIndex = -1;
 
@@ -165,22 +148,8 @@ class NativeFfiEngine implements PlayerEngine {
     _setSubtitleTrack = _lib
         .lookupFunction<_EngineSetIntC, _EngineSetIntDart>(
             'engine_set_subtitle_track');
-    _getPosition = _lib.lookupFunction<_EngineGetDoubleC, _EngineGetDoubleDart>(
-        'engine_get_position');
-    _getDuration = _lib.lookupFunction<_EngineGetDoubleC, _EngineGetDoubleDart>(
-        'engine_get_duration');
-    _getVolume = _lib.lookupFunction<_EngineGetDoubleC, _EngineGetDoubleDart>(
-        'engine_get_volume');
-    _getPlaybackSpeed = _lib
-        .lookupFunction<_EngineGetDoubleC, _EngineGetDoubleDart>(
-            'engine_get_playback_speed');
-    _getState = _lib
-        .lookupFunction<_EngineGetIntC, _EngineGetIntDart>('engine_get_state');
     _isPlaying = _lib
         .lookupFunction<_EngineGetIntC, _EngineGetIntDart>('engine_is_playing');
-    _isBuffering = _lib
-        .lookupFunction<_EngineGetIntC, _EngineGetIntDart>(
-            'engine_is_buffering');
 
     // 创建引擎实例
     _handle = _create();

@@ -45,11 +45,11 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
     ]);
     if (mounted) {
       setState(() {
-        _autoPlayNext = results[0] as bool;
-        _hwAcceleration = results[1] as bool;
-        _noiseTexture = results[2] as bool;
-        _animations = results[3] as bool;
-        _remoteAccess = results[4] as bool;
+        _autoPlayNext = results[0],
+        _hwAcceleration = results[1],
+        _noiseTexture = results[2],
+        _animations = results[3],
+        _remoteAccess = results[4],
       });
     }
   }

@@ -362,8 +362,9 @@ class _HomeTabState extends ConsumerState<HomeTab> {
         ),
       ],
     ),
-        ],
-      ),
+      ],
+    ),
+  }
 
   void _navigateToItem(BuildContext context, MediaItem item) {
     Widget destination;
@@ -421,7 +422,6 @@ class _HomeTabState extends ConsumerState<HomeTab> {
     }
   }
   }
-}
 
 // ══════════════════════════════════════════════════
 //  _SectionRow — 杂志感分类行

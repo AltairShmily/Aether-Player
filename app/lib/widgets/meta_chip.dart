@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
 
 /// Reusable metadata chip for displaying tags like year, rating, duration, etc.
 ///

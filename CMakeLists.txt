@@ -125,11 +125,11 @@ if(BUILD_FLUTTER)
         set(FLUTTER_BUNDLE_DIR ${APP_DIR}/build/windows/x64/runner/Release)
     endif()
 
-    add_custom_target(flutter-build
+    add_custom_target(flutter-build ALL
         COMMAND ${FLUTTER_BUILD_CMD}
         WORKING_DIRECTORY ${APP_DIR}
         COMMENT "Building Flutter ${HOST_OS} release..."
-        DEPENDS flutter-i18n
+        DEPENDS flutter-i18n server
     )
 
     # 合并：将 Go 二进制复制到 Flutter bundle
