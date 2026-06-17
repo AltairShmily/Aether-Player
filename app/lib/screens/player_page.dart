@@ -45,6 +45,11 @@ class PlayerPage extends ConsumerStatefulWidget {
   /// 预选字幕轨道索引（-1 = 关闭字幕，在流加载后自动应用）
   final int? subtitleTrackIndex;
 
+  /// 自动播放下一集所需信息
+  final String? seriesId;
+  final String? seasonId;
+  final int? episodeIndex;
+
   const PlayerPage({
     super.key,
     required this.itemId,
@@ -52,6 +57,9 @@ class PlayerPage extends ConsumerStatefulWidget {
     this.startAtMs = 0,
     this.audioTrackIndex,
     this.subtitleTrackIndex,
+    this.seriesId,
+    this.seasonId,
+    this.episodeIndex,
   });
 
   @override
@@ -72,6 +80,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   int _leftSeekAccum = 0;
   int _rightSeekAccum = 0;
   Timer? _seekAccumResetTimer;
+
+  // 自动播放下一集
+  bool _showAutoPlayOverlay = false;
+  int _autoPlayCountdown = 8;
+  Timer? _autoPlayTimer;
+  String _nextEpisodeTitle = '';
+  String _nextEpisodeId = '';
 
   @override
   void initState() {
@@ -127,6 +142,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
 
     // 保存 controller 到 state 以便后续访问
     _playerController = controller;
+
+    // 设置播放完成回调（自动播放下一集）
+    controller.onPlaybackComplete = _onPlaybackComplete;
 
     if (mounted) {
       setState(() => _isInitialized = true);
@@ -244,7 +262,104 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       _rightSeekAccum = 0;
     });
   }
+  // ── 自动播放下一集 ──────────────────────────────────────
 
+  /// 播放完成回调
+  void _onPlaybackComplete() {
+    if (!mounted) return;
+    _checkAutoPlayNext();
+  }
+
+  /// 检查是否需要自动播放下一集
+  Future<void> _checkAutoPlayNext() async {
+    final settings = SettingsService();
+    final autoPlay = await settings.getAutoPlayNext();
+    if (!autoPlay || !mounted) return;
+
+    if (widget.seriesId == null ||
+        widget.seasonId == null ||
+        widget.episodeIndex == null) {
+      return;
+    }
+
+    try {
+      final api = ApiClient();
+      final auth = ref.read(authProvider).authResult;
+      final serverUrl =
+          await ref.read(storageServiceProvider).getServerUrl();
+      if (auth == null || serverUrl == null || !mounted) return;
+
+      final episodes = await api.getEpisodes(
+        serverUrl: serverUrl,
+        token: auth.token,
+        seriesId: widget.seriesId!,
+        seasonId: widget.seasonId!,
+      );
+
+      if (!mounted || episodes.isEmpty) return;
+
+      final currentIndex =
+          episodes.indexWhere((e) => e.id == widget.itemId);
+      if (currentIndex < 0 || currentIndex >= episodes.length - 1) return;
+
+      final nextEp = episodes[currentIndex + 1];
+      _nextEpisodeId = nextEp.id;
+      _nextEpisodeTitle = nextEp.name;
+      _startAutoPlayCountdown();
+    } catch (e) {
+      debugPrint('[PlayerPage] Auto-play check failed: $e');
+    }
+  }
+
+  /// 开始自动播放倒计时
+  void _startAutoPlayCountdown() {
+    if (!mounted) return;
+    setState(() {
+      _showAutoPlayOverlay = true;
+      _autoPlayCountdown = 8;
+    });
+
+    _autoPlayTimer?.cancel();
+    _autoPlayTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_autoPlayCountdown <= 1) {
+        timer.cancel();
+        _playNextEpisode();
+      } else {
+        setState(() => _autoPlayCountdown--);
+      }
+    });
+  }
+
+  /// 取消自动播放
+  void _cancelAutoPlay() {
+    _autoPlayTimer?.cancel();
+    if (mounted) setState(() => _showAutoPlayOverlay = false);
+  }
+
+  /// 播放下一集
+  Future<void> _playNextEpisode() async {
+    _autoPlayTimer?.cancel();
+    if (!mounted || _nextEpisodeId.isEmpty) return;
+
+    setState(() {
+      _showAutoPlayOverlay = false;
+      _isInitialized = false;
+    });
+
+    await _playerController?.reportStopped();
+    await _playerController?.loadAndPlay(
+      _nextEpisodeId,
+      title: _nextEpisodeTitle,
+    );
+
+    if (mounted) setState(() => _isInitialized = true);
+  }
+
+  // ── 构建 UI ──────────────────────────────────────────────
   // ── 构建 UI ──────────────────────────────────────────────
 
   @override
@@ -376,6 +491,97 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                     fontSize: 13,
                   ),
                   textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          // ── 自动播放下一集倒计时 ──
+          if (_showAutoPlayOverlay)
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: AppColors.celestialCyan.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.skip_next_rounded,
+                      color: AppColors.celestialCyan,
+                      size: 48,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      '即将播放下一集',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _nextEpisodeTitle,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          CircularProgressIndicator(
+                            value: _autoPlayCountdown / 8,
+                            color: AppColors.celestialCyan,
+                            backgroundColor: AppColors.cosmicGray,
+                            strokeWidth: 3,
+                          ),
+                          Text(
+                            '$_autoPlayCountdown',
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextButton(
+                          onPressed: _cancelAutoPlay,
+                          child: const Text(
+                            '取消',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        FilledButton(
+                          onPressed: _playNextEpisode,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.celestialCyan,
+                            foregroundColor: AppColors.deepVoid,
+                          ),
+                          child: const Text('立即播放'),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),

@@ -168,6 +168,9 @@ class PlayerController extends StateNotifier<PlayerUiState> {
   /// 引擎事件订阅
   final List<StreamSubscription> _subscriptions = [];
 
+  /// 播放完成回调（用于自动播放下一集等）
+  VoidCallback? onPlaybackComplete;
+
   PlayerController({
     required this.serverUrl,
     required this.token,
@@ -212,14 +215,15 @@ class PlayerController extends StateNotifier<PlayerUiState> {
       state = state.copyWith(isBuffering: buffering);
     }));
 
-    // 播放完成时刷新轨道列表
+    // 播放完成时刷新轨道列表 + 触发回调
     _subscriptions.add(_engine.completionStream.listen((_) {
       if (!mounted) return;
-      // 播放完成后更新轨道信息
       state = state.copyWith(
         audioTracks: _engine.audioTracks,
         subtitleTracks: _engine.subtitleTracks,
       );
+      // 触发播放完成回调
+      onPlaybackComplete?.call();
     }));
 
     // 定时同步轨道信息（引擎内部更新后刷新到 UI）
