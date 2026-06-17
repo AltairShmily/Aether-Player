@@ -291,12 +291,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           await ref.read(storageServiceProvider).getServerUrl();
       if (auth == null || serverUrl == null || !mounted) return;
 
-      final episodes = await api.getEpisodes(
+      final response = await api.getEpisodes(
         serverUrl: serverUrl,
         token: auth.token,
+        userId: auth.user.id,
         seriesId: widget.seriesId!,
         seasonId: widget.seasonId!,
       );
+      final episodes = response.items;
 
       if (!mounted || episodes.isEmpty) return;
 

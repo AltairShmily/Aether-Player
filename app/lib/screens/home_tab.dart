@@ -355,15 +355,13 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                     compact: true,
                     onPressed: () => _switchAccount(context, ref),
                   ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    ),
-        ],
-      ),
+               ],
+             ),
+           ),
+         ),
+       ),
+     ],
+   ),
     );
   }
 
