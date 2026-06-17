@@ -175,10 +175,9 @@ jobs:
         working-directory: app
         shell: bash
         run: |
-          export CMAKE_GENERATOR="Ninja"
           export CC="clang"
           export CXX="clang++"
-          flutter build windows --release
+          flutter build windows --release --cmake-args="-G Ninja"
 
       # ── 合并 Go 后端到 Flutter bundle ──
       - name: Bundle Go backend

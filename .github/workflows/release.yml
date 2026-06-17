@@ -109,10 +109,9 @@ jobs:
         working-directory: app
         shell: bash
         run: |
-          export CMAKE_GENERATOR="Ninja"
           export CC="clang"
           export CXX="clang++"
-          flutter build windows --release
+          flutter build windows --release --cmake-args="-G Ninja"
 
       - name: Bundle Go backend
         shell: bash
