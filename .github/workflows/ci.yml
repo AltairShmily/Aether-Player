@@ -68,7 +68,7 @@ jobs:
         run: flutter test
 
   # ──────────────────────────────────────────────
-  #  CMake + Ninja 构建测试
+  #  CMake + Ninja 全量构建 + 产物上传
   # ──────────────────────────────────────────────
   cmake-build:
     name: CMake + Ninja
@@ -104,3 +104,30 @@ jobs:
           ls -lh app/build/linux/x64/release/bundle/aether
           ls -lh app/build/linux/x64/release/bundle/aether-server
           echo "✅ Go server bundled into Flutter app"
+
+      # ── 打包 + 上传产物 ──
+      - name: Package artifacts
+        run: |
+          # 获取版本号 (从 tag 或 commit)
+          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev-$(git rev-parse --short HEAD)")
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+          # 打包 Go 后端
+          tar -czf aether-server-${VERSION}-linux-amd64.tar.gz -C build/output aether-server
+
+          # 打包完整 Flutter 应用 (含内嵌 Go 后端)
+          tar -czf aether-${VERSION}-linux-amd64.tar.gz -C app/build/linux/x64/release bundle
+
+      - name: Upload server artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aether-server-${{ env.VERSION }}-linux-amd64
+          path: aether-server-${{ env.VERSION }}-linux-amd64.tar.gz
+          retention-days: 30
+
+      - name: Upload app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aether-${{ env.VERSION }}-linux-amd64
+          path: aether-${{ env.VERSION }}-linux-amd64.tar.gz
+          retention-days: 30

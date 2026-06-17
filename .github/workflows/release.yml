@@ -3,105 +3,38 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version tag (e.g. v1.0.0)'
-        required: true
+      - "v*"
 
 permissions:
   contents: write
 
-env:
-  FLUTTER_VERSION: '3.32.x'
-  GO_VERSION: '1.24'
-
 jobs:
-  # ══════════════════════════════════════════════════
-  #  Linux — CMake + Ninja 构建 + 打包
-  # ══════════════════════════════════════════════════
-  build-linux:
-    name: Linux
+  # ──────────────────────────────────────────────
+  #  构建 + 发布 GitHub Release
+  # ──────────────────────────────────────────────
+  release:
+    name: Build & Release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
+          flutter-version: "3.32.x"
           channel: stable
           cache: true
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: "1.24"
           cache-dependency-path: server/go.sum
 
       - name: Install system deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build libgtk-3-dev libmpv-dev mpv
-
-      - name: CMake Configure (with packaging)
-        run: cmake -B build -G Ninja -DPACKAGE_DEB=ON
-
-      - name: CMake Build + Package
-        run: cmake --build build --target package
-
-      - name: Create AppImage
-        run: |
-          # AppImage staging
-          cmake --build build --target package-appimage 2>/dev/null || true
-
-          mkdir -p appimage
-          cp -r app/build/linux/x64/release/bundle/* appimage/
-          cp packaging/linux/aether.desktop appimage/
-          cp packaging/linux/AppRun appimage/
-          chmod +x appimage/AppRun appimage/aether-server
-
-          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
-          chmod +x appimagetool-x86_64.AppImage
-          ./appimagetool-x86_64.AppImage appimage/ \
-            build/Aether-Player-linux-x86_64.AppImage 2>/dev/null || \
-            tar czf build/Aether-Player-linux-x86_64.tar.gz -C appimage .
-
-      - name: Rename .deb
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          mv build/output/deb/aether_*_amd64.deb \
-            build/Aether-Player-${VERSION}-amd64.deb 2>/dev/null || true
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: linux-packages
-          path: |
-            build/Aether-Player-*.AppImage
-            build/Aether-Player-*.tar.gz
-            build/Aether-Player-*.deb
-
-  # ══════════════════════════════════════════════════
-  #  Windows
-  # ══════════════════════════════════════════════════
-  build-windows:
-    name: Windows
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
-          cache: true
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: server/go.sum
-
-      - name: Install Ninja
-        run: choco install ninja -y
+          sudo apt-get install -y ninja-build libgtk-3-dev libmpv-dev mpv libsecret-1-dev
 
       - name: CMake Configure
         run: cmake -B build -G Ninja
@@ -109,100 +42,53 @@ jobs:
       - name: CMake Build
         run: cmake --build build
 
-      - name: Package ZIP
-        shell: pwsh
+      - name: Verify bundle
         run: |
-          $version = "${{ github.ref_name }}" -replace '^v',''
-          $src = "app\build\windows\x64\runner\Release"
-          Compress-Archive -Path "$src\*" -DestinationPath "build\Aether-Player-${version}-windows-x64.zip" -Force
+          ls -lh build/output/aether-server
+          ls -lh app/build/linux/x64/release/bundle/aether
+          ls -lh app/build/linux/x64/release/bundle/aether-server
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: windows-packages
-          path: build/Aether-Player-*.zip
-
-  # ══════════════════════════════════════════════════
-  #  Android
-  # ══════════════════════════════════════════════════
-  build-android:
-    name: Android
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
-          cache: true
-
-      - name: Init & Build
-        working-directory: app
+      # ── 打包产物 ──
+      - name: Package artifacts
         run: |
-          flutter create --platforms=android .
-          flutter pub get
-          dart run slang
-          flutter build apk --release
-          flutter build appbundle --release
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: android-packages
-          path: |
-            app/build/app/outputs/flutter-apk/app-release.apk
-            app/build/app/outputs/bundle/release/app-release.aab
+          # Go 后端单独包
+          tar -czf aether-server-${VERSION}-linux-amd64.tar.gz -C build/output aether-server
 
-  # ══════════════════════════════════════════════════
-  #  Publish GitHub Release
-  # ══════════════════════════════════════════════════
-  release:
-    name: Publish
-    needs: [build-linux, build-windows, build-android]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: artifacts
+          # 完整应用包 (含内嵌 Go 后端)
+          tar -czf aether-${VERSION}-linux-amd64.tar.gz -C app/build/linux/x64/release bundle
 
-      - uses: softprops/action-gh-release@v2
+      # ── 创建 Release ──
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: "Aether Player ${{ github.ref_name }}"
+          name: "Aether Player ${{ env.VERSION }}"
           body: |
-            ## Aether Player ${{ github.ref_name }}
+            ## Aether Player ${{ env.VERSION }}
 
-            ### 📦 Downloads
+            ### 📦 下载
 
-            | 平台 | 文件 | 说明 |
-            |------|------|------|
-            | Linux | `.AppImage` | 免安装，chmod +x 即可运行 |
-            | Linux | `.deb` | Debian/Ubuntu 安装包 |
-            | Windows | `.zip` | 解压即用 |
-            | Android | `.apk` | 直接安装 |
+            | 文件 | 说明 |
+            |:-----|:-----|
+            | `aether-${{ env.VERSION }}-linux-amd64.tar.gz` | 完整应用 (含 Go 后端) |
+            | `aether-server-${{ env.VERSION }}-linux-amd64.tar.gz` | 仅 Go 后端 |
 
-            > 💡 所有平台均已内置 Go 后端服务，无需额外配置。
+            ### 🚀 使用
 
-            ### 🚀 快速开始
-
-            **Linux AppImage:**
             ```bash
-            chmod +x Aether-Player-*.AppImage
-            ./Aether-Player-*.AppImage
+            # 解压完整应用
+            tar -xzf aether-${{ env.VERSION }}-linux-amd64.tar.gz
+            cd bundle
+            ./aether  # 启动应用 (自动启动内嵌 Go 后端)
             ```
 
-            **Linux .deb:**
-            ```bash
-            sudo dpkg -i Aether-Player-*.deb
-            ```
+            ### 📝 更新日志
 
-            **Windows:**
-            解压 zip，运行 `aether.exe`。
-
-            **Android:**
-            安装 APK，后端服务内置运行。
-          files: artifacts/**/*
-          draft: true
-          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}
+            *(自动从 commits 生成)*
+          files: |
+            aether-${{ env.VERSION }}-linux-amd64.tar.gz
+            aether-server-${{ env.VERSION }}-linux-amd64.tar.gz
+          draft: false
+          prerelease: ${{ contains(env.VERSION, 'beta') || contains(env.VERSION, 'alpha') || contains(env.VERSION, 'rc') }}
