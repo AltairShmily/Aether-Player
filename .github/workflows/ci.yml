@@ -148,6 +148,22 @@ jobs:
           go-version: "1.24"
           cache-dependency-path: server/go.sum
 
+      # ── 安装 VS Build Tools C++ 组件 ──
+      - name: Install Visual Studio Build Tools
+        shell: powershell
+        run: |
+          # 确保 VS Build Tools 的 C++ 桌面开发组件已安装
+          $vsWhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsPath = & $vsWhere -latest -property installationPath
+          Write-Host "VS Installation: $vsPath"
+
+          # 检查 C++ 桌面开发 workload
+          $installerPath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\setup.exe"
+          if (Test-Path $installerPath) {
+            & $installerPath modify --installPath "$vsPath" --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --quiet --wait 2>$null
+            Write-Host "✅ VS C++ Build Tools ready"
+          }
+
       # ── Go 后端 (Windows) ──
       - name: Build Go backend
         shell: bash
