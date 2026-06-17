@@ -285,19 +285,47 @@ class ApiClient {
   }
 
   /// 获取完整播放信息（含 DirectStreamUrl / TranscodingUrl）
-  Future<PlaybackInfo> getPlaybackInfoFull(String itemId) async {
-    final resp = await _get('/api/playback/$itemId/info');
-    return PlaybackInfo.fromJson(resp);
+  Future<PlaybackInfo> getPlaybackInfoFull(
+    String itemId, {
+    required String serverUrl,
+    required String token,
+    required String userId,
+  }) async {
+    final resp = await _dio.get(
+      '/api/playback/$itemId/info',
+      options: Options(
+        headers: {
+          'X-Emby-Server': serverUrl,
+          'X-Emby-Token': token,
+          'X-Emby-User': userId,
+        },
+      ),
+    );
+    return PlaybackInfo.fromJson(resp.data as Map<String, dynamic>);
   }
 
-  Future<String> getTranscodeStreamUrl(String itemId, {int? maxBitrate, int? maxHeight}) async {
+  Future<String> getTranscodeStreamUrl(
+    String itemId, {
+    int? maxBitrate,
+    int? maxHeight,
+    required String serverUrl,
+    required String token,
+  }) async {
     var path = '/api/playback/$itemId/transcode';
     final params = <String>[];
     if (maxBitrate != null) params.add('maxBitrate=$maxBitrate');
     if (maxHeight != null) params.add('maxHeight=$maxHeight');
     if (params.isNotEmpty) path += '?${params.join('&')}';
-    final resp = await _get(path);
-    return resp['streamUrl'] as String;
+    final resp = await _dio.get(
+      path,
+      options: Options(
+        headers: {
+          'X-Emby-Server': serverUrl,
+          'X-Emby-Token': token,
+        },
+      ),
+    );
+    return (resp.data as Map<String, dynamic>)['streamUrl'] as String;
   }
 
   // --- Playback Reporting ---

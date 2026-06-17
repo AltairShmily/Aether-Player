@@ -297,7 +297,12 @@ class PlayerController extends StateNotifier<PlayerUiState> {
       );
 
       // ── 第 1 步：获取完整播放信息 ──
-      final playbackInfo = await _api.getPlaybackInfoFull(itemId);
+      final playbackInfo = await _api.getPlaybackInfoFull(
+        itemId,
+        serverUrl: serverUrl,
+        token: token,
+        userId: userId,
+      );
 
       final mediaSourceId = playbackInfo.mediaSources.isNotEmpty
           ? playbackInfo.mediaSources.first.id
@@ -388,7 +393,13 @@ class PlayerController extends StateNotifier<PlayerUiState> {
 
     String streamUrl;
     if (mode == PlayMode.transcode && maxBitrate != null) {
-      streamUrl = await _api.getTranscodeStreamUrl(itemId, maxBitrate: maxBitrate, maxHeight: maxHeight);
+      streamUrl = await _api.getTranscodeStreamUrl(
+        itemId,
+        maxBitrate: maxBitrate,
+        maxHeight: maxHeight,
+        serverUrl: serverUrl,
+        token: token,
+      );
     } else {
       // Direct play — use the stored mediaSource URL
       streamUrl = _currentStreamUrl ?? '';

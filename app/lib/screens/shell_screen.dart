@@ -221,40 +221,45 @@ class _Sidebar extends ConsumerWidget {
             ),
           ),
 
-          // ── Library Buttons ──
-          for (final lib in homeState.libraries) ...[
-            _SidebarButton(
-              icon: _iconForLibraryType(lib.collectionType),
-              activeIcon: _iconForLibraryType(lib.collectionType),
-              label: lib.name,
-              isActive: false,
-              iconColor: _colorForLibraryType(lib.collectionType),
-              onTap: () => onLibrarySelected?.call(lib.id),
+          // ── Library Buttons (scrollable) ──
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  for (final lib in homeState.libraries) ...[
+                    _SidebarButton(
+                      icon: _iconForLibraryType(lib.collectionType),
+                      activeIcon: _iconForLibraryType(lib.collectionType),
+                      label: lib.name,
+                      isActive: false,
+                      iconColor: _colorForLibraryType(lib.collectionType),
+                      onTap: () => onLibrarySelected?.call(lib.id),
+                    ),
+                    const SizedBox(height: 2),
+                  ],
+                  const SizedBox(height: 4),
+
+                  // ── Search Button ──
+                  _SidebarButton(
+                    icon: Icons.search,
+                    activeIcon: Icons.search,
+                    label: '搜索',
+                    isActive: false,
+                    onTap: onSearch ?? () {},
+                  ),
+
+                  // ── TV Mode Button ──
+                  _SidebarButton(
+                    icon: Icons.tv_outlined,
+                    activeIcon: Icons.tv,
+                    label: 'TV模式',
+                    isActive: false,
+                    onTap: onTvMode ?? () {},
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 2),
-          ],
-
-          const SizedBox(height: 4),
-
-          // ── Search Button ──
-          _SidebarButton(
-            icon: Icons.search,
-            activeIcon: Icons.search,
-            label: '搜索',
-            isActive: false,
-            onTap: onSearch ?? () {},
           ),
-
-          // ── TV Mode Button ──
-          _SidebarButton(
-            icon: Icons.tv_outlined,
-            activeIcon: Icons.tv,
-            label: 'TV模式',
-            isActive: false,
-            onTap: onTvMode ?? () {},
-          ),
-
-          const Spacer(),
 
           // ── Bottom Section ──
           // Server Switcher

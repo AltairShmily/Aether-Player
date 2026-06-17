@@ -83,10 +83,10 @@ class _EpisodeCardState extends State<EpisodeCard> {
                             : _placeholder(),
                       ),
                       // hover 播放按钮覆盖
-                      AnimatedOpacity(
-                        opacity: _isHovered ? 1.0 : 0.0,
-                        duration: const Duration(milliseconds: 200),
-                        child: Positioned.fill(
+                      Positioned.fill(
+                        child: AnimatedOpacity(
+                          opacity: _isHovered ? 1.0 : 0.0,
+                          duration: const Duration(milliseconds: 200),
                           child: Container(
                             color: AppColors.deepVoid.withValues(alpha: 0.35),
                             child: const Center(

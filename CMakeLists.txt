@@ -197,9 +197,22 @@ if(PACKAGE_DEB AND HOST_OS STREQUAL "linux")
         COMMAND ${CMAKE_COMMAND} -E create_symlink
             /opt/aether/aether-server ${DEB_DIR}/usr/local/bin/aether-server
         # 写入 control 文件
-        COMMAND ${CMAKE_COMMAND} -E echo
-            "Package: aether\nVersion: ${PROJECT_VERSION}\nSection: video\nPriority: optional\nArchitecture: amd64\nDepends: libmpv2 | libmpv1, libgtk-3-0\nMaintainer: AltairShmily\nDescription: Aether Player — Emby Media Client"
+        COMMAND ${CMAKE_COMMAND} -E echo "Package: aether"
             > ${DEB_DIR}/DEBIAN/control
+        COMMAND ${CMAKE_COMMAND} -E echo "Version: ${PROJECT_VERSION}"
+            >> ${DEB_DIR}/DEBIAN/control
+        COMMAND ${CMAKE_COMMAND} -E echo "Section: video"
+            >> ${DEB_DIR}/DEBIAN/control
+        COMMAND ${CMAKE_COMMAND} -E echo "Priority: optional"
+            >> ${DEB_DIR}/DEBIAN/control
+        COMMAND ${CMAKE_COMMAND} -E echo "Architecture: amd64"
+            >> ${DEB_DIR}/DEBIAN/control
+        COMMAND ${CMAKE_COMMAND} -E echo "Depends: libmpv2 \\| libmpv1, libgtk-3-0"
+            >> ${DEB_DIR}/DEBIAN/control
+        COMMAND ${CMAKE_COMMAND} -E echo "Maintainer: AltairShmily"
+            >> ${DEB_DIR}/DEBIAN/control
+        COMMAND ${CMAKE_COMMAND} -E echo "Description: Aether Player — Emby Media Client"
+            >> ${DEB_DIR}/DEBIAN/control
         # 构建 .deb
         COMMAND dpkg-deb --build ${DEB_DIR}
         COMMENT "Packaging .deb..."

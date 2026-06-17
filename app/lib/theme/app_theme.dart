@@ -58,7 +58,15 @@ class AppTheme {
 
   static ThemeData darkTheme({ColorScheme? dynamicScheme}) {
     final colorScheme = dynamicScheme ?? _aetherColorScheme;
-    final textTheme = GoogleFonts.soraTextTheme(ThemeData.dark().textTheme);
+
+    // 加载字体，失败时使用系统默认字体
+    TextTheme textTheme;
+    try {
+      textTheme = GoogleFonts.soraTextTheme(ThemeData.dark().textTheme);
+    } catch (e) {
+      debugPrint('[AppTheme] Failed to load Sora font: $e');
+      textTheme = ThemeData.dark().textTheme;
+    }
 
     return ThemeData(
       useMaterial3: true,
@@ -333,12 +341,23 @@ class AppTheme {
     Color color = AppColors.textSecondary,
     FontWeight weight = FontWeight.w400,
   }) {
-    return GoogleFonts.dmMono(
-      fontSize: size,
-      color: color,
-      fontWeight: weight,
-      letterSpacing: 0.5,
-    );
+    try {
+      return GoogleFonts.dmMono(
+        fontSize: size,
+        color: color,
+        fontWeight: weight,
+        letterSpacing: 0.5,
+      );
+    } catch (e) {
+      debugPrint('[AppTheme] Failed to load DM Mono font: $e');
+      return TextStyle(
+        fontSize: size,
+        color: color,
+        fontWeight: weight,
+        letterSpacing: 0.5,
+        fontFamily: 'monospace',
+      );
+    }
   }
 
   /// 章节标题 (杂志感)

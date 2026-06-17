@@ -28,13 +28,25 @@ class BackendService {
   /// 启动 Go 后端
   ///
   /// 流程：
-  /// 1. 查找 Go 二进制文件
-  /// 2. 启动子进程
-  /// 3. 等待健康检查通过
+  /// 1. 检查端口是否已被占用（已有后端运行）
+  /// 2. 查找 Go 二进制文件
+  /// 3. 启动子进程
+  /// 4. 等待健康检查通过
   Future<void> start() async {
     if (_started) return;
 
     try {
+      // 先检查端口是否已被占用（可能已有后端在运行）
+      if (await _isPortInUse()) {
+        debugPrint('[BackendService] Port $_port already in use, skipping start');
+        _started = true;
+        _healthCheckTimer = Timer.periodic(
+          const Duration(seconds: 30),
+          (_) => _checkHealth(),
+        );
+        return;
+      }
+
       final binaryPath = await _resolveBinaryPath();
       debugPrint('[BackendService] Starting: $binaryPath');
 
@@ -66,6 +78,20 @@ class BackendService {
       debugPrint('[BackendService] Failed to start: $e');
       _started = false;
       rethrow;
+    }
+  }
+
+  /// 检查端口是否已被占用
+  Future<bool> _isPortInUse() async {
+    try {
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 2);
+      final request = await client.getUrl(Uri.parse('$baseUrl/api/health'));
+      final response = await request.close();
+      client.close();
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
     }
   }
 
