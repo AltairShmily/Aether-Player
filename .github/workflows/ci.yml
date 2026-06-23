@@ -21,7 +21,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.24"
+          go-version: "1.25"
           cache-dependency-path: server/go.sum
 
       - name: Download dependencies
@@ -84,7 +84,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.24"
+          go-version: "1.25"
           cache-dependency-path: server/go.sum
 
       - name: Install system deps
@@ -146,7 +146,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.24"
+          go-version: "1.25"
           cache-dependency-path: server/go.sum
 
       # ── 验证 VS 2022 安装 ──
@@ -226,7 +226,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.24"
+          go-version: "1.25"
           cache-dependency-path: server/go.sum
 
       - uses: subosito/flutter-action@v2
