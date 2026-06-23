@@ -504,6 +504,13 @@ class PlayerController extends StateNotifier<PlayerUiState> {
     _resetControlsHideTimer();
   }
 
+  /// Load an external subtitle from a URL (for subtitles with DeliveryMethod == 'External' ).
+  Future<void> loadExternalSubtitle(String url, {String? title, String? language}) async {
+    await _engine.loadExternalSubtitle(url, title: title, language: language);
+    state = state.copyWith(currentSubtitleTrack: -2);
+    _resetControlsHideTimer();
+  }
+
   // ══════════════════════════════════════════════════════════
   //  控制面板显示逻辑
   // ══════════════════════════════════════════════════════════

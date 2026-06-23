@@ -309,6 +309,14 @@ class MpvEngine implements PlayerEngine {
   }
 
   @override
+  Future<void> loadExternalSubtitle(String url, {String? title, String? language}) async {
+    await _player.setSubtitleTrack(
+      mk.SubtitleTrack.uri(url, title: title, language: language),
+    );
+    _currentSubtitleTrackIndex = -2;
+  }
+
+  @override
   Future<void> stop() async {
     await _player.stop();
     _currentState = PlayerState.stopped;

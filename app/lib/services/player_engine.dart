@@ -141,6 +141,9 @@ abstract class PlayerEngine {
   /// 设置字幕轨道（-1 = 关闭）
   Future<void> setSubtitleTrack(int index);
 
+  /// Load an external subtitle from a URL.
+  Future<void> loadExternalSubtitle(String url, {String? title, String? language});
+
   /// 停止播放
   Future<void> stop();
 

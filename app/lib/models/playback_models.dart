@@ -180,6 +180,9 @@ class PlaybackStreamInfo {
   final int width;
   final int height;
   final int bitrate;
+  final String deliveryMethod; // 'External', 'Embed', or ''
+  final String deliveryUrl;    // URL for external subtitles
+  final bool isExternal;
 
   const PlaybackStreamInfo({
     required this.type,
@@ -190,6 +193,9 @@ class PlaybackStreamInfo {
     this.width = 0,
     this.height = 0,
     this.bitrate = 0,
+    this.deliveryMethod = '',
+    this.deliveryUrl = '',
+    this.isExternal = false,
   });
 
   factory PlaybackStreamInfo.fromJson(Map<String, dynamic> json) {
@@ -202,12 +208,17 @@ class PlaybackStreamInfo {
       width: json['Width'] as int? ?? 0,
       height: json['Height'] as int? ?? 0,
       bitrate: json['BitRate'] as int? ?? 0,
+      deliveryMethod: json['DeliveryMethod'] as String? ?? '',
+      deliveryUrl: json['DeliveryUrl'] as String? ?? '',
+      isExternal: json['IsExternal'] as bool? ?? false,
     );
   }
 
   bool get isVideo => type == 'Video';
   bool get isAudio => type == 'Audio';
   bool get isSubtitle => type == 'Subtitle';
+  bool get isExternalSubtitle => isSubtitle && (deliveryMethod == 'External' || isExternal);
+  bool get hasDeliveryUrl => deliveryUrl.isNotEmpty;
 
   String get resolution {
     if (width == 0 || height == 0) return '';
