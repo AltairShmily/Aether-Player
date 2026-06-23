@@ -6,9 +6,8 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
-// gomobile generates class "Mobile" in package derived from Go module path
-// For module "aether-server" package "mobile" → aether_server.Mobile
-import aether_server.Mobile
+// gomobile default Java package is "go", class name from Go package "mobile"
+import go.Mobile
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.example.aether/backend"
@@ -22,7 +21,7 @@ class MainActivity : FlutterActivity() {
                     "startServer" -> {
                         val port = call.argument<Int>("port") ?: 19800
                         Thread {
-                            val err = Mobile.startServer(port)
+                            val err = Mobile.startServer(port.toLong())
                             Handler(Looper.getMainLooper()).post {
                                 if (err.isEmpty()) {
                                     result.success(true)
@@ -48,7 +47,7 @@ class MainActivity : FlutterActivity() {
                         result.success(Mobile.isRunning())
                     }
                     "getPort" -> {
-                        result.success(Mobile.getPort())
+                        result.success(Mobile.getPort().toInt())
                     }
                     "ping" -> {
                         Thread {
