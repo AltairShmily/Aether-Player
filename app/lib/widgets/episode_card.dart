@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
@@ -40,7 +41,7 @@ class _EpisodeCardState extends State<EpisodeCard> {
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOutCubic,
           transform: _isHovered
-              ? (Matrix4.identity()..translateByDouble(0.0, -4.0, 0.0, 1.0)..scaleByDouble(1.03, 1.03, 1.03, 1.0))
+              ? (Matrix4.identity()..translate(0.0, -4.0, 0.0)..scale(1.03))
               : Matrix4.identity(),
           width: 160,
           child: Column(
