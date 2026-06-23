@@ -246,8 +246,13 @@ jobs:
         working-directory: server
         run: |
           ANDROID_HOME=$ANDROID_HOME gomobile bind -target=android -androidapi=23 -javapkg=com.aether.server -o ../app/android/app/libs/aether-server.aar ./mobile
-          # Debug: list AAR contents
-          unzip -l ../app/android/app/libs/aether-server.aar | grep -i "class\|jar" || true
+          # Debug: list AAR contents to find class name
+          cd ../app/android/app/libs
+          mkdir -p /tmp/aar-inspect
+          cp aether-server.aar /tmp/aar-inspect/
+          cd /tmp/aar-inspect
+          unzip -o aether-server.aar classes.jar
+          jar tf classes.jar | head -30
 
       - name: Flutter pub get
         working-directory: app
