@@ -517,6 +517,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               onSubtitleTrackSelected: (i) =>
                   _playerController?.selectSubtitleTrack(i),
               onQualityPressed: () => _showQualitySelector(context),
+              onSkipNext: widget.seriesId != null ? _playNextEpisode : null,
             ),
 
           // ── 错误提示 ──
@@ -689,6 +690,7 @@ class _PlayerControlsOverlay extends StatelessWidget {
   final ValueChanged<int> onAudioTrackSelected;
   final ValueChanged<int> onSubtitleTrackSelected;
   final VoidCallback? onQualityPressed;
+  final VoidCallback? onSkipNext;
 
   const _PlayerControlsOverlay({
     required this.state,
@@ -703,6 +705,7 @@ class _PlayerControlsOverlay extends StatelessWidget {
     required this.onAudioTrackSelected,
     required this.onSubtitleTrackSelected,
     this.onQualityPressed,
+    this.onSkipNext,
   });
 
   @override
@@ -799,34 +802,11 @@ class _PlayerControlsOverlay extends StatelessWidget {
                     ],
                   ),
                 ),
-                // 设置菜单
-                PopupMenuButton<double>(
+                // 统一设置按钮
+                IconButton(
                   icon: const Icon(Icons.settings_rounded,
                       color: Colors.white70, size: 22),
-                  color: AppColors.stardust,
-                  onSelected: (speed) => onSpeedChanged(speed),
-                 itemBuilder: (context) => [
-                   const PopupMenuItem(
-                     value: 1.0,
-                      enabled: false,
-                     child: Text('倍速', style: TextStyle(color: AppColors.textPrimary)),
-                   ),
-                    ...state.speedOptions
-                        .where((s) => s != 1.0)
-                        .map(
-                          (s) => PopupMenuItem(
-                            value: s,
-                            child: Text(
-                              '${s}x',
-                              style: TextStyle(
-                                color: state.playbackSpeed == s
-                                    ? AppColors.celestialCyan
-                                    : AppColors.textPrimary,
-                              ),
-                            ),
-                          ),
-                        ),
-                  ],
+                  onPressed: () => _showSettingsSheet(context),
                 ),
               ],
             ),
@@ -871,7 +851,7 @@ class _PlayerControlsOverlay extends StatelessWidget {
                 const SizedBox(height: 12),
 
                 // ── 控制按钮行 ──
-                _buildControlButtons(isMuted),
+                _buildControlButtons(context, isMuted),
               ],
             ),
           ),
@@ -929,190 +909,392 @@ class _PlayerControlsOverlay extends StatelessWidget {
   }
 
   /// 控制按钮行
-  Widget _buildControlButtons(bool isMuted) {
+  Widget _buildControlButtons(BuildContext context, bool isMuted) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        // 音量 / 静音
-        IconButton(
-          icon: Icon(
-            isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-            color: AppColors.textSecondary,
-            size: 22,
-          ),
-          onPressed: onMuteToggle,
-        ),
-
-        // 音量滑块
-        SizedBox(
-          width: 80,
-          child: SliderTheme(
-            data: SliderThemeData(
-              activeTrackColor: AppColors.celestialCyan,
-              inactiveTrackColor: AppColors.cosmicGray,
-              thumbColor: AppColors.celestialCyan,
-              trackHeight: 2,
-              thumbShape:
-                  const RoundSliderThumbShape(enabledThumbRadius: 4),
+        // ── 左侧：快退 + 播放/暂停 + 快进 + 下一集 ──
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 快退 10s
+            IconButton(
+              icon: const Icon(Icons.replay_10_rounded,
+                  color: Colors.white, size: 28),
+              onPressed: onSeekBackward,
             ),
-            child: Slider(
-              value: isMuted ? 0 : state.volume,
-              onChanged: onVolumeChanged,
+
+            const SizedBox(width: 12),
+
+            // 播放 / 暂停
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.celestialCyan,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.celestialCyan.withValues(alpha: 0.4),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: IconButton(
+                icon: Icon(
+                  state.isPlaying
+                      ? Icons.pause_rounded
+                      : Icons.play_arrow_rounded,
+                  color: AppColors.deepVoid,
+                  size: 30,
+                ),
+                onPressed: onPlayPause,
+              ),
             ),
-          ),
-        ),
 
-        const SizedBox(width: 8),
+            const SizedBox(width: 12),
 
-        // 快退 10s
-        IconButton(
-          icon: const Icon(Icons.replay_10_rounded,
-              color: Colors.white, size: 28),
-          onPressed: onSeekBackward,
-        ),
+            // 快进 30s
+            IconButton(
+              icon: const Icon(Icons.forward_30_rounded,
+                  color: Colors.white, size: 28),
+              onPressed: onSeekForward,
+            ),
 
-        const SizedBox(width: 16),
-
-        // 播放 / 暂停
-        Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.celestialCyan,
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.celestialCyan.withValues(alpha: 0.4),
-                blurRadius: 20,
-                spreadRadius: 2,
+            // 下一集按钮（仅在有 seriesId 时显示）
+            if (onSkipNext != null) ...[
+              const SizedBox(width: 4),
+              IconButton(
+                icon: const Icon(Icons.skip_next_rounded,
+                    color: Colors.white, size: 28),
+                onPressed: onSkipNext,
               ),
             ],
-          ),
-          child: IconButton(
-            icon: Icon(
-              state.isPlaying
-                  ? Icons.pause_rounded
-                  : Icons.play_arrow_rounded,
-              color: AppColors.deepVoid,
-              size: 30,
-            ),
-            onPressed: onPlayPause,
-          ),
+          ],
         ),
 
-        const SizedBox(width: 16),
-
-        // 快进 30s
-        IconButton(
-          icon: const Icon(Icons.forward_30_rounded,
-              color: Colors.white, size: 28),
-          onPressed: onSeekForward,
-        ),
-
-        const SizedBox(width: 8),
-
-        // 字幕按钮
-        if (state.subtitleTracks.isNotEmpty)
-          PopupMenuButton<int>(
-            icon: Icon(
-              Icons.subtitles_rounded,
-              color: state.currentSubtitleTrack >= 0
-                  ? AppColors.celestialCyan
-                  : AppColors.textSecondary,
-              size: 22,
-            ),
-            color: AppColors.stardust,
-            onSelected: (index) => onSubtitleTrackSelected(index),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: -1,
-                child: Text('关闭字幕',
-                    style: TextStyle(color: AppColors.textPrimary)),
+        // ── 右侧：音量 + 倍速 + 设置 ──
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 音量图标 + 滑块（合并）
+            IconButton(
+              icon: Icon(
+                isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                color: AppColors.textSecondary,
+                size: 22,
               ),
-              ...state.subtitleTracks.asMap().entries.map(
-                    (entry) => PopupMenuItem(
-                      value: entry.key,
-                      child: Text(
+              onPressed: onMuteToggle,
+            ),
+            SizedBox(
+              width: 70,
+              child: SliderTheme(
+                data: SliderThemeData(
+                  activeTrackColor: AppColors.celestialCyan,
+                  inactiveTrackColor: AppColors.cosmicGray,
+                  thumbColor: AppColors.celestialCyan,
+                  trackHeight: 2,
+                  thumbShape:
+                      const RoundSliderThumbShape(enabledThumbRadius: 4),
+                ),
+                child: Slider(
+                  value: isMuted ? 0 : state.volume,
+                  onChanged: onVolumeChanged,
+                ),
+              ),
+            ),
+
+            const SizedBox(width: 8),
+
+            // 倍速标签
+            GestureDetector(
+              onTap: () {
+                final speeds = state.speedOptions;
+                final currentIndex = speeds.indexOf(state.playbackSpeed);
+                final nextIndex = (currentIndex + 1) % speeds.length;
+                onSpeedChanged(speeds[nextIndex]);
+              },
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.stardust,
+                  borderRadius: BorderRadius.circular(6),
+                  border:
+                      Border.all(color: AppColors.borderSubtle, width: 0.5),
+                ),
+                child: Text(
+                  '${state.playbackSpeed}x',
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    fontFamily: 'DM Mono',
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(width: 4),
+
+            // 统一设置菜单按钮
+            IconButton(
+              icon: const Icon(Icons.tune_rounded,
+                  color: Colors.white70, size: 22),
+              onPressed: () => _showSettingsSheet(context),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// 统一设置面板（底部弹出）
+  void _showSettingsSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(ctx).size.height * 0.6,
+          ),
+          decoration: const BoxDecoration(
+            color: AppColors.stardust,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 拖拽条
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: AppColors.cosmicGray,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                // 标题
+                const Text(
+                  '设置',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // ── 倍速选择 ──
+                const Text(
+                  '🎬 倍速',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: state.speedOptions.map((speed) {
+                    final isSelected = state.playbackSpeed == speed;
+                    return GestureDetector(
+                      onTap: () {
+                        onSpeedChanged(speed);
+                        Navigator.of(ctx).pop();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppColors.celestialCyan
+                              : AppColors.deepVoid,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isSelected
+                                ? AppColors.celestialCyan
+                                : AppColors.borderSubtle,
+                            width: 0.5,
+                          ),
+                        ),
+                        child: Text(
+                          '${speed}x',
+                          style: TextStyle(
+                            color: isSelected
+                                ? AppColors.deepVoid
+                                : AppColors.textPrimary,
+                            fontSize: 13,
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 20),
+
+                // ── 音频轨道 ──
+                if (state.audioTracks.length > 1) ...[
+                  const Text(
+                    '🎵 音轨',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...state.audioTracks.asMap().entries.map((entry) {
+                    final isSelected = state.currentAudioTrack == entry.key;
+                    return ListTile(
+                      dense: true,
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 4),
+                      title: Text(
                         entry.value.title.isNotEmpty
                             ? entry.value.title
                             : '轨道 ${entry.key + 1}',
                         style: TextStyle(
-                          color: state.currentSubtitleTrack == entry.key
+                          color: isSelected
                               ? AppColors.celestialCyan
                               : AppColors.textPrimary,
-                          fontSize: 13,
+                          fontSize: 14,
+                          fontWeight:
+                              isSelected ? FontWeight.w600 : FontWeight.normal,
                         ),
                       ),
+                      trailing: isSelected
+                          ? const Icon(Icons.check_rounded,
+                              color: AppColors.celestialCyan, size: 20)
+                          : null,
+                      onTap: () {
+                        onAudioTrackSelected(entry.key);
+                        Navigator.of(ctx).pop();
+                      },
+                    );
+                  }),
+                  const SizedBox(height: 12),
+                ],
+
+                // ── 字幕轨道 ──
+                if (state.subtitleTracks.isNotEmpty) ...[
+                  const Text(
+                    '📝 字幕',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-            ],
-          ),
-
-        // 音频轨道按钮
-        if (state.audioTracks.length > 1)
-          PopupMenuButton<int>(
-            icon: const Icon(Icons.audiotrack_rounded,
-                color: AppColors.textSecondary, size: 22),
-            color: AppColors.stardust,
-            onSelected: (index) => onAudioTrackSelected(index),
-            itemBuilder: (context) => state.audioTracks
-                .asMap()
-                .entries
-                .map(
-                  (entry) => PopupMenuItem(
-                    value: entry.key,
-                    child: Text(
-                      entry.value.title.isNotEmpty
-                          ? entry.value.title
-                          : '轨道 ${entry.key + 1}',
+                  const SizedBox(height: 8),
+                  // 关闭字幕选项
+                  ListTile(
+                    dense: true,
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 4),
+                    title: Text(
+                      '关闭字幕',
                       style: TextStyle(
-                        color: state.currentAudioTrack == entry.key
+                        color: state.currentSubtitleTrack < 0
                             ? AppColors.celestialCyan
                             : AppColors.textPrimary,
-                        fontSize: 13,
+                        fontSize: 14,
+                        fontWeight: state.currentSubtitleTrack < 0
+                            ? FontWeight.w600
+                            : FontWeight.normal,
                       ),
                     ),
+                    trailing: state.currentSubtitleTrack < 0
+                        ? const Icon(Icons.check_rounded,
+                            color: AppColors.celestialCyan, size: 20)
+                        : null,
+                    onTap: () {
+                      onSubtitleTrackSelected(-1);
+                      Navigator.of(ctx).pop();
+                    },
                   ),
-                )
-                .toList(),
-          ),
+                  ...state.subtitleTracks.asMap().entries.map((entry) {
+                    final isSelected =
+                        state.currentSubtitleTrack == entry.key;
+                    return ListTile(
+                      dense: true,
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 4),
+                      title: Text(
+                        entry.value.title.isNotEmpty
+                            ? entry.value.title
+                            : '轨道 ${entry.key + 1}',
+                        style: TextStyle(
+                          color: isSelected
+                              ? AppColors.celestialCyan
+                              : AppColors.textPrimary,
+                          fontSize: 14,
+                          fontWeight: isSelected
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                        ),
+                      ),
+                      trailing: isSelected
+                          ? const Icon(Icons.check_rounded,
+                              color: AppColors.celestialCyan, size: 20)
+                          : null,
+                      onTap: () {
+                        onSubtitleTrackSelected(entry.key);
+                        Navigator.of(ctx).pop();
+                      },
+                    );
+                  }),
+                  const SizedBox(height: 12),
+                ],
 
-        const SizedBox(width: 4),
-
-        // 画质按钮
-        if (onQualityPressed != null)
-          IconButton(
-            icon: const Icon(Icons.hd_outlined, color: Colors.white, size: 22),
-            onPressed: onQualityPressed,
-          ),
-
-        // 倍速显示
-        GestureDetector(
-          onTap: () {
-            // 循环切换倍速
-            final speeds = state.speedOptions;
-            final currentIndex = speeds.indexOf(state.playbackSpeed);
-            final nextIndex = (currentIndex + 1) % speeds.length;
-            onSpeedChanged(speeds[nextIndex]);
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.stardust,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: AppColors.borderSubtle, width: 0.5),
+                // ── 画质选项 ──
+                if (onQualityPressed != null) ...[
+                  const Text(
+                    '🎨 画质',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ListTile(
+                    dense: true,
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 4),
+                    title: const Text(
+                      '画质设置',
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 14,
+                      ),
+                    ),
+                    trailing: const Icon(Icons.chevron_right_rounded,
+                        color: AppColors.textSecondary, size: 20),
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      onQualityPressed!();
+                    },
+                  ),
+                ],
+              ],
             ),
-            child: Text(
-              '${state.playbackSpeed}x',
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 12,
-                fontFamily: 'DM Mono',
-              ),
-            ),
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 }

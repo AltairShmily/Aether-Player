@@ -438,4 +438,11 @@ class NativeFfiEngine implements PlayerEngine {
     _destroy(_handle);
     _instance = null;
   }
+
+
+  @override
+  Future<void> loadExternalSubtitle(String url, {String? title, String? language}) async {
+    // TODO: implement loadExternalSubtitle for native FFI engine
+  }
+
 }

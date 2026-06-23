@@ -30,6 +30,14 @@ class _HomeTabState extends ConsumerState<HomeTab> {
   String? _serverUrl;
   final PageController _heroController = PageController(viewportFraction: 0.92);
   int _currentPage = 0;
+  String? _selectedCategory; // null = 全部, 'movies', 'tvshows', 'music'
+
+  void _showSearchOverlay(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => _SearchDialog(),
+    );
+  }
 
   @override
   void initState() {
@@ -127,6 +135,10 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                 ],
               ),
               actions: [
+                IconButton(
+                  icon: const Icon(Icons.search_rounded, color: AppColors.textSecondary),
+                  onPressed: () => _showSearchOverlay(context),
+                ),
                 IconButton(
                   icon: const Icon(Icons.refresh_rounded, color: AppColors.textSecondary),
                   onPressed: () => ref.read(homeProvider.notifier).loadAll(),
@@ -288,9 +300,22 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                   token: token,
                 ),
               ),
+            // ── 分类筛选标签 ──
+            if (homeState.libraries.isNotEmpty)
+              SliverToBoxAdapter(
+                child: _CategoryFilterBar(
+                  libraries: homeState.libraries,
+                  onFilterChanged: (type) {
+                    setState(() => _selectedCategory = type);
+                  },
+                ),
+              ),
 
             // ── Per-library rows ──
-            for (final lib in homeState.libraries) ...[
+            for (final lib in homeState.libraries.where((lib) {
+              if (_selectedCategory == null) return true;
+              return lib.collectionType == _selectedCategory;
+            })) ...[
               if (homeState.libraryItems.containsKey(lib.id) &&
                   homeState.libraryItems[lib.id]!.isNotEmpty)
                 SliverToBoxAdapter(
@@ -808,6 +833,200 @@ class _LibraryRowState extends State<_LibraryRow> {
         return Icons.music_note_outlined;
       default:
         return Icons.video_library_outlined;
+    }
+  }
+}
+
+
+// ══════════════════════════════════════════════════
+//  _SearchDialog — 搜索对话框
+// ══════════════════════════════════════════════════
+class _SearchDialog extends StatefulWidget {
+  const _SearchDialog();
+
+  @override
+  State<_SearchDialog> createState() => _SearchDialogState();
+}
+
+class _SearchDialogState extends State<_SearchDialog> {
+  final _controller = TextEditingController();
+  final _focusNode = FocusNode();
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _focusNode.requestFocus());
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: AppColors.nebulaDark,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560, maxHeight: 500),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ── 搜索框 ──
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+              child: TextField(
+                controller: _controller,
+                focusNode: _focusNode,
+                style: const TextStyle(color: AppColors.textPrimary, fontSize: 15),
+                decoration: InputDecoration(
+                  hintText: '搜索电影、剧集、音乐…',
+                  hintStyle: const TextStyle(color: AppColors.textTertiary),
+                  prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary, size: 20),
+                  suffixIcon: _query.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.close_rounded, color: AppColors.textTertiary, size: 18),
+                          onPressed: () {
+                            _controller.clear();
+                            setState(() => _query = '');
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: AppColors.stardust,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.borderSubtle, width: 0.5),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.celestialCyan, width: 1.5),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.borderSubtle, width: 0.5),
+                  ),
+                ),
+                onChanged: (v) => setState(() => _query = v),
+              ),
+            ),
+            // ── 结果区域 ──
+            Expanded(
+              child: _query.isEmpty
+                  ? const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.search_rounded, size: 48, color: AppColors.textTertiary),
+                          SizedBox(height: 12),
+                          Text('输入关键词搜索', style: TextStyle(color: AppColors.textTertiary, fontSize: 14)),
+                        ],
+                      ),
+                    )
+                  : Center(
+                      child: Text(
+                        '搜索 "$_query"…',
+                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  _CategoryFilterBar — 分类筛选标签栏
+// ══════════════════════════════════════════════════
+class _CategoryFilterBar extends StatefulWidget {
+  final List<MediaFolder> libraries;
+  final ValueChanged<String?> onFilterChanged;
+
+  const _CategoryFilterBar({
+    required this.libraries,
+    required this.onFilterChanged,
+  });
+
+  @override
+  State<_CategoryFilterBar> createState() => _CategoryFilterBarState();
+}
+
+class _CategoryFilterBarState extends State<_CategoryFilterBar> {
+  String? _selected; // null = 全部
+
+  @override
+  Widget build(BuildContext context) {
+    final pad = AetherBreakpoints.pagePadding(context);
+
+    // 收集可用的分类类型
+    final types = widget.libraries.map((l) => l.collectionType).toSet().toList();
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(pad, 16, pad, 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _buildChip('全部', null),
+            const SizedBox(width: 8),
+            for (final type in types) ...[
+              _buildChip(_typeLabel(type), type),
+              const SizedBox(width: 8),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChip(String label, String? type) {
+    final isSelected = _selected == type;
+    return GestureDetector(
+      onTap: () {
+        setState(() => _selected = type);
+        widget.onFilterChanged(type);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.celestialCyan.withValues(alpha: 0.15)
+              : AppColors.stardust,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? AppColors.celestialCyan.withValues(alpha: 0.4)
+                : AppColors.borderSubtle,
+            width: isSelected ? 1.5 : 0.5,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? AppColors.celestialCyan : AppColors.textSecondary,
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _typeLabel(String type) {
+    switch (type) {
+      case 'movies': return '🎬 电影';
+      case 'tvshows': return '📺 电视剧';
+      case 'music': return '🎵 音乐';
+      default: return '📁 $type';
     }
   }
 }

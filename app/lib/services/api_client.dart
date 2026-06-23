@@ -278,12 +278,6 @@ class ApiClient {
     }
   }
 
-  /// Simple GET helper that returns the response data as a Map.
-  Future<Map<String, dynamic>> _get(String path) async {
-    final response = await _dio.get(path);
-    return response.data as Map<String, dynamic>;
-  }
-
   /// 获取完整播放信息（含 DirectStreamUrl / TranscodingUrl）
   Future<PlaybackInfo> getPlaybackInfoFull(
     String itemId, {

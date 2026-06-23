@@ -27,6 +27,11 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
   bool _noiseTexture = true;
   bool _animations = true;
   bool _remoteAccess = false;
+  bool _audioPassthrough = false;
+  String _defaultAudioLang = 'zh';
+  String _defaultSubtitleLang = 'zh';
+  double _subtitleSize = 1.0;
+  int _bandwidthLimit = 0;
 
   @override
   void initState() {
@@ -36,20 +41,30 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
 
   Future<void> _loadSettings() async {
     final s = SettingsService();
-    final results = await Future.wait<bool>([
-      s.getAutoPlayNext(),
-      s.getHardwareAcceleration(),
-      s.getNoiseTexture(),
-      s.getAnimations(),
-      s.getRemoteAccess(),
+    final results = await Future.wait<dynamic>([
+      s.getAutoPlayNext(),           // 0
+      s.getHardwareAcceleration(),   // 1
+      s.getNoiseTexture(),           // 2
+      s.getAnimations(),             // 3
+      s.getRemoteAccess(),           // 4
+      s.getAudioPassthrough(),       // 5
+      s.getDefaultAudioLanguage(),   // 6
+      s.getDefaultSubtitleLanguage(), // 7
+      s.getSubtitleSize(),           // 8
+      s.getBandwidthLimitValue(),    // 9
     ]);
     if (mounted) {
       setState(() {
-        _autoPlayNext = results[0];
-        _hwAcceleration = results[1];
-        _noiseTexture = results[2];
-        _animations = results[3];
-        _remoteAccess = results[4];
+        _autoPlayNext = results[0] as bool;
+        _hwAcceleration = results[1] as bool;
+        _noiseTexture = results[2] as bool;
+        _animations = results[3] as bool;
+        _remoteAccess = results[4] as bool;
+        _audioPassthrough = results[5] as bool;
+        _defaultAudioLang = results[6] as String;
+        _defaultSubtitleLang = results[7] as String;
+        _subtitleSize = results[8] as double;
+        _bandwidthLimit = results[9] as int;
       });
     }
   }
@@ -63,6 +78,10 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
     final serverName = authState.authResult?.server.serverName ?? '';
     final userName = authState.authResult?.user.name ?? '';
     final savedServers = ref.watch(savedServersProvider);
+    final currentSavedServerId = savedServers
+        .where((s) => s.userId == authState.authResult?.user.id)
+        .map((s) => s.id)
+        .firstOrNull ?? '';
     final serverUrl = savedServers
         .where((s) => s.userId == authState.authResult?.user.id)
         .map((s) => s.serverUrl)
@@ -138,6 +157,45 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
                             fontFamily: 'DM Mono',
                           ),
                         ),
+                        const SizedBox(height: 4),
+                        GestureDetector(
+                          onTap: () {
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('切换账户'),
+                                content: const Text('确定要切换到其他账户吗？'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx),
+                                    child: const Text('取消'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.pop(ctx);
+                                      Navigator.of(context).pushAndRemoveUntil(
+                                        AetherPageRoute(page: const ServerSelectionScreen()),
+                                        (route) => false,
+                                      );
+                                    },
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: AppColors.celestialCyan,
+                                    ),
+                                    child: const Text('确定'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                          child: const Text(
+                            '切换账户',
+                            style: TextStyle(
+                              color: AppColors.celestialCyan,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -175,6 +233,68 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
                   onChanged: (v) {
                     setState(() => _hwAcceleration = v);
                     SettingsService().setHardwareAcceleration(v);
+                  },
+                ),
+              ),
+              _SettingsTile(
+                icon: Icons.surround_sound_rounded,
+                label: '音频直通',
+                trailing: _ToggleSwitch(
+                  initialValue: _audioPassthrough,
+                  onChanged: (v) {
+                    setState(() => _audioPassthrough = v);
+                    SettingsService().setAudioPassthrough(v);
+                  },
+                ),
+              ),
+              _SettingsTile(
+                icon: Icons.audiotrack_rounded,
+                label: '默认音轨语言',
+                trailing: _DropdownSelector<String>(
+                  value: _defaultAudioLang,
+                  items: const [
+                    _DropdownItem(value: 'zh', label: '中文'),
+                    _DropdownItem(value: 'en', label: '英文'),
+                    _DropdownItem(value: 'ja', label: '日文'),
+                    _DropdownItem(value: '', label: '系统默认'),
+                  ],
+                  onChanged: (v) {
+                    setState(() => _defaultAudioLang = v);
+                    SettingsService().setDefaultAudioLanguage(v);
+                  },
+                ),
+              ),
+              _SettingsTile(
+                icon: Icons.subtitles_rounded,
+                label: '默认字幕语言',
+                trailing: _DropdownSelector<String>(
+                  value: _defaultSubtitleLang,
+                  items: const [
+                    _DropdownItem(value: 'zh', label: '中文'),
+                    _DropdownItem(value: 'en', label: '英文'),
+                    _DropdownItem(value: 'ja', label: '日文'),
+                    _DropdownItem(value: '', label: '系统默认'),
+                  ],
+                  onChanged: (v) {
+                    setState(() => _defaultSubtitleLang = v);
+                    SettingsService().setDefaultSubtitleLanguage(v);
+                  },
+                ),
+              ),
+              _SettingsTile(
+                icon: Icons.text_fields_rounded,
+                label: '字幕大小',
+                trailing: _DropdownSelector<double>(
+                  value: _subtitleSize,
+                  items: const [
+                    _DropdownItem(value: 0.8, label: '小'),
+                    _DropdownItem(value: 1.0, label: '标准'),
+                    _DropdownItem(value: 1.3, label: '大'),
+                    _DropdownItem(value: 1.6, label: '特大'),
+                  ],
+                  onChanged: (v) {
+                    setState(() => _subtitleSize = v);
+                    SettingsService().setSubtitleSize(v);
                   },
                 ),
               ),
@@ -272,7 +392,59 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
               _SettingsTile(
                 icon: Icons.speed_rounded,
                 label: '带宽限制',
-                value: '自动',
+                trailing: _DropdownSelector<int>(
+                  value: _bandwidthLimit,
+                  items: const [
+                    _DropdownItem(value: 0, label: '自动'),
+                    _DropdownItem(value: 1, label: '1 Mbps'),
+                    _DropdownItem(value: 2, label: '2 Mbps'),
+                    _DropdownItem(value: 5, label: '5 Mbps'),
+                    _DropdownItem(value: 10, label: '10 Mbps'),
+                    _DropdownItem(value: 1000, label: '无限制'),
+                  ],
+                  onChanged: (v) {
+                    setState(() => _bandwidthLimit = v);
+                    SettingsService().setBandwidthLimitValue(v);
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // ── 服务器管理 ──
+        SliverToBoxAdapter(
+          child: _SettingsSection(
+            title: '服务器管理',
+            padding: pad,
+            children: [
+              ...savedServers.map((server) {
+                final isCurrent = server.id == currentSavedServerId;
+                return _SettingsTile(
+                  icon: Icons.dns_rounded,
+                  label: server.serverName,
+                  value: server.serverUrl,
+                  trailing: isCurrent ? const AetherBadge.dot() : null,
+                  onTap: isCurrent
+                      ? null
+                      : () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('功能开发中'),
+                              duration: Duration(seconds: 1),
+                            ),
+                          );
+                        },
+                );
+              }),
+              _SettingsTile(
+                icon: Icons.add_circle_outline_rounded,
+                label: '添加服务器',
+                onTap: () {
+                  Navigator.of(context).push(
+                    AetherPageRoute(page: const ServerSelectionScreen()),
+                  );
+                },
               ),
             ],
           ),
@@ -341,6 +513,70 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
             child: Text(t.settings.logout),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  _DropdownItem — 下拉选项数据
+// ══════════════════════════════════════════════════
+class _DropdownItem<T> {
+  final T value;
+  final String label;
+
+  const _DropdownItem({required this.value, required this.label});
+}
+
+// ══════════════════════════════════════════════════
+//  _DropdownSelector — 通用下拉选择器
+// ══════════════════════════════════════════════════
+class _DropdownSelector<T> extends StatelessWidget {
+  final T value;
+  final List<_DropdownItem<T>> items;
+  final ValueChanged<T> onChanged;
+
+  const _DropdownSelector({
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.cosmicGray.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppColors.borderSubtle,
+          width: 0.5,
+        ),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          value: value,
+          dropdownColor: AppColors.stardust,
+          icon: const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: AppColors.textSecondary,
+            size: 20,
+          ),
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 13,
+          ),
+          items: items.map((item) {
+            return DropdownMenuItem<T>(
+              value: item.value,
+              child: Text(item.label),
+            );
+          }).toList(),
+          onChanged: (v) {
+            if (v != null) onChanged(v);
+          },
+        ),
       ),
     );
   }
@@ -557,42 +793,14 @@ class _PlayerEngineSelector extends ConsumerWidget {
     return _SettingsTile(
       icon: Icons.memory_rounded,
       label: '播放引擎',
-      trailing: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: AppColors.cosmicGray.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: AppColors.borderSubtle,
-            width: 0.5,
-          ),
-        ),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<PlayerEngineType>(
-            value: currentEngine,
-            dropdownColor: AppColors.stardust,
-            icon: const Icon(
-              Icons.keyboard_arrow_down_rounded,
-              color: AppColors.textSecondary,
-              size: 20,
-            ),
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 13,
-            ),
-            items: PlayerEngineType.values.map((type) {
-              return DropdownMenuItem(
-                value: type,
-                child: Text(type.label),
-              );
-            }).toList(),
-            onChanged: (type) {
-              if (type != null) {
-                ref.read(playerEngineProvider.notifier).setEngine(type);
-              }
-            },
-          ),
-        ),
+      trailing: _DropdownSelector<PlayerEngineType>(
+        value: currentEngine,
+        items: PlayerEngineType.values
+            .map((type) => _DropdownItem(value: type, label: type.label))
+            .toList(),
+        onChanged: (type) {
+          ref.read(playerEngineProvider.notifier).setEngine(type);
+        },
       ),
     );
   }

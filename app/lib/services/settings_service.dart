@@ -31,7 +31,12 @@ class SettingsService {
   static const _keyAnimations = 'settings_animations';
   static const _keyRemoteAccess = 'settings_remote_access';
   static const _keyBandwidthLimit = 'settings_bandwidth_limit';
+  static const _keyBandwidthLimitValue = 'settings_bandwidth_limit_value';
   static const _keyPlayerEngine = 'settings_player_engine';
+  static const _keyAudioPassthrough = 'settings_audio_passthrough';
+  static const _keyDefaultAudioLang = 'settings_default_audio_lang';
+  static const _keyDefaultSubtitleLang = 'settings_default_subtitle_lang';
+  static const _keySubtitleSize = 'settings_subtitle_size';
 
   SharedPreferences? _prefs;
 
@@ -117,5 +122,61 @@ class SettingsService {
   Future<void> setPlayerEngine(PlayerEngineType type) async {
     final p = await prefs;
     await p.setString(_keyPlayerEngine, type.key);
+  }
+
+  // ── 音频设置 ──
+
+  Future<bool> getAudioPassthrough() async {
+    final p = await prefs;
+    return p.getBool(_keyAudioPassthrough) ?? false;
+  }
+
+  Future<void> setAudioPassthrough(bool value) async {
+    final p = await prefs;
+    await p.setBool(_keyAudioPassthrough, value);
+  }
+
+  Future<String> getDefaultAudioLanguage() async {
+    final p = await prefs;
+    return p.getString(_keyDefaultAudioLang) ?? 'zh';
+  }
+
+  Future<void> setDefaultAudioLanguage(String value) async {
+    final p = await prefs;
+    await p.setString(_keyDefaultAudioLang, value);
+  }
+
+  // ── 字幕设置 ──
+
+  Future<String> getDefaultSubtitleLanguage() async {
+    final p = await prefs;
+    return p.getString(_keyDefaultSubtitleLang) ?? 'zh';
+  }
+
+  Future<void> setDefaultSubtitleLanguage(String value) async {
+    final p = await prefs;
+    await p.setString(_keyDefaultSubtitleLang, value);
+  }
+
+  Future<double> getSubtitleSize() async {
+    final p = await prefs;
+    return p.getDouble(_keySubtitleSize) ?? 1.0;
+  }
+
+  Future<void> setSubtitleSize(double value) async {
+    final p = await prefs;
+    await p.setDouble(_keySubtitleSize, value);
+  }
+
+  // ── 带宽限制（数值） ──
+
+  Future<int> getBandwidthLimitValue() async {
+    final p = await prefs;
+    return p.getInt(_keyBandwidthLimitValue) ?? 0;
+  }
+
+  Future<void> setBandwidthLimitValue(int value) async {
+    final p = await prefs;
+    await p.setInt(_keyBandwidthLimitValue, value);
   }
 }
