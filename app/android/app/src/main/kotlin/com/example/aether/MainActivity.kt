@@ -6,8 +6,8 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
-// gomobile default Java package is "go", class name from Go package "mobile"
-import go.Mobile
+// gomobile with -javapkg=com.aether.server generates: com.aether.server.Mobile
+import com.aether.server.Mobile
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.example.aether/backend"

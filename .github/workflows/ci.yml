@@ -245,8 +245,9 @@ jobs:
       - name: Build AAR
         working-directory: server
         run: |
-          ANDROID_HOME=$ANDROID_HOME gomobile bind -target=android -androidapi=23 -o ../app/android/app/libs/aether-server.aar ./mobile
-          ls -lh ../app/android/app/libs/aether-server.aar
+          ANDROID_HOME=$ANDROID_HOME gomobile bind -target=android -androidapi=23 -javapkg=com.aether.server -o ../app/android/app/libs/aether-server.aar ./mobile
+          # Debug: list AAR contents
+          unzip -l ../app/android/app/libs/aether-server.aar | grep -i "class\|jar" || true
 
       - name: Flutter pub get
         working-directory: app
