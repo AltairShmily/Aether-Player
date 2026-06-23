@@ -36,6 +36,12 @@ android {
     }
 }
 
+dependencies {
+    // Go backend AAR (built by gomobile bind in CI)
+    // File: android/app/libs/aether-server.aar
+    implementation(files("libs/aether-server.aar"))
+}
+
 flutter {
     source = "../.."
 }

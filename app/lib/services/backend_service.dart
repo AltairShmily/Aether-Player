@@ -2,15 +2,19 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// Go 后端进程管理服务
 ///
 /// 负责：
-/// - 启动 Go 后端子进程
+/// - 启动 Go 后端（Android: gomobile .aar via MethodChannel，桌面: 子进程）
 /// - 健康检查
 /// - 应用退出时自动清理
 class BackendService {
+  // ── MethodChannel（Android gomobile） ──
+  static const _channel = MethodChannel('com.example.aether/backend');
+
   Process? _process;
   final int _port = 19800;
   bool _started = false;
@@ -29,8 +33,8 @@ class BackendService {
   ///
   /// 流程：
   /// 1. 检查端口是否已被占用（已有后端运行）
-  /// 2. 查找 Go 二进制文件
-  /// 3. 启动子进程
+  /// 2. Android: 通过 MethodChannel 调用 gomobile .aar
+  /// 3. 桌面: 查找 Go 二进制文件，启动子进程
   /// 4. 等待健康检查通过
   Future<void> start() async {
     if (_started) return;
@@ -47,22 +51,11 @@ class BackendService {
         return;
       }
 
-      final binaryPath = await _resolveBinaryPath();
-      debugPrint('[BackendService] Starting: $binaryPath');
-
-      // 启动子进程（normal 模式以便管理生命周期）
-      _process = await Process.start(
-        binaryPath,
-        [],
-        environment: {'PORT': '$_port'},
-      );
-
-      // 监听进程退出
-      _process!.exitCode.then((code) {
-        debugPrint('[BackendService] Process exited with code $code');
-        _started = false;
-        _process = null;
-      });
+      if (Platform.isAndroid) {
+        await _startViaMethodChannel();
+      } else {
+        await _startViaProcess();
+      }
 
       // 等待后端就绪（最多 10 秒）
       await _waitForReady();
@@ -79,6 +72,40 @@ class BackendService {
       _started = false;
       rethrow;
     }
+  }
+
+  /// Android: 通过 MethodChannel 调用 gomobile .aar
+  Future<void> _startViaMethodChannel() async {
+    debugPrint('[BackendService] Starting via MethodChannel (gomobile)');
+    try {
+      final result = await _channel.invokeMethod<bool>(
+        'startServer',
+        {'port': _port},
+      );
+      if (result != true) {
+        throw Exception('MethodChannel startServer returned false');
+      }
+    } on PlatformException catch (e) {
+      throw Exception('MethodChannel error: ${e.message}');
+    }
+  }
+
+  /// 桌面: 通过子进程启动 Go 二进制
+  Future<void> _startViaProcess() async {
+    final binaryPath = await _resolveBinaryPath();
+    debugPrint('[BackendService] Starting process: $binaryPath');
+
+    _process = await Process.start(
+      binaryPath,
+      [],
+      environment: {'PORT': '$_port'},
+    );
+
+    _process!.exitCode.then((code) {
+      debugPrint('[BackendService] Process exited with code $code');
+      _started = false;
+      _process = null;
+    });
   }
 
   /// 检查端口是否已被占用
@@ -100,11 +127,21 @@ class BackendService {
     _healthCheckTimer?.cancel();
     _healthCheckTimer = null;
 
+    if (Platform.isAndroid) {
+      try {
+        await _channel.invokeMethod<bool>('stopServer');
+      } catch (e) {
+        debugPrint('[BackendService] MethodChannel stop error: $e');
+      }
+      _started = false;
+      debugPrint('[BackendService] Stopped (gomobile)');
+      return;
+    }
+
     if (_process != null) {
       debugPrint('[BackendService] Stopping...');
       _process!.kill(ProcessSignal.sigterm);
 
-      // 等待退出，超时则强杀
       try {
         await _process!.exitCode.timeout(
           const Duration(seconds: 3),
@@ -123,7 +160,7 @@ class BackendService {
     }
   }
 
-  /// 查找 Go 二进制文件路径
+  /// 查找 Go 二进制文件路径（仅桌面平台）
   Future<String> _resolveBinaryPath() async {
     final exeName = Platform.isWindows ? 'aether-server.exe' : 'aether-server';
 
@@ -132,17 +169,11 @@ class BackendService {
     final bundled = '$appDir/$exeName';
     if (await File(bundled).exists()) return bundled;
 
-    // 策略 2: 从 assets 解压（Android / 首次运行）
-    final extracted = await _extractFromAssets(exeName);
-    if (extracted != null) return extracted;
-
-    // 策略 3: 系统 PATH（开发模式）
-    if (!Platform.isAndroid && !Platform.isIOS) {
-      final which = Platform.isWindows ? 'where' : 'which';
-      final result = await Process.run(which, [exeName]);
-      if (result.exitCode == 0) {
-        return (result.stdout as String).trim().split('\n').first;
-      }
+    // 策略 2: 系统 PATH（开发模式）
+    final which = Platform.isWindows ? 'where' : 'which';
+    final result = await Process.run(which, [exeName]);
+    if (result.exitCode == 0) {
+      return (result.stdout as String).trim().split('\n').first;
     }
 
     throw Exception('Go backend binary not found: $exeName');
@@ -151,39 +182,9 @@ class BackendService {
   /// 获取应用目录
   String _getAppDir() {
     if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
-      // 可执行文件所在目录
       return File(Platform.resolvedExecutable).parent.path;
     }
     return '.';
-  }
-
-  /// 从 assets 解压二进制（Android）
-  Future<String?> _extractFromAssets(String exeName) async {
-    if (!Platform.isAndroid) return null;
-
-    try {
-      final appDir = await getApplicationSupportDirectory();
-      final targetPath = '${appDir.path}/$exeName';
-      final targetFile = File(targetPath);
-
-      // 检查是否已解压
-      if (await targetFile.exists()) return targetPath;
-
-      // 从 assets 复制
-      // 注意：需要在 pubspec.yaml 中声明 assets
-      // assets:
-      //   - assets/bin/aether-server
-      // 实际路径取决于 Android 的 asset 打包方式
-      debugPrint('[BackendService] Extracting backend to $targetPath');
-
-      // 对于 Android，二进制通常放在 lib/ 目录下
-      // 使用 rootBundle 加载
-      // 这里返回 null，让调用方处理
-      return null;
-    } catch (e) {
-      debugPrint('[BackendService] Extract failed: $e');
-      return null;
-    }
   }
 
   /// 等待后端就绪
@@ -211,7 +212,7 @@ class BackendService {
 
   /// 健康检查
   Future<void> _checkHealth() async {
-    if (!_started || _process == null) return;
+    if (!_started) return;
 
     try {
       final client = HttpClient();
