@@ -15,46 +15,66 @@ final backendServiceProvider = Provider<BackendService>((ref) {
 
 void main() async {
   // 捕获未处理的异步异常（如 google_fonts 加载失败）
-  runZonedGuarded(() async {
-    WidgetsFlutterBinding.ensureInitialized();
+  runZonedGuarded(
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
 
-    // 设置 Flutter 错误处理
-    FlutterError.onError = (details) {
-      debugPrint('[FlutterError] ${details.exception}');
-      // 不调用 FlutterError.presentError，避免崩溃
-    };
+      // 设置 Flutter 错误处理
+      FlutterError.onError = (details) {
+        debugPrint('[FlutterError] ${details.exception}');
+        // 不调用 FlutterError.presentError，避免崩溃
+      };
 
-    LocaleSettings.useDeviceLocale();
+      // 注册应用生命周期监听，确保退出时清理后端
+      WidgetsBinding.instance.addObserver(_AppLifecycleObserver());
 
-    // 配置 google_fonts — 启用运行时获取
-    GoogleFonts.config.allowRuntimeFetching = true;
+      LocaleSettings.useDeviceLocale();
 
-    // 启动 Go 后端
-    final backend = BackendService();
-    bool backendReady = false;
+      // 配置 google_fonts — 启用运行时获取
+      GoogleFonts.config.allowRuntimeFetching = true;
 
-    try {
-      await backend.start();
-      backendReady = true;
-      debugPrint('[main] Go backend started on port ${backend.port}');
-    } catch (e) {
-      debugPrint('[main] Go backend failed to start: $e');
-      // 后端启动失败不阻止应用运行
-      // 用户仍可看到错误提示，或使用纯前端功能
-    }
+      // 启动 Go 后端
+      final backend = BackendService();
+      bool backendReady = false;
 
-    runApp(
-      TranslationProvider(
-        child: ProviderScope(
-          overrides: [
-            backendServiceProvider.overrideWithValue(backend),
-          ],
-          child: AetherApp(backendReady: backendReady),
+      try {
+        await backend.start();
+        backendReady = true;
+        debugPrint('[main] Go backend started on port ${backend.port}');
+      } catch (e) {
+        debugPrint('[main] Go backend failed to start: $e');
+        // 后端启动失败不阻止应用运行
+        // 用户仍可看到错误提示，或使用纯前端功能
+      }
+
+      runApp(
+        TranslationProvider(
+          child: ProviderScope(
+            overrides: [backendServiceProvider.overrideWithValue(backend)],
+            child: AetherApp(backendReady: backendReady),
+          ),
         ),
-      ),
-    );
-  }, (error, stackTrace) {
-    debugPrint('[ZoneError] $error');
-    // 捕获未处理的异步异常，避免应用崩溃
-  });
+      );
+    },
+    (error, stackTrace) {
+      debugPrint('[ZoneError] $error');
+      // 捕获未处理的异步异常，避免应用崩溃
+    },
+  );
+}
+
+/// 应用生命周期监听器
+///
+/// 桌面端窗口关闭时，Flutter 引擎可能不会正常 dispose Provider。
+/// 通过监听生命周期事件，在 detached 状态下强制清理后端进程。
+/// 主要依赖 BackendService 中的 OS 信号处理器（SIGTERM/SIGINT），
+/// 此处作为额外的安全网。
+class _AppLifecycleObserver extends WidgetsBindingObserver {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.detached) {
+      debugPrint('[Lifecycle] App detached, stopping backend...');
+      BackendService.instance?.stop();
+    }
+  }
 }

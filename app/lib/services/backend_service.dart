@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-
 /// Go 后端进程管理服务
 ///
 /// 负责：
@@ -19,6 +18,9 @@ class BackendService {
   final int _port = 19800;
   bool _started = false;
   Timer? _healthCheckTimer;
+
+  /// 全局实例引用，供 OS 信号处理器和生命周期监听器使用
+  static BackendService? instance;
 
   /// 后端是否已就绪
   bool get isReady => _started;
@@ -42,7 +44,9 @@ class BackendService {
     try {
       // 先检查端口是否已被占用（可能已有后端在运行）
       if (await _isPortInUse()) {
-        debugPrint('[BackendService] Port $_port already in use, skipping start');
+        debugPrint(
+          '[BackendService] Port $_port already in use, skipping start',
+        );
         _started = true;
         _healthCheckTimer = Timer.periodic(
           const Duration(seconds: 30),
@@ -67,6 +71,12 @@ class BackendService {
         const Duration(seconds: 30),
         (_) => _checkHealth(),
       );
+
+      // 注册静态实例引用
+      BackendService.instance = this;
+
+      // 注册 OS 信号处理器，确保进程退出前清理子进程
+      _registerSignalHandlers();
     } catch (e) {
       debugPrint('[BackendService] Failed to start: $e');
       _started = false;
@@ -78,10 +88,9 @@ class BackendService {
   Future<void> _startViaMethodChannel() async {
     debugPrint('[BackendService] Starting via MethodChannel (gomobile)');
     try {
-      final result = await _channel.invokeMethod<bool>(
-        'startServer',
-        {'port': _port},
-      );
+      final result = await _channel.invokeMethod<bool>('startServer', {
+        'port': _port,
+      });
       if (result != true) {
         throw Exception('MethodChannel startServer returned false');
       }
@@ -208,6 +217,43 @@ class BackendService {
 
     client.close();
     throw Exception('Backend health check timeout');
+  }
+
+  /// 注册 OS 信号处理器
+  ///
+  /// 桌面端关闭窗口时，OS 发送 SIGTERM/SIGINT。
+  /// 默认行为是直接杀进程，子进程（aether-server）成为孤儿进程。
+  /// 注册处理器后，在退出前优雅地关闭子进程。
+  void _registerSignalHandlers() {
+    if (Platform.isAndroid) return;
+
+    // SIGTERM（窗口管理器发送的关闭信号）
+    ProcessSignal.sigterm.watch().listen((_) {
+      debugPrint('[BackendService] SIGTERM received, shutting down...');
+      _emergencyStop();
+    });
+
+    // SIGINT（Ctrl+C）
+    ProcessSignal.sigint.watch().listen((_) {
+      debugPrint('[BackendService] SIGINT received, shutting down...');
+      _emergencyStop();
+    });
+  }
+
+  /// 紧急停止：同步杀子进程后退出
+  ///
+  /// 信号处理器中不能使用 async/await，必须同步操作。
+  void _emergencyStop() {
+    _healthCheckTimer?.cancel();
+    if (_process != null) {
+      _process!.kill(ProcessSignal.sigterm);
+      // 给子进程一点时间优雅退出，然后强制杀死
+      Future.delayed(const Duration(seconds: 2), () {
+        try {
+          _process?.kill(ProcessSignal.sigkill);
+        } catch (_) {}
+      });
+    }
   }
 
   /// 健康检查
