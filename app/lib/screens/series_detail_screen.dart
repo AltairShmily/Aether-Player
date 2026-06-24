@@ -60,7 +60,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
     setState(() => _loadingSeasons = true);
     try {
       final userId = ref.read(authProvider).authResult?.user.id ?? '';
-      final result = await ref.read(apiClientProvider).getSeasons(
+      final result = await ref
+          .read(apiClientProvider)
+          .getSeasons(
             serverUrl: serverUrl,
             token: token,
             userId: userId,
@@ -90,7 +92,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
     });
     try {
       final userId = ref.read(authProvider).authResult?.user.id ?? '';
-      final result = await ref.read(apiClientProvider).getEpisodes(
+      final result = await ref
+          .read(apiClientProvider)
+          .getEpisodes(
             serverUrl: serverUrl,
             token: token,
             userId: userId,
@@ -106,7 +110,6 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
       if (mounted) setState(() => _loadingEpisodes = false);
     }
   }
-
 
   // ── Navigation ────────────────────────────────────────────────
 
@@ -146,18 +149,16 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                     width: 170,
                     height: 255,
                     decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0x1F00D4FF), width: 2),
+                      border: Border.all(
+                        color: const Color(0x1F00D4FF),
+                        width: 2,
+                      ),
                       borderRadius: BorderRadius.circular(AppColors.radiusLg),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.5),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
-                        ),
-                        BoxShadow(
-                          color: AppColors.celestialCyan.withValues(alpha: 0.08),
-                          blurRadius: 40,
-                          offset: const Offset(0, 4),
+                          blurRadius: 32,
+                          offset: const Offset(0, 8),
                         ),
                       ],
                     ),
@@ -167,18 +168,30 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                           ? Image.network(
                               '$_serverUrl/api/images/${series.id}/Primary?maxWidth=400',
                               fit: BoxFit.cover,
-                              headers: {'Accept': 'image/*', 'X-Emby-Token': token ?? '', 'X-Emby-Server': _embyServerUrl},
+                              headers: {
+                                'Accept': 'image/*',
+                                'X-Emby-Token': token ?? '',
+                                'X-Emby-Server': _embyServerUrl,
+                              },
                               errorBuilder: (_, __, ___) => Container(
                                 color: AppColors.cardBg,
                                 child: const Center(
-                                  child: Icon(Icons.tv, size: 40, color: AppColors.textSecondary),
+                                  child: Icon(
+                                    Icons.tv,
+                                    size: 40,
+                                    color: AppColors.textSecondary,
+                                  ),
                                 ),
                               ),
                             )
                           : Container(
                               color: AppColors.cardBg,
                               child: const Center(
-                                child: Icon(Icons.tv, size: 40, color: AppColors.textSecondary),
+                                child: Icon(
+                                  Icons.tv,
+                                  size: 40,
+                                  color: AppColors.textSecondary,
+                                ),
                               ),
                             ),
                     ),
@@ -188,7 +201,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 185), // 255 - 70 = space below hero for poster
+                    const SizedBox(
+                      height: 185,
+                    ), // 255 - 70 = space below hero for poster
                     _buildTitleSection(series),
                     _buildOverview(series),
                     _buildSeasonSelector(),
@@ -227,39 +242,49 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                         Image.network(
                           '$_serverUrl/api/images/${series.id}/Backdrop?maxWidth=800',
                           fit: BoxFit.cover,
-                          headers: {'Accept': 'image/*', 'X-Emby-Token': token ?? '', 'X-Emby-Server': _embyServerUrl},
+                          headers: {
+                            'Accept': 'image/*',
+                            'X-Emby-Token': token ?? '',
+                            'X-Emby-Server': _embyServerUrl,
+                          },
                           errorBuilder: (_, __, ___) => _heroFallback(),
                         )
                       else if (series.hasPrimaryImage)
                         Image.network(
                           '$_serverUrl/api/images/${series.id}/Primary?maxWidth=600',
                           fit: BoxFit.cover,
-                          headers: {'Accept': 'image/*', 'X-Emby-Token': token ?? '', 'X-Emby-Server': _embyServerUrl},
+                          headers: {
+                            'Accept': 'image/*',
+                            'X-Emby-Token': token ?? '',
+                            'X-Emby-Server': _embyServerUrl,
+                          },
                           errorBuilder: (_, __, ___) => _heroFallback(),
                         )
                       else
                         _heroFallback(),
                       // Gradient overlay (dual layer: to top + to right)
+                      // HTML: linear-gradient(to top, var(--bg-primary) 5%, transparent 50%)
                       Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
-                            colors: [Colors.transparent, AppColors.seriesBg],
-                            stops: const [0.45, 1.0],
+                            colors: [Colors.transparent, AppColors.bgPrimary],
+                            stops: const [0.50, 1.0],
                           ),
                         ),
                       ),
+                      // HTML: linear-gradient(to right, rgba(10,14,20,0.7), transparent 60%)
                       Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.centerLeft,
                             end: Alignment.centerRight,
                             colors: [
-                              AppColors.seriesBg.withValues(alpha: 0.6),
+                              AppColors.deepVoid.withValues(alpha: 0.7),
                               Colors.transparent,
                             ],
-                            stops: const [0.0, 0.5],
+                            stops: const [0.0, 0.6],
                           ),
                         ),
                       ),
@@ -321,8 +346,8 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                 title: series.childCount != null
                     ? '${series.childCount}季'
                     : series.name.length > 4
-                        ? series.name.substring(0, 4)
-                        : series.name,
+                    ? series.name.substring(0, 4)
+                    : series.name,
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -338,11 +363,14 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                         letterSpacing: -0.03,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 10),
                     // Status tag
                     if (series.status != null && series.status!.isNotEmpty)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: series.status == 'Continuing'
                               ? AppColors.playMint.withValues(alpha: 0.2)
@@ -376,7 +404,11 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                 MetaChip(
                   label: '${series.productionYear}',
                   backgroundColor: AppColors.cardBg,
-                  textStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 10.9, fontWeight: FontWeight.w500),
+                  textStyle: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 10.9,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               if (series.communityRating > 0)
                 MetaChip(
@@ -384,14 +416,25 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                   icon: Icons.star_rounded,
                   iconColor: AppColors.ratingStar,
                   backgroundColor: AppColors.accentSoft,
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-                  textStyle: const TextStyle(color: AppColors.celestialCyan, fontSize: 10.9, fontWeight: FontWeight.w600),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 3,
+                  ),
+                  textStyle: const TextStyle(
+                    color: AppColors.celestialCyan,
+                    fontSize: 10.9,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               if (series.officialRating.isNotEmpty)
                 MetaChip(
                   label: series.officialRating,
                   backgroundColor: AppColors.cardBg,
-                  textStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 10.9, fontWeight: FontWeight.w500),
+                  textStyle: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 10.9,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
             ],
           ),
@@ -402,7 +445,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
             Wrap(
               spacing: 8,
               runSpacing: 6,
-              children: series.genres.map((g) => AetherChip.genre(label: g)).toList(),
+              children: series.genres
+                  .map((g) => AetherChip.genre(label: g))
+                  .toList(),
             ),
           const SizedBox(height: 20),
 
@@ -443,12 +488,15 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            series.overview,
-            style: const TextStyle(
-              color: AppColors.textWarmGray,
-              fontSize: 11.9,
-              height: 1.7,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 580),
+            child: Text(
+              series.overview,
+              style: const TextStyle(
+                color: AppColors.textWarmGray,
+                fontSize: 11.9,
+                height: 1.7,
+              ),
             ),
           ),
         ],
@@ -470,7 +518,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
     if (_seasons.isEmpty) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.only(top: 24),
+      padding: const EdgeInsets.only(top: 24, bottom: 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -492,7 +540,10 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                     child: Padding(
                       padding: const EdgeInsets.only(right: 4),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 18),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 10,
+                          horizontal: 18,
+                        ),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -501,14 +552,16 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                               style: TextStyle(
                                 color: isSelected
                                     ? AppColors.celestialCyan
-                                    : AppColors.textSecondary,
+                                    : AppColors.textTertiary,
                                 fontSize: 11.5,
-                                fontWeight:
-                                    isSelected ? FontWeight.w600 : FontWeight.w400,
+                                fontWeight: isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
                               ),
                             ),
                             const SizedBox(height: 6),
                             // Animated underline indicator (scaleX)
+                            // HTML: left:0; right:0; height:2px; full-width
                             AnimatedScale(
                               duration: const Duration(milliseconds: 250),
                               curve: Curves.easeInOut,
@@ -516,7 +569,6 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                               alignment: Alignment.center,
                               child: Container(
                                 height: 2,
-                                width: 28,
                                 decoration: BoxDecoration(
                                   gradient: AppColors.accentGradient,
                                   borderRadius: BorderRadius.circular(1),
@@ -551,29 +603,31 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
     if (_episodes.isEmpty) return const SizedBox.shrink();
 
     // Determine the selected season name for header
-    final selectedSeason = _seasons.where((s) => s.id == _selectedSeasonId).firstOrNull;
+    final selectedSeason = _seasons
+        .where((s) => s.id == _selectedSeasonId)
+        .firstOrNull;
 
     return Padding(
       padding: const EdgeInsets.only(top: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Section header with accent line
+          // Section header with Material icon
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Row(
               children: [
-                Container(
-                  width: 3,
-                  height: 14,
-                  decoration: const BoxDecoration(gradient: AppColors.accentGradient),
+                const Icon(
+                  Icons.view_list_rounded,
+                  size: 20,
+                  color: AppColors.celestialCyan,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   selectedSeason?.name ?? '集数',
                   style: const TextStyle(
                     color: AppColors.textPrimary,
-                    fontSize: 15,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -606,7 +660,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                     imageUrl: ep.hasPrimaryImage
                         ? '$_serverUrl/api/images/${ep.id}/Primary?maxWidth=200'
                         : null,
-                    title: ep.episodeLabel.isNotEmpty ? ep.episodeLabel : ep.name,
+                    title: ep.episodeLabel.isNotEmpty
+                        ? ep.episodeLabel
+                        : ep.name,
                     subtitle: ep.name,
                     progress: ep.userData?.progressPercent,
                     token: token,
@@ -618,14 +674,16 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
 
           // Full episode list
           const SizedBox(height: 16),
-          ..._episodes.map((merged) => _EpisodeTile(
-                episode: merged.primary,
-                serverUrl: _serverUrl,
-                token: token,
-                embyServerUrl: _embyServerUrl,
-                versions: merged.hasMultipleVersions ? merged.versions : null,
-                onTap: () => _onEpisodeTap(merged.primary),
-              )),
+          ..._episodes.map(
+            (merged) => _EpisodeTile(
+              episode: merged.primary,
+              serverUrl: _serverUrl,
+              token: token,
+              embyServerUrl: _embyServerUrl,
+              versions: merged.hasMultipleVersions ? merged.versions : null,
+              onTap: () => _onEpisodeTap(merged.primary),
+            ),
+          ),
         ],
       ),
     );
@@ -643,17 +701,17 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
         children: [
           Row(
             children: [
-              Container(
-                width: 3,
-                height: 14,
-                decoration: const BoxDecoration(gradient: AppColors.accentGradient),
+              const Icon(
+                Icons.groups_rounded,
+                size: 20,
+                color: AppColors.celestialCyan,
               ),
               const SizedBox(width: 8),
               const Text(
                 '演员',
                 style: TextStyle(
                   color: AppColors.textPrimary,
-                  fontSize: 15,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -665,7 +723,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: series.actors.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 16),
+              separatorBuilder: (_, __) => const SizedBox(width: 14),
               itemBuilder: (context, index) {
                 final actor = series.actors[index];
                 return _CastMember(
@@ -689,7 +747,6 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
 // ═══════════════════════════════════════════════════════════════════
 // Private helper widgets
 // ═══════════════════════════════════════════════════════════════════
-
 
 /// Episode tile for the full list view
 class _EpisodeTile extends StatefulWidget {
@@ -718,28 +775,31 @@ class _EpisodeTileState extends State<_EpisodeTile> {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = '${widget.serverUrl}/api/images/${widget.episode.id}/Primary?maxWidth=200';
-    final hasProgress = widget.episode.userData != null && widget.episode.userData!.playedPercentage > 0;
+    final imageUrl =
+        '${widget.serverUrl}/api/images/${widget.episode.id}/Primary?maxWidth=200';
+    final hasProgress =
+        widget.episode.userData != null &&
+        widget.episode.userData!.playedPercentage > 0;
     final isWatched = widget.episode.userData?.played == true;
 
     return GestureDetector(
       onTap: widget.onTap,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 2),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.nebulaDark,
-          borderRadius: BorderRadius.circular(AppColors.radiusMd),
-          border: Border.all(color: AppColors.borderSubtle),
-        ),
-        child: Row(
-          children: [
-            // Thumbnail with hover play icon
-            MouseRegion(
-              onEnter: (_) => setState(() => _isHovered = true),
-              onExit: (_) => setState(() => _isHovered = false),
-              cursor: SystemMouseCursors.click,
-              child: ClipRRect(
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        cursor: SystemMouseCursors.click,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 1),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: _isHovered ? AppColors.surfaceHover : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppColors.radiusMd),
+          ),
+          child: Row(
+            children: [
+              // Thumbnail with hover play icon
+              ClipRRect(
                 borderRadius: BorderRadius.circular(AppColors.radiusSm),
                 child: Stack(
                   children: [
@@ -750,7 +810,12 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                           ? Image.network(
                               imageUrl,
                               fit: BoxFit.cover,
-                              headers: widget.token != null ? {'X-Emby-Token': widget.token!, 'X-Emby-Server': widget.embyServerUrl} : null,
+                              headers: widget.token != null
+                                  ? {
+                                      'X-Emby-Token': widget.token!,
+                                      'X-Emby-Server': widget.embyServerUrl,
+                                    }
+                                  : null,
                               errorBuilder: (_, __, ___) => _thumbPlaceholder(),
                             )
                           : _thumbPlaceholder(),
@@ -783,7 +848,9 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                         child: LinearProgressIndicator(
                           value: widget.episode.userData!.progressPercent,
                           backgroundColor: Colors.black45,
-                          valueColor: const AlwaysStoppedAnimation<Color>(AppColors.playMint),
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            AppColors.playMint,
+                          ),
                           minHeight: 3,
                         ),
                       ),
@@ -798,96 +865,110 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                             color: AppColors.playMint,
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: const Icon(Icons.check, size: 10, color: AppColors.seriesBg),
+                          child: const Icon(
+                            Icons.check,
+                            size: 10,
+                            color: AppColors.seriesBg,
+                          ),
                         ),
                       ),
                   ],
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            // Info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Episode label + title
-                  Row(
-                    children: [
-                      if (widget.episode.episodeLabel.isNotEmpty)
-                        Text(
-                          '${widget.episode.episodeLabel} ',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: isWatched ? AppColors.textWarmGray : AppColors.textPrimary,
-                            fontSize: 10.9,
-                            fontWeight: FontWeight.w500,
-                            fontFamily: 'DM Mono',
+              const SizedBox(width: 12),
+              // Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Episode label + title
+                    Row(
+                      children: [
+                        if (widget.episode.episodeLabel.isNotEmpty)
+                          Text(
+                            '${widget.episode.episodeLabel} ',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: isWatched
+                                  ? AppColors.textWarmGray
+                                  : AppColors.textPrimary,
+                              fontSize: 10.9,
+                              fontWeight: FontWeight.w500,
+                              fontFamily: 'DM Mono',
+                            ),
+                          ),
+                        Expanded(
+                          child: Text(
+                            widget.episode.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: isWatched
+                                  ? AppColors.textWarmGray
+                                  : AppColors.textPrimary,
+                              fontSize: 11.9,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
-                      Expanded(
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    // Version count badge
+                    if (widget.versions != null &&
+                        widget.versions!.length > 1) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.celestialCyan.withValues(
+                            alpha: 0.15,
+                          ),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
                         child: Text(
-                          widget.episode.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: isWatched ? AppColors.textWarmGray : AppColors.textPrimary,
-                            fontSize: 11.9,
+                          '${widget.versions!.length} 版本',
+                          style: const TextStyle(
+                            color: AppColors.celestialCyan,
+                            fontSize: 11,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                       ),
                     ],
-                  ),
-                  // Version count badge
-                  if (widget.versions != null && widget.versions!.length > 1) ...[
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.celestialCyan.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        '${widget.versions!.length} 版本',
+                    if (widget.episode.overview.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.episode.overview,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          color: AppColors.celestialCyan,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
+                          color: AppColors.textTertiary,
+                          fontSize: 10.5,
+                          height: 1.5,
                         ),
                       ),
-                    ),
+                    ],
                   ],
-                  if (widget.episode.overview.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.episode.overview,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 10.5,
-                        height: 1.5,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            // Duration
-            if (widget.episode.durationFormatted.isNotEmpty) ...[
-              const SizedBox(width: 8),
-              Text(
-                widget.episode.durationFormatted,
-                style: const TextStyle(
-                  color: AppColors.textTertiary,
-                  fontSize: 12,
-                  fontFamily: 'DM Mono',
                 ),
               ),
+              // Duration
+              if (widget.episode.durationFormatted.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Text(
+                  widget.episode.durationFormatted,
+                  style: const TextStyle(
+                    color: AppColors.textTertiary,
+                    fontSize: 10.5,
+                    fontFamily: 'DM Mono',
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -899,7 +980,11 @@ class _EpisodeTileState extends State<_EpisodeTile> {
       height: 56,
       color: AppColors.cardBg,
       child: const Center(
-        child: Icon(Icons.play_circle_outline, size: 20, color: AppColors.textSecondary),
+        child: Icon(
+          Icons.play_circle_outline,
+          size: 20,
+          color: AppColors.textSecondary,
+        ),
       ),
     );
   }
@@ -917,10 +1002,10 @@ class _CastMember extends StatelessWidget {
 
   // Gradient palette cycling through actor indices
   static const _gradientPalette = [
-    [AppColors.celestialCyan, AppColors.novaPurple],   // 0
-    [AppColors.plasmaPink, AppColors.novaPurple],       // 1
-    [AppColors.auroraGreen, AppColors.celestialCyan],   // 2
-    [AppColors.supernova, AppColors.supernova],          // 3
+    [AppColors.celestialCyan, AppColors.novaPurple], // 0
+    [AppColors.plasmaPink, AppColors.novaPurple], // 1
+    [AppColors.auroraGreen, AppColors.celestialCyan], // 2
+    [AppColors.supernova, AppColors.supernova], // 3
   ];
 
   const _CastMember({
@@ -952,7 +1037,12 @@ class _CastMember extends StatelessWidget {
                       width: 58,
                       height: 58,
                       fit: BoxFit.cover,
-                      headers: token != null ? {'X-Emby-Token': token!, 'X-Emby-Server': embyServerUrl} : null,
+                      headers: token != null
+                          ? {
+                              'X-Emby-Token': token!,
+                              'X-Emby-Server': embyServerUrl,
+                            }
+                          : null,
                       errorBuilder: (_, __, ___) => _gradientFallback(gradient),
                     ),
                   )
@@ -964,7 +1054,10 @@ class _CastMember extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: AppColors.textPrimary, fontSize: 9.5),
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 9.5,
+            ),
           ),
           if (role != null && role!.isNotEmpty)
             Text(
@@ -972,7 +1065,10 @@ class _CastMember extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textWarmGray, fontSize: 8.7),
+              style: const TextStyle(
+                color: AppColors.textTertiary,
+                fontSize: 8.7,
+              ),
             ),
         ],
       ),
