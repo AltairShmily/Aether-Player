@@ -163,8 +163,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         startAtMs: widget.startAtMs,
       );
 
-      // 应用预选的音频/字幕轨道（在流加载完成后）
-      if (widget.audioTrackIndex != null && widget.audioTrackIndex! > 0) {
+      // 应用预选的音频/字幕轨道（在流加载完成后）。
+      // null 表示用户未作选择，交由引擎使用默认轨道；
+      // 索引 0 是合法的第一条轨道，不能用 > 0 过滤掉
+      if (widget.audioTrackIndex != null) {
         await controller.selectAudioTrack(widget.audioTrackIndex!);
       }
       if (widget.subtitleTrackIndex != null) {

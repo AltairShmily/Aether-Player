@@ -39,8 +39,11 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
   String _embyServerUrl = '';
 
   int _selectedSourceIndex = 0;
-  int _selectedAudioIndex = 0;
-  int _selectedSubtitleIndex = 0;
+
+  /// null 表示用户未作选择；下拉选项与真实轨道 1:1 映射，
+  /// 故索引 0 是"第一条轨道"而非"未选择"，不能用 0 作默认值
+  int? _selectedAudioIndex;
+  int? _selectedSubtitleIndex;
 
   @override
   void initState() {
@@ -841,7 +844,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
             AetherDropdown(
               label: '音频',
               options: audioOptions,
-              selectedIndex: _selectedAudioIndex,
+              selectedIndex: _selectedAudioIndex ?? 0,
               onChanged: (i) => setState(() => _selectedAudioIndex = i),
             ),
           const SizedBox(height: 18),
@@ -851,7 +854,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
             AetherDropdown(
               label: '字幕',
               options: subtitleOptions,
-              selectedIndex: _selectedSubtitleIndex,
+              selectedIndex: _selectedSubtitleIndex ?? 0,
               onChanged: (i) => setState(() => _selectedSubtitleIndex = i),
             ),
           const SizedBox(height: 22),
