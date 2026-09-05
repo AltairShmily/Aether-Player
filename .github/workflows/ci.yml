@@ -68,6 +68,33 @@ jobs:
         run: flutter test
 
   # ──────────────────────────────────────────────
+  #  C++ 播放引擎 — 编译验证
+  #  BUILD_ENGINE 默认关闭，此前 engine/ 下的 C++ 代码
+  #  从未经过任何自动化编译验证
+  # ──────────────────────────────────────────────
+  build-engine:
+    name: C++ Engine
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libmpv-dev
+
+      - name: CMake Configure
+        run: cmake -B build/engine -S engine -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: CMake Build
+        run: cmake --build build/engine
+
+      - name: Verify artifact
+        run: |
+          ls -lh build/engine/libaether_engine.so
+          echo "✅ C++ engine compiled against libmpv"
+
+  # ──────────────────────────────────────────────
   #  Linux 构建 + 产物上传
   # ──────────────────────────────────────────────
   build-linux:

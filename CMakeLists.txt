@@ -69,7 +69,10 @@ endif()
 #  C++ 媒体引擎
 # ════════════════════════════════════════════════════
 if(BUILD_ENGINE)
-    add_custom_target(engine
+    # ALL：使引擎纳入默认构建目标。
+    # 缺少该关键字时 -DBUILD_ENGINE=ON 形同虚设，
+    # cmake --build build 不会编译引擎，必须显式 --target engine
+    add_custom_target(engine ALL
         COMMAND ${CMAKE_COMMAND} -B ${OUT_DIR}/engine
             -S ${ENGINE_DIR}
             -G Ninja
