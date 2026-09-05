@@ -25,9 +25,11 @@ dependencies:
   media_kit_video: ^2.0.1
   media_kit_libs_linux: ^1.2.1
   media_kit_libs_windows_video: ^1.0.9
-  media_kit_libs_android_video: ^1.3.7
-  media_kit_libs_ios_video: ^1.1.4
-  media_kit_libs_macos_video: ^1.1.4
+  # 注意：Android/iOS/macOS 的 media_kit_libs_* 尚未加入。
+  # 曾尝试补上 media_kit_libs_{android,ios,macos}_video，CI 的 Build Android
+  # 作业随即在 flutter build apk 阶段失败（此前为绿），本机无 Android SDK
+  # 且 CI 日志需认证，无法定位具体的 gradle/NDK 冲突，故先回退。
+  # 详见 docs/reports/BUG_REPORT.md 的 BUG-018。
   wakelock_plus: ^1.4.0
   ffi: ^2.1.0
   path_provider: ^2.1.0
