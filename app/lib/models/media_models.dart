@@ -183,7 +183,7 @@ class Person {
   factory Person.fromJson(Map<String, dynamic> json) {
     return Person(
       name: json['Name'] as String? ?? '',
-      type: json['Type'] as String? ?? json['Type'] as String? ?? '',
+      type: json['Type'] as String? ?? '',
       role: json['Role'] as String?,
       id: json['Id'] as String?,
       primaryImageTag: json['PrimaryImageTag'] as String?,

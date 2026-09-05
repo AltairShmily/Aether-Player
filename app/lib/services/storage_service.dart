@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/saved_server.dart';
 
@@ -53,7 +54,13 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     final json = prefs.getString(_savedServersKey);
     if (json == null) return [];
-    return SavedServer.listFromJson(json);
+    try {
+      return SavedServer.listFromJson(json);
+    } catch (e) {
+      // 存储内容损坏时退化为"无已保存服务器"，而非让整个加载流程崩溃
+      debugPrint('[StorageService] failed to parse saved servers: $e');
+      return [];
+    }
   }
 
   Future<void> saveServers(List<SavedServer> servers) async {

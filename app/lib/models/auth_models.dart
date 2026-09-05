@@ -1,3 +1,12 @@
+/// 嵌套 JSON 字段缺失或类型不符时回退到空 Map，避免整体解析抛异常。
+Map<String, dynamic> _asMap(Object? value) =>
+    value is Map<String, dynamic> ? value : const {};
+
+/// 类型不符时回退到 [fallback] —— `as String?` 只对 null 宽容，
+/// 服务器把 Id 等字段返回为数字时仍会抛 TypeError 并导致登录失败。
+String _asString(Object? value, [String fallback = '']) =>
+    value is String ? value : fallback;
+
 class ServerInfo {
   final String serverName;
   final String version;
@@ -11,9 +20,9 @@ class ServerInfo {
 
   factory ServerInfo.fromJson(Map<String, dynamic> json) {
     return ServerInfo(
-      serverName: json['ServerName'] ?? '',
-      version: json['Version'] ?? '',
-      id: json['Id'] ?? '',
+      serverName: _asString(json['ServerName']),
+      version: _asString(json['Version']),
+      id: _asString(json['Id']),
     );
   }
 }
@@ -29,8 +38,8 @@ class UserInfo {
 
   factory UserInfo.fromJson(Map<String, dynamic> json) {
     return UserInfo(
-      id: json['Id'] ?? '',
-      name: json['Name'] ?? '',
+      id: _asString(json['Id']),
+      name: _asString(json['Name']),
     );
   }
 }
@@ -48,9 +57,9 @@ class AuthResult {
 
   factory AuthResult.fromJson(Map<String, dynamic> json) {
     return AuthResult(
-      token: json['AccessToken'] ?? '',
-      user: UserInfo.fromJson(json['User'] ?? {}),
-      server: ServerInfo.fromJson(json['Server'] ?? {}),
+      token: _asString(json['AccessToken']),
+      user: UserInfo.fromJson(_asMap(json['User'])),
+      server: ServerInfo.fromJson(_asMap(json['Server'])),
     );
   }
 }
