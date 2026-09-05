@@ -191,6 +191,7 @@ Aether-Player/
 | **界面语言** | slang i18n 框架已接入，但播放器、设置页等大量文案仍为硬编码中文，切换到 English 后界面不会完全英文化 |
 | **部分设置项** | 硬件加速、音频直通、字幕大小、默认音轨/字幕语言、带宽限制等已持久化，但尚未接线到播放引擎，调整后暂无实际效果 |
 | **Android 构建** | 依赖的 `app/android/app/libs/aether-server.aar` 未纳入版本控制，需由 CI 现场通过 `gomobile bind` 生成；本地直接构建 APK 会因缺失该文件失败 |
+| **移动端播放运行库** | 依赖中只有 `media_kit_libs_linux` 与 `media_kit_libs_windows_video`，缺 Android/iOS/macOS 对应包，而 `MpvEngine` 无条件调用 `MediaKit.ensureInitialized()`，移动端播放可能无法初始化。曾尝试补齐但 CI 的 `Build Android` 随即在 `flutter build apk` 阶段失败，因缺少 Android 构建环境无法定位已回退，详见 `docs/reports/BUG_REPORT.md` 的 BUG-018 |
 | **播放地址中的令牌** | 转码/直连流地址仍以 `api_key=` 查询参数携带令牌，可能进入访问日志，待改为经本地代理转发 |
 
 完整的缺陷清单与修复方案见 [`docs/reports/`](docs/reports/)。
@@ -257,6 +258,7 @@ cd server && go vet ./... && go test ./...
 - **Localization**: the slang i18n framework is wired up, but many strings (player, settings) are still hardcoded Chinese, so switching to English does not fully translate the UI.
 - **Some settings**: hardware acceleration, audio passthrough, subtitle size, default track languages and bandwidth limit are persisted but not yet wired into the playback engine.
 - **Android build**: `app/android/app/libs/aether-server.aar` is not checked in; CI generates it via `gomobile bind`. A local APK build fails without it.
+- **Mobile playback runtime**: only `media_kit_libs_linux` and `media_kit_libs_windows_video` are declared, so Android/iOS/macOS lack their native libs while `MpvEngine` calls `MediaKit.ensureInitialized()` unconditionally. An attempt to add them made the CI `Build Android` job fail at `flutter build apk`; it was reverted because no Android toolchain was available to diagnose it (see BUG-018 in `docs/reports/BUG_REPORT.md`).
 
 See [`docs/reports/`](docs/reports/) for the full defect list and remediation plan.
 

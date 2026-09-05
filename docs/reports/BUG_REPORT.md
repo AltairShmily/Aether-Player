@@ -433,7 +433,7 @@ libmpv 无 `buffering` 属性（正确名称为 `cache-buffering-state` 或 `pau
 
 > 验证手段：`flutter analyze`（0 issues）、`flutter test`（21 个用例，原为 1 个）、`go vet ./...`、`go test ./...`（新增 security 包测试）、`go build` 三平台交叉编译（linux/windows/darwin）、CMake 配置校验、CI YAML 语法校验。
 
-### 已修复（30 项）
+### 已修复（29 项）
 
 | 编号 | 问题 | 备注 |
 |:--|:--|:--|
@@ -453,7 +453,6 @@ libmpv 无 `buffering` 属性（正确名称为 `cache-buffering-state` 或 `pau
 | BUG-015 | `copyWith` 清空 error | 两个 State 均修正，新增 `clearError` |
 | BUG-016 | 跨 async gap 的 setState | `login_screen`、`switchQuality` 补 `mounted` |
 | BUG-017 | 剧集合并键冲突 | 重写分组逻辑 + 10 个回归测试 |
-| BUG-018 | 缺移动端 media_kit 运行库 | 补 android/ios/macos 三个包 |
 | BUG-019 | 画质回退丢失直连地址 | 单独缓存 `_directPlayUrl` |
 | BUG-020 | 代理 30s 超时截断流 | 共享 Client + `ResponseHeaderTimeout` + 分块 Flush |
 | BUG-021 | 查询参数未编码 | 改用 `url.Values` |
@@ -474,6 +473,7 @@ libmpv 无 `buffering` 属性（正确名称为 `cache-buffering-state` 或 `pau
 | 编号 | 问题 | 原因 |
 |:--|:--|:--|
 | BUG-006 | FFI 回调用 `Pointer.fromFunction` | 跨 Dart/C++ 两侧且本机无 libmpv 无法验证，风险最高，需独立排期；已在 README「已知限制」中如实标注原生引擎不可用 |
+| BUG-018 | 缺 Android/iOS/macOS 的 media_kit 运行库 | **已尝试并回退**：补上 `media_kit_libs_{android,ios,macos}_video` 后，CI 的 Build Android 作业从绿转红，失败于 `flutter build apk`（此前 Build AAR、`pub get`、slang 生成均成功）。改动前提交 `1343f6ac` 的同一作业为 success，可确认由该依赖引入。本机无 Android SDK、CI 日志需认证无法获取，无法定位具体的 gradle/NDK/AGP 冲突，故回退到原依赖集，使 Android 构建在依赖层面与上次绿色运行完全一致。**后续排查方向**：在具备 Android SDK 的环境中单独加入 `media_kit_libs_android_video` 并观察 gradle 报错，重点核对 `minSdk 23`、`ndkVersion 27.0.12077973`、AGP 8.11.1 与该包的要求，以及是否需要 `packagingOptions` 处理重复 `.so` |
 | BUG-027 | 大量设置项是死配置 | 需逐项接线到 mpv 参数并联调 |
 | BUG-028 | 死代码 | 需确认 `VideoOsd` / `MiniPlayBar` / `AudioPlayerPage` 是删除还是补入口，属产品决策 |
 | BUG-029 | i18n 覆盖极低 | 涉及全部界面文案，宜独立专项并加 CI 防回归 |
