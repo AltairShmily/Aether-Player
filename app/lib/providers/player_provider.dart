@@ -185,8 +185,15 @@ class PlayerController extends StateNotifier<PlayerUiState> {
   /// 播放完成回调（用于自动播放下一集等）
   void Function()? onPlaybackComplete;
 
-  /// 当前直连流 URL（用于切换画质时回退）
-  String? _currentStreamUrl;
+  /// 真正的直连（Direct Play）地址。
+  ///
+  /// 必须与 `state.streamUrl` 分开保存：初始策略决策为转码时，后者是
+  /// 转码地址，用户切回"原始画质"若复用它，实际仍在播转码流。
+  /// 直连地址需要额外请求获取，故按需拉取并缓存。
+  String? _directPlayUrl;
+
+  /// 静音前的音量，取消静音时恢复到该值而非固定的 1.0
+  double _volumeBeforeMute = 1.0;
 
   /// 当前播放的媒体源信息（用于画质选择器）
   MediaSourceInfo? _currentMediaSource;
@@ -337,7 +344,9 @@ class PlayerController extends StateNotifier<PlayerUiState> {
         playModeReason = 'Fallback: direct play';
       }
 
-      _currentStreamUrl = streamUrl;
+      // 决策为直连时当前地址即可复用，省去一次额外请求；
+      // 决策为转码时置空，待切回"原始画质"再按需拉取
+      _directPlayUrl = playMode == PlayMode.directPlay ? streamUrl : null;
 
       state = state.copyWith(
         streamUrl: streamUrl,
@@ -401,11 +410,20 @@ class PlayerController extends StateNotifier<PlayerUiState> {
         token: token,
       );
     } else {
-      // Direct play — use the stored mediaSource URL
-      streamUrl = _currentStreamUrl ?? '';
+      // 切回直连不能复用 state.streamUrl：初始决策为转码时
+      // 它存的是转码地址，"原始画质"会名不副实
+      _directPlayUrl ??= await _api.getVideoStreamUrl(
+        serverUrl: serverUrl,
+        token: token,
+        itemId: itemId,
+      );
+      streamUrl = _directPlayUrl!;
     }
 
     if (streamUrl.isEmpty) return;
+
+    // 获取直连地址可能触发网络请求，其间用户可能已退出播放页
+    if (!mounted) return;
 
     await _engine.stop();
     await _engine.open(streamUrl, headers: {
@@ -417,6 +435,9 @@ class PlayerController extends StateNotifier<PlayerUiState> {
       await Future.delayed(const Duration(milliseconds: 500));
       await _engine.seek(currentPosition);
     }
+
+    // 上述 await 期间控制器可能已被销毁，写入已销毁的 StateNotifier 会抛异常
+    if (!mounted) return;
 
     state = state.copyWith(
       currentPlayMode: mode,
@@ -473,9 +494,11 @@ class PlayerController extends StateNotifier<PlayerUiState> {
   /// 切换静音
   void toggleMute() {
     if (state.volume > 0) {
+      _volumeBeforeMute = state.volume;
       setVolume(0);
     } else {
-      setVolume(1.0);
+      // 恢复静音前的音量，而非写死 1.0 覆盖用户的音量设置
+      setVolume(_volumeBeforeMute > 0 ? _volumeBeforeMute : 1.0);
     }
   }
 
