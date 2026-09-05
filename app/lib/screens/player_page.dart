@@ -146,6 +146,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     // 保存 controller 到 state 以便后续访问
     _playerController = controller;
 
+    // 监听播放状态变更：PlayerController 是手动创建的 StateNotifier，
+    // 不在 Riverpod 管理范围内，必须显式监听才能驱动 UI 重建
+    _removePlayerListener = controller.addListener(_onPlayerStateChanged);
+
     // 设置播放完成回调（自动播放下一集）
     controller.onPlaybackComplete = _onPlaybackComplete;
 
@@ -172,8 +176,20 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   // PlayerController 的引用（非 Riverpod 管理，手动创建）
   PlayerController? _playerController;
 
+  /// addListener 返回的注销闭包（StateNotifier 无 removeListener 方法）
+  void Function()? _removePlayerListener;
+
+  /// 播放状态变更回调 —— 驱动播放器 UI 重建
+  void _onPlayerStateChanged(PlayerUiState _) {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    // 注销状态监听，避免控制器持有已销毁的 State
+    _removePlayerListener?.call();
+    _removePlayerListener = null;
+
     // 恢复系统 UI
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations([]);
@@ -189,6 +205,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
 
     _seekIndicatorTimer?.cancel();
     _seekAccumResetTimer?.cancel();
+    _autoPlayTimer?.cancel();
 
     super.dispose();
   }
@@ -407,7 +424,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     if (mounted) setState(() => _isInitialized = true);
   }
 
-  // ── 构建 UI ──────────────────────────────────────────────
   // ── 构建 UI ──────────────────────────────────────────────
 
   @override
