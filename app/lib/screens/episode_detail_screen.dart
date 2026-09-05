@@ -132,6 +132,9 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
         startAtMs: startAtMs,
         audioTrackIndex: _selectedAudioIndex,
         subtitleTrackIndex: _selectedSubtitleIndex,
+        // 自动播放下一集所需；为空时传 null 以跳过无意义的剧集查询
+        seriesId: _item.seriesId.isNotEmpty ? _item.seriesId : null,
+        seasonId: _item.seasonId.isNotEmpty ? _item.seasonId : null,
       ),
     ));
   }

@@ -256,6 +256,9 @@ class _MediaDetailScreenState extends ConsumerState<MediaDetailScreen> {
                                 itemId: item.id,
                                 title: item.name,
                                 startAtMs: startAtMs,
+                                // 电影等非剧集类型这两个字段为空，会传 null
+                                seriesId: item.seriesId.isNotEmpty ? item.seriesId : null,
+                                seasonId: item.seasonId.isNotEmpty ? item.seasonId : null,
                               ),
                             ));
                           },
@@ -512,6 +515,9 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                   itemId: merged.selectedVersion.id,
                   title: '${episode.episodeLabel} ${episode.name}',
                   startAtMs: startAtMs,
+                  // 自动播放下一集所需；为空时传 null 以跳过无意义的剧集查询
+                  seriesId: episode.seriesId.isNotEmpty ? episode.seriesId : null,
+                  seasonId: episode.seasonId.isNotEmpty ? episode.seasonId : null,
                 ),
               ));
             },

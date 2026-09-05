@@ -12,7 +12,6 @@ import '../providers/auth_provider.dart';
 import '../providers/player_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/mpv_engine.dart';
-import '../services/settings_service.dart';
 import '../services/api_client.dart';
 import '../services/player_engine_factory.dart';
 import '../services/playback_strategy.dart';
@@ -48,10 +47,10 @@ class PlayerPage extends ConsumerStatefulWidget {
   /// 预选字幕轨道索引（-1 = 关闭字幕，在流加载后自动应用）
   final int? subtitleTrackIndex;
 
-  /// 自动播放下一集所需信息
+  /// 自动播放下一集所需信息。
+  /// 当前集的位置由 [itemId] 在剧集列表中反查，无需额外传索引。
   final String? seriesId;
   final String? seasonId;
-  final int? episodeIndex;
 
   const PlayerPage({
     super.key,
@@ -62,7 +61,6 @@ class PlayerPage extends ConsumerStatefulWidget {
     this.subtitleTrackIndex,
     this.seriesId,
     this.seasonId,
-    this.episodeIndex,
   });
 
   @override
@@ -172,6 +170,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       if (widget.subtitleTrackIndex != null) {
         await controller.selectSubtitleTrack(widget.subtitleTrackIndex!);
       }
+
+      // 预取下一集，使"下一集"按钮全程可用。
+      // 不 await：不应阻塞播放初始化，失败也不影响当前播放
+      unawaited(_loadNextEpisode());
     }
   }
 
@@ -335,17 +337,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     _checkAutoPlayNext();
   }
 
-  /// 检查是否需要自动播放下一集
-  Future<void> _checkAutoPlayNext() async {
-    final settings = SettingsService();
-    final autoPlay = await settings.getAutoPlayNext();
-    if (!autoPlay || !mounted) return;
-
-    if (widget.seriesId == null ||
-        widget.seasonId == null ||
-        widget.episodeIndex == null) {
-      return;
-    }
+  /// 预取下一集信息。
+  ///
+  /// 必须在播放开始时就调用：_nextEpisodeId 此前只在播放完成后才填充，
+  /// 导致"下一集"按钮即使显示出来，点击也会因 ID 为空而毫无反应。
+  Future<void> _loadNextEpisode() async {
+    final seriesId = widget.seriesId;
+    final seasonId = widget.seasonId;
+    if (seriesId == null || seasonId == null) return;
+    if (_nextEpisodeId.isNotEmpty) return; // 已加载，避免重复请求
 
     try {
       final api = ApiClient();
@@ -358,24 +358,37 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         serverUrl: serverUrl,
         token: auth.token,
         userId: auth.user.id,
-        seriesId: widget.seriesId!,
-        seasonId: widget.seasonId!,
+        seriesId: seriesId,
+        seasonId: seasonId,
       );
       final episodes = response.items;
-
       if (!mounted || episodes.isEmpty) return;
 
-      final currentIndex =
-          episodes.indexWhere((e) => e.id == widget.itemId);
+      // 当前集在列表中的位置由 itemId 反查，无需调用方额外传索引
+      final currentIndex = episodes.indexWhere((e) => e.id == widget.itemId);
       if (currentIndex < 0 || currentIndex >= episodes.length - 1) return;
 
       final nextEp = episodes[currentIndex + 1];
-      _nextEpisodeId = nextEp.id;
-      _nextEpisodeTitle = nextEp.name;
-      _startAutoPlayCountdown();
+      setState(() {
+        _nextEpisodeId = nextEp.id;
+        _nextEpisodeTitle = nextEp.name;
+      });
     } catch (e) {
-      debugPrint('[PlayerPage] Auto-play check failed: $e');
+      debugPrint('[PlayerPage] Load next episode failed: $e');
     }
+  }
+
+  /// 播放结束后按用户设置决定是否自动续播下一集
+  Future<void> _checkAutoPlayNext() async {
+    final autoPlay =
+        await ref.read(settingsServiceProvider).getAutoPlayNext();
+    if (!autoPlay || !mounted) return;
+
+    // 正常情况下开播时已预取，这里只是兜底
+    await _loadNextEpisode();
+    if (!mounted || _nextEpisodeId.isEmpty) return;
+
+    _startAutoPlayCountdown();
   }
 
   /// 开始自动播放倒计时
@@ -535,7 +548,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               onSubtitleTrackSelected: (i) =>
                   _playerController?.selectSubtitleTrack(i),
               onQualityPressed: () => _showQualitySelector(context),
-              onSkipNext: widget.seriesId != null ? _playNextEpisode : null,
+              // 仅在确实取到下一集时才显示按钮，
+              // 否则按钮出现却点不动（_playNextEpisode 会因 ID 为空直接返回）
+              onSkipNext: _nextEpisodeId.isNotEmpty ? _playNextEpisode : null,
             ),
 
           // ── 错误提示 ──
