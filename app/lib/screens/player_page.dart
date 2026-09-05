@@ -687,6 +687,104 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
 }
 
 // ══════════════════════════════════════════════════════════════════
+//  进度条
+// ══════════════════════════════════════════════════════════════════
+
+/// 可拖拽进度条。
+///
+/// 拖拽状态必须本地持有：Slider 的 onChanged 在拖动中每移动一像素触发一次，
+/// 若直接透传给播放器会产生数十次 seek，造成画面抖动与无谓的服务端压力。
+/// 因此拖动期间只更新本地值，松手（onChangeEnd）才真正 seek。
+class _ProgressBar extends StatefulWidget {
+  final double progress;
+  final Duration position;
+  final Duration duration;
+  final ValueChanged<double> onSeek;
+
+  const _ProgressBar({
+    required this.progress,
+    required this.position,
+    required this.duration,
+    required this.onSeek,
+  });
+
+  @override
+  State<_ProgressBar> createState() => _ProgressBarState();
+}
+
+class _ProgressBarState extends State<_ProgressBar> {
+  bool _dragging = false;
+  double _dragProgress = 0;
+
+  /// 拖动时左侧标签显示目标时间，让用户知道松手后会跳到哪里
+  Duration get _displayPosition {
+    if (!_dragging) return widget.position;
+    final totalMs = widget.duration.inMilliseconds;
+    if (totalMs <= 0) return widget.position;
+    return Duration(milliseconds: (totalMs * _dragProgress).round());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sliderValue =
+        (_dragging ? _dragProgress : widget.progress).clamp(0.0, 1.0);
+
+    return Row(
+      children: [
+        // 当前位置（拖动时为跳转目标位置）
+        Text(
+          PlayerController.formatDuration(_displayPosition),
+          style: const TextStyle(
+            fontFamily: 'DM Mono',
+            fontSize: 12,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(width: 12),
+        // 进度滑块
+        Expanded(
+          child: SliderTheme(
+            data: SliderThemeData(
+              activeTrackColor: AppColors.celestialCyan,
+              inactiveTrackColor: AppColors.cosmicGray,
+              thumbColor: AppColors.celestialCyan,
+              overlayColor: AppColors.celestialCyan.withValues(alpha: 0.12),
+              trackHeight: 3,
+              thumbShape:
+                  const RoundSliderThumbShape(enabledThumbRadius: 6),
+              overlayShape:
+                  const RoundSliderOverlayShape(overlayRadius: 14),
+            ),
+            child: Slider(
+              value: sliderValue,
+              onChangeStart: (v) => setState(() {
+                _dragging = true;
+                _dragProgress = v;
+              }),
+              onChanged: (v) => setState(() => _dragProgress = v),
+              onChangeEnd: (v) {
+                setState(() => _dragging = false);
+                widget.onSeek(v);
+              },
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        // 总时长
+        Text(
+          PlayerController.formatDuration(widget.duration),
+          style: const TextStyle(
+            fontFamily: 'DM Mono',
+            fontSize: 12,
+            color: AppColors.textTertiary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
 //  播放器控制面板覆盖层
 // ══════════════════════════════════════════════════════════════════
 
@@ -880,49 +978,11 @@ class _PlayerControlsOverlay extends StatelessWidget {
 
   /// 进度条（可拖拽）
   Widget _buildProgressBar(double progress) {
-    return Row(
-      children: [
-        // 当前位置
-        Text(
-          PlayerController.formatDuration(state.position),
-          style: const TextStyle(
-            fontFamily: 'DM Mono',
-            fontSize: 12,
-            color: AppColors.textSecondary,
-          ),
-        ),
-        const SizedBox(width: 12),
-        // 进度滑块
-        Expanded(
-          child: SliderTheme(
-            data: SliderThemeData(
-              activeTrackColor: AppColors.celestialCyan,
-              inactiveTrackColor: AppColors.cosmicGray,
-              thumbColor: AppColors.celestialCyan,
-              overlayColor: AppColors.celestialCyan.withValues(alpha: 0.12),
-              trackHeight: 3,
-              thumbShape:
-                  const RoundSliderThumbShape(enabledThumbRadius: 6),
-              overlayShape:
-                  const RoundSliderOverlayShape(overlayRadius: 14),
-            ),
-            child: Slider(
-              value: progress,
-              onChanged: onSeek,
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        // 总时长
-        Text(
-          PlayerController.formatDuration(state.duration),
-          style: const TextStyle(
-            fontFamily: 'DM Mono',
-            fontSize: 12,
-            color: AppColors.textTertiary,
-          ),
-        ),
-      ],
+    return _ProgressBar(
+      progress: progress,
+      position: state.position,
+      duration: state.duration,
+      onSeek: onSeek,
     );
   }
 
