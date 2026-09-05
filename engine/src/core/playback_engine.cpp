@@ -1,4 +1,5 @@
 #include "core/playback_engine.h"
+#include <cstdint>
 #include <cstring>
 #include <sstream>
 #include <algorithm>
@@ -36,7 +37,10 @@ bool PlaybackEngine::initialize() {
     mpv_observe_property(_handle, 0, "time-pos", MPV_FORMAT_DOUBLE);
     mpv_observe_property(_handle, 0, "duration", MPV_FORMAT_DOUBLE);
     mpv_observe_property(_handle, 0, "pause", MPV_FORMAT_FLAG);
-    mpv_observe_property(_handle, 0, "buffering", MPV_FORMAT_FLAG);
+    // libmpv 没有 "buffering" 属性，observe 不存在的属性会静默失败。
+    // cache-buffering-state 是 0-100 的 double，表示缓存填充进度，
+    // 小于 100 即处于缓冲中
+    mpv_observe_property(_handle, 0, "cache-buffering-state", MPV_FORMAT_DOUBLE);
     mpv_observe_property(_handle, 0, "volume", MPV_FORMAT_DOUBLE);
     mpv_observe_property(_handle, 0, "speed", MPV_FORMAT_DOUBLE);
     mpv_observe_property(_handle, 0, "track-list", MPV_FORMAT_NODE);
@@ -129,7 +133,9 @@ void PlaybackEngine::setAudioTrack(int index) {
     // We need to map our 0-based filtered index to mpv's track ID
     std::lock_guard<std::mutex> lock(_tracksMutex);
     if (index >= 0 && index < static_cast<int>(_audioTracks.size())) {
-        int mpv_id = _audioTracks[index].index + 1; // mpv track IDs are 1-based
+        // MPV_FORMAT_INT64 要求传入 8 字节整型；用 int 会让 mpv 读到
+        // 栈上相邻的垃圾数据，属未定义行为
+        int64_t mpv_id = _audioTracks[index].index + 1; // mpv track IDs are 1-based
         mpv_set_property(_handle, "aid", MPV_FORMAT_INT64, &mpv_id);
         _currentAudioTrackIndex = index;
     }
@@ -145,7 +151,8 @@ void PlaybackEngine::setSubtitleTrack(int index) {
     } else {
         std::lock_guard<std::mutex> lock(_tracksMutex);
         if (index >= 0 && index < static_cast<int>(_subtitleTracks.size())) {
-            int mpv_id = _subtitleTracks[index].index + 1;
+            // 同 aid：MPV_FORMAT_INT64 必须传 8 字节整型
+            int64_t mpv_id = _subtitleTracks[index].index + 1;
             mpv_set_property(_handle, "sid", MPV_FORMAT_INT64, &mpv_id);
             int flag = 1;
             mpv_set_property(_handle, "sub-visibility", MPV_FORMAT_FLAG, &flag);
@@ -264,13 +271,19 @@ void PlaybackEngine::handleEvent(mpv_event* event) {
                     if (_stateCallback) _stateCallback(EngineState::Playing);
                 }
             }
-            else if (strcmp(prop->name, "buffering") == 0 && prop->format == MPV_FORMAT_FLAG) {
-                int buffering = *static_cast<int*>(prop->data);
+            else if (strcmp(prop->name, "cache-buffering-state") == 0 && prop->format == MPV_FORMAT_DOUBLE) {
+                // 0-100 的缓存填充进度，小于 100 表示仍在缓冲
+                const bool buffering = *static_cast<double*>(prop->data) < 100.0;
                 _isBuffering = buffering;
                 if (_bufferingCallback) _bufferingCallback(buffering);
                 if (buffering) {
                     _state = EngineState::Buffering;
                     if (_stateCallback) _stateCallback(EngineState::Buffering);
+                } else if (_state == EngineState::Buffering) {
+                    // 缓冲结束必须恢复播放态，否则状态机会永久停留在 Buffering，
+                    // UI 的缓冲指示再也无法消失
+                    _state = EngineState::Playing;
+                    if (_stateCallback) _stateCallback(EngineState::Playing);
                 }
             }
             else if (strcmp(prop->name, "volume") == 0 && prop->format == MPV_FORMAT_DOUBLE) {
