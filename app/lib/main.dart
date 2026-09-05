@@ -8,6 +8,7 @@ import 'providers/auth_provider.dart';
 import 'providers/locale_provider.dart';
 import 'providers/settings_provider.dart';
 import 'services/backend_service.dart';
+import 'services/error_logger.dart';
 import 'services/settings_service.dart';
 import 'services/storage_service.dart';
 
@@ -24,10 +25,15 @@ void main() async {
     () async {
       WidgetsFlutterBinding.ensureInitialized();
 
+      // 初始化错误日志（须在 presentError 恢复前完成）
+      await ErrorLogger.init();
+
       // 设置 Flutter 错误处理
       FlutterError.onError = (details) {
-        debugPrint('[FlutterError] ${details.exception}');
-        // 不调用 FlutterError.presentError，避免崩溃
+        // presentError 在 debug 下显示红屏，release 下由框架自行静默；
+        // 此前故意跳过该调用会使所有框架错误不可见
+        FlutterError.presentError(details);
+        ErrorLogger.log('FlutterError', details.exception, details.stack);
       };
 
       // 注册应用生命周期监听，确保退出时清理后端
@@ -60,8 +66,9 @@ void main() async {
         await backend.start();
         backendReady = true;
         debugPrint('[main] Go backend started on port ${backend.port}');
-      } catch (e) {
-        debugPrint('[main] Go backend failed to start: $e');
+      } catch (e, s) {
+        // 后端启动失败会导致全部接口不可用，须落盘以便事后诊断
+        await ErrorLogger.log('BackendStart', e, s);
         // 后端启动失败不阻止应用运行
         // 用户仍可看到错误提示，或使用纯前端功能
       }
@@ -90,8 +97,8 @@ void main() async {
       );
     },
     (error, stackTrace) {
-      debugPrint('[ZoneError] $error');
-      // 捕获未处理的异步异常，避免应用崩溃
+      // 落盘而非仅 debugPrint：release 构建下控制台输出无人观察
+      ErrorLogger.log('ZoneError', error, stackTrace);
     },
   );
 }
