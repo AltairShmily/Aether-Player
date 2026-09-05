@@ -74,11 +74,13 @@ class _ServerSelectionScreenState extends ConsumerState<ServerSelectionScreen>
           // ── 星空粒子背景 ──
           AnimatedBuilder(
             animation: _starController,
-            builder: (context, _) => CustomPaint(
-              painter: _StarPainter(
-                animation: _starController.value,
+            builder: (context, _) => RepaintBoundary(
+              child: CustomPaint(
+                painter: _StarPainter(
+                  animation: _starController.value,
+                ),
+                size: Size.infinite,
               ),
-              size: Size.infinite,
             ),
           ),
 
@@ -360,21 +362,29 @@ class _ServerItemCard extends StatelessWidget {
 // ══════════════════════════════════════════════════
 //  _StarPainter — 星空粒子绘制
 // ══════════════════════════════════════════════════
+
+/// 星星的位置、半径与模糊参数在整个动画期间恒定，只需生成一次。
+///
+/// 此前 _StarPainter 每帧都重新 List.generate(80, _Star.random)，
+/// 而 _Star.random 以索引为种子、结果每帧完全相同，
+/// 等于每帧白白分配 80 个 Random、80 个 _Star 与 80 个 MaskFilter。
+final List<_Star> _kStars = List<_Star>.generate(80, _Star.random);
+
 class _StarPainter extends CustomPainter {
   final double animation;
-  final List<_Star> _stars;
 
-  _StarPainter({required this.animation})
-      : _stars = List.generate(80, (i) => _Star.random(i));
+  const _StarPainter({required this.animation});
 
   @override
   void paint(Canvas canvas, Size size) {
-    for (final star in _stars) {
+    // 复用同一个 Paint：drawCircle 会立即消费它，画布不持有引用
+    final paint = Paint();
+    for (final star in _kStars) {
       final twinkle = (sin(animation * 2 * pi + star.phase) + 1) / 2;
       final opacity = 0.15 + twinkle * 0.35;
-      final paint = Paint()
+      paint
         ..color = star.color.withValues(alpha: opacity)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, star.blur);
+        ..maskFilter = star.maskFilter;
       canvas.drawCircle(
         Offset(star.x * size.width, star.y * size.height),
         star.radius,
@@ -391,23 +401,28 @@ class _Star {
   final double x, y, radius, phase, blur;
   final Color color;
 
-  _Star(this.x, this.y, this.radius, this.phase, this.blur, this.color);
+  /// blur 在动画期间恒定，对应的 MaskFilter 只需构造一次
+  final MaskFilter maskFilter;
+
+  _Star(this.x, this.y, this.radius, this.phase, this.blur, this.color)
+      : maskFilter = MaskFilter.blur(BlurStyle.normal, blur);
+
+  static const List<Color> _palette = [
+    AppColors.celestialCyan,
+    AppColors.novaPurple,
+    AppColors.auroraGreen,
+    Colors.white,
+  ];
 
   factory _Star.random(int seed) {
     final r = Random(seed);
-    final colors = [
-      AppColors.celestialCyan,
-      AppColors.novaPurple,
-      AppColors.auroraGreen,
-      Colors.white,
-    ];
     return _Star(
       r.nextDouble(),
       r.nextDouble(),
       0.5 + r.nextDouble() * 1.5,
       r.nextDouble() * 2 * pi,
       0.3 + r.nextDouble() * 0.7,
-      colors[r.nextInt(colors.length)],
+      _palette[r.nextInt(_palette.length)],
     );
   }
 }
