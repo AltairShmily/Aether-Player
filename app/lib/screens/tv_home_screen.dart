@@ -65,6 +65,10 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
   final List<FocusNode> _libraryFocusNodes = [];
   final List<FocusNode> _tabFocusNodes = [];
 
+  /// 「退出 TV 模式」按钮的焦点节点与高亮状态
+  final FocusNode _exitFocusNode = FocusNode();
+  bool _exitFocused = false;
+
   @override
   void initState() {
     super.initState();
@@ -105,6 +109,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
     for (final node in _tabFocusNodes) {
       node.dispose();
     }
+    _exitFocusNode.dispose();
     super.dispose();
   }
 
@@ -113,9 +118,26 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
-    // 这里可以扩展更复杂的焦点路由逻辑
-    // 目前依赖 Flutter 内置 FocusTraversalGroup 处理方向键
+
+    // Esc 与遥控器返回键退出 TV 模式。
+    // 桌面端没有系统返回键，若界面上再没有退出入口，用户会被困在本页
+    if (event.logicalKey == LogicalKeyboardKey.escape ||
+        event.logicalKey == LogicalKeyboardKey.goBack ||
+        event.logicalKey == LogicalKeyboardKey.browserBack) {
+      _exitTvMode();
+      return KeyEventResult.handled;
+    }
+
+    // 方向键依赖 Flutter 内置 FocusTraversalGroup 处理焦点路由
     return KeyEventResult.ignored;
+  }
+
+  /// 退出 TV 模式，返回进入前的界面
+  void _exitTvMode() {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+    }
   }
 
   // ── 导航到媒体详情 ──
@@ -359,7 +381,91 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
             _buildSettingsRow('版本', '', false, value: 'v1.0.0-dev'),
             _buildSettingsRow('架构', '', false, value: 'Flutter + Go + MPV'),
           ]),
+          const SizedBox(height: 24),
+          // 退出 TV 模式
+          _buildSettingsGroup('退出', [_buildExitTvRow()]),
+          const SizedBox(height: 24),
         ],
+      ),
+    );
+  }
+
+  /// 「退出 TV 模式」行 —— 可被遥控器 D-Pad 聚焦并激活。
+  ///
+  /// 不能只依赖 Esc / 返回键：桌面端用户看不到任何可退出的提示，
+  /// 遥控器用户也需要一个显式的可聚焦目标。
+  Widget _buildExitTvRow() {
+    return Focus(
+      focusNode: _exitFocusNode,
+      onFocusChange: (focused) => setState(() => _exitFocused = focused),
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+        final key = event.logicalKey;
+        if (key == LogicalKeyboardKey.select ||
+            key == LogicalKeyboardKey.enter ||
+            key == LogicalKeyboardKey.numpadEnter ||
+            key == LogicalKeyboardKey.space ||
+            key == LogicalKeyboardKey.gameButtonA) {
+          _exitTvMode();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: GestureDetector(
+        onTap: _exitTvMode,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            color: _exitFocused
+                ? AppColors.celestialCyan.withValues(alpha: 0.12)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppColors.radiusSm),
+            border: Border.all(
+              color: _exitFocused
+                  ? AppColors.celestialCyan
+                  : AppColors.borderSubtle,
+              width: _exitFocused ? 1.5 : 0.5,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.logout_rounded,
+                size: 20,
+                color: _exitFocused
+                    ? AppColors.celestialCyan
+                    : AppColors.textSecondary,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '退出 TV 模式',
+                      style: TextStyle(
+                        color: _exitFocused
+                            ? AppColors.textPrimary
+                            : AppColors.textSecondary,
+                        fontSize: 15,
+                        fontWeight: _exitFocused ? FontWeight.w600 : FontWeight.w400,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      '返回标准界面（也可按 Esc 或遥控器返回键）',
+                      style: TextStyle(
+                        color: AppColors.textTertiary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
