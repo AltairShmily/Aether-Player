@@ -294,8 +294,11 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
               ),
             ),
             // Back button (on top of backdrop)
+            //
+            // body 没有 SafeArea，hero 区从屏幕最顶端开始，
+            // 因此按钮必须自行避开状态栏/刘海，否则会被系统 UI 遮挡而点不到
             Positioned(
-              top: 12,
+              top: 12 + MediaQuery.paddingOf(context).top,
               left: 16,
               child: GestureDetector(
                 onTap: () => Navigator.of(context).pop(),
