@@ -25,12 +25,14 @@ class AuthState {
   AuthState copyWith({
     bool? isLoading,
     String? error,
+    bool clearError = false,
     ServerInfo? serverInfo,
     AuthResult? authResult,
   }) {
     return AuthState(
       isLoading: isLoading ?? this.isLoading,
-      error: error,
+      // 默认保留已有错误：否则任何无关字段更新都会把错误信息抹掉
+      error: clearError ? null : (error ?? this.error),
       serverInfo: serverInfo ?? this.serverInfo,
       authResult: authResult ?? this.authResult,
     );
@@ -51,10 +53,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
   ) : super(AuthState());
 
   Future<bool> connectToServer(String serverUrl) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true, clearError: true);
     try {
       final serverInfo = await _apiClient.testConnection(serverUrl);
-      state = state.copyWith(isLoading: false, serverInfo: serverInfo);
+      state = state.copyWith(
+        isLoading: false,
+        serverInfo: serverInfo,
+        clearError: true,
+      );
       return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -63,7 +69,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<bool> login(String serverUrl, String username, String password, {bool remember = true}) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true, clearError: true);
     try {
       final result = await _apiClient.login(serverUrl, username, password);
 
@@ -93,7 +99,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
         }
       }
 
-      state = state.copyWith(isLoading: false, authResult: result);
+      state = state.copyWith(
+        isLoading: false,
+        authResult: result,
+        clearError: true,
+      );
       return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -102,7 +112,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<bool> loginFromSaved(SavedServer server) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true, clearError: true);
     try {
       final password = await _savedServers.getPassword(server.id);
       if (password == null) {
@@ -116,24 +126,46 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  /// 使用已保存的凭据恢复会话。
+  ///
+  /// 恢复前必须校验令牌有效性：直接信任本地令牌会在其过期后把用户送进
+  /// 一个所有请求都失败、且异常被下游静默吞掉的空白首页。
+  /// 校验失败时**不清除**凭据 —— 失败也可能只是网络或服务器临时不可达，
+  /// 抹掉令牌会迫使用户重新输入密码。
   Future<bool> tryAutoLogin() async {
     final token = await _secureStorage.getToken();
     final serverUrl = await _storageService.getServerUrl();
 
-    if (token != null && serverUrl != null) {
-      final userId = await _storageService.getUserId() ?? '';
-      final userName = await _storageService.getUserName() ?? '';
+    if (token == null || serverUrl == null) return false;
+
+    final userId = await _storageService.getUserId() ?? '';
+    final userName = await _storageService.getUserName() ?? '';
+
+    try {
+      final profile = await _apiClient.getUserProfile(
+        serverUrl: serverUrl,
+        token: token,
+        userId: userId,
+      );
 
       state = state.copyWith(
         authResult: AuthResult(
           token: token,
-          user: UserInfo(id: userId, name: userName),
+          user: UserInfo(
+            id: userId,
+            name: profile['Name'] as String? ?? userName,
+          ),
           server: ServerInfo(serverName: 'Saved Server', version: '', id: ''),
         ),
+        clearError: true,
       );
       return true;
+    } catch (_) {
+      state = state.copyWith(
+        error: '登录状态已失效或服务器无法连接，请重新登录',
+      );
+      return false;
     }
-    return false;
   }
 
   Future<void> logout() async {
