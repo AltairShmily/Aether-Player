@@ -104,12 +104,15 @@ type MediaStreamInfo struct {
 }
 
 type MediaSource struct {
-	ID                   string        `json:"Id"`
-	Name                 string        `json:"Name"`
-	Path                 string        `json:"Path,omitempty"`
-	Container            string        `json:"Container,omitempty"`
-	Size                 int64         `json:"Size,omitempty"`
-	Bitrate              int           `json:"Bitrate,omitempty"`
+	ID        string `json:"Id"`
+	Name      string `json:"Name"`
+	Path      string `json:"Path,omitempty"`
+	Container string `json:"Container,omitempty"`
+	Size      int64  `json:"Size,omitempty"`
+	Bitrate   int    `json:"Bitrate,omitempty"`
+	// RunTimeTicks 是元数据给出的权威时长（单位 100 纳秒）。
+	// 转码走 HLS 时播放器从流中读到的时长并不可靠，客户端需要用它兜底。
+	RunTimeTicks         int64         `json:"RunTimeTicks,omitempty"`
 	MediaStreams         []MediaStream `json:"MediaStreams,omitempty"`
 	DirectStreamUrl      string        `json:"DirectStreamUrl,omitempty"`
 	TranscodingUrl       string        `json:"TranscodingUrl,omitempty"`
@@ -129,6 +132,13 @@ type MediaStream struct {
 	BitRate       int    `json:"BitRate,omitempty"`
 	ChannelLayout string `json:"ChannelLayout,omitempty"`
 	Index         int    `json:"Index"`
+	// 外挂字幕相关。文本字幕无法内嵌进转码流，Emby 会以 External 方式
+	// 通过 DeliveryUrl 提供字幕文件地址，需由客户端自行拉取加载。
+	// 客户端模型早已定义这些字段，此前因 Go 结构体缺失而在序列化时被丢弃。
+	DeliveryUrl          string `json:"DeliveryUrl,omitempty"`
+	DeliveryMethod       string `json:"DeliveryMethod,omitempty"`
+	IsExternal           bool   `json:"IsExternal"`
+	IsTextSubtitleStream bool   `json:"IsTextSubtitleStream"`
 }
 
 // PlaybackInfoRequest is sent to Emby POST /Items/{Id}/PlaybackInfo
@@ -443,30 +453,37 @@ func (c *Client) GetPlaybackInfo(serverURL, token, userID, itemID string) (*Medi
 			Name: "Aether Player",
 			Id:   "aether-player",
 			Type: "DigitalMediaPlayer",
+			// 必须显式声明容器与编码：全空字符串会让 Emby 无法判定
+			// 兼容性而不返回 DirectStreamUrl，客户端只能一律走转码，
+			// 进而导致时长不准与字幕缺失。libmpv 解码能力覆盖下列全部格式。
 			DirectPlayProfiles: []DirectPlayProfile{
-				{Container: "", VideoCodec: "", AudioCodec: "", Type: "Video"},
-				{Container: "", AudioCodec: "", Type: "Audio"},
+				{
+					Container:  "mkv,mp4,m4v,avi,mov,wmv,flv,webm,ts,m2ts,mpg,mpeg,3gp,ogv",
+					VideoCodec: "h264,hevc,h265,mpeg4,mpeg2video,vp8,vp9,av1,vc1,msmpeg4,h263",
+					AudioCodec: "aac,mp3,ac3,eac3,dts,dca,truehd,flac,alac,opus,vorbis,pcm_s16le,pcm_s24le,wavpack,wma,wmav2",
+					Type:       "Video",
+				},
+				{
+					Container:  "mp3,flac,aac,m4a,wav,ogg,opus,wma,alac,aiff,ape",
+					AudioCodec: "mp3,flac,aac,alac,pcm,vorbis,opus,wma,ape",
+					Type:       "Audio",
+				},
+			},
+			DirectStreamingProfiles: []DirectPlayProfile{
+				{Container: "ts,mpegts", VideoCodec: "h264,hevc,mpeg2video", AudioCodec: "aac,mp3,ac3,dts", Type: "Video"},
 			},
 			TranscodingProfiles: []TranscodingProfile{
-				{Container: "ts", Type: "Video", VideoCodec: "h264", AudioCodec: "aac", MaxAudioChannels: 6, Protocol: "hls"},
+				// 用渐进式 mp4 而非 hls：HLS 分片流的总时长对播放器不可靠，
+				// 表现为进度条与时长显示错误
+				{Container: "mp4", Type: "Video", VideoCodec: "h264", AudioCodec: "aac,mp3", MaxAudioChannels: 6, Protocol: "http", CopyTimestamps: true},
 				{Container: "mp3", Type: "Audio", AudioCodec: "mp3", MaxAudioChannels: 2, Protocol: "http"},
 			},
-			CodecProfiles: []CodecProfile{
-				{
-					Type: "VideoAudio",
-					Conditions: []ProfileCondition{
-						{Condition: "EqualsAny", Property: "AudioProfile", Value: "HE-AAC,LC,AAC,MP3", IsRequired: false},
-					},
-				},
-				{
-					Type:  "Video",
-					Codec: "h264",
-					Conditions: []ProfileCondition{
-						{Condition: "EqualsAny", Property: "VideoProfile", Value: "High|Main|Baseline|Constrained Baseline", IsRequired: false},
-						{Condition: "LessThanEqual", Property: "VideoLevel", Value: "51", IsRequired: false},
-					},
-				},
-			},
+			// 不再设置 CodecProfiles 限制。
+			// 此前的 AudioProfile(仅 AAC/MP3)、VideoLevel(≤51)、VideoProfile
+			// 三条限制与上面声明的直连能力自相矛盾，会把 AC3/DTS/TrueHD 音轨、
+			// 高规格 4K、High10 等内容全部压到转码路径上 —— 而 libmpv
+			// 对这些格式均原生支持，限制只会带来时长不准与字幕缺失。
+			CodecProfiles: []CodecProfile{},
 			SubtitleProfiles: []SubtitleProfile{
 				{Format: "srt", Method: "External"},
 				{Format: "ass", Method: "External"},
