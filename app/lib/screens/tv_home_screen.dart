@@ -44,7 +44,9 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
   // ── 时钟定时器 ──
   Timer? _clockTimer;
   String _clockText = '';
-  String _serverUrl = ApiClient.proxyBaseUrl;
+
+  /// 图片请求走本地 Go 代理，远端 Emby 地址由 X-Emby-Server 头传递
+  static const String _serverUrl = ApiClient.proxyBaseUrl;
 
   // ── 顶部导航栏 ──
   final List<_TabItem> _tabs = [
@@ -76,14 +78,8 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
 
     // 加载数据
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadServerUrl();
       ref.read(homeProvider.notifier).loadAll();
     });
-  }
-
-  Future<void> _loadServerUrl() async {
-    final url = await ref.read(storageServiceProvider).getServerUrl();
-    if (mounted && url != null) setState(() => _serverUrl = url);
   }
 
   /// 更新时钟显示 (HH:mm 格式)

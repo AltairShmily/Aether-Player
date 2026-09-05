@@ -5,6 +5,7 @@ import '../theme/app_breakpoints.dart';
 import '../models/media_models.dart';
 import '../providers/home_provider.dart';
 import '../providers/auth_provider.dart';
+import '../services/api_client.dart';
 import '../widgets/aether_page_route.dart';
 import 'series_detail_screen.dart';
 import 'episode_detail_screen.dart';
@@ -284,8 +285,10 @@ class _PhoneLibraryScreenState extends ConsumerState<PhoneLibraryScreen> {
   }
 
   Widget _buildMediaCard(MediaItem item) {
+    // /api/images 是本地 Go 代理的路由，须走 proxyBaseUrl；
+    // 远端 Emby 地址通过 X-Emby-Server 头交给代理转发
     final imageUrl =
-        '$_serverUrl/api/images/${item.id}/Primary?maxWidth=300';
+        '${ApiClient.proxyBaseUrl}/api/images/${item.id}/Primary?maxWidth=300';
 
     return GestureDetector(
       onTap: () {
@@ -475,7 +478,7 @@ class _LibraryContentPage extends StatelessWidget {
                 itemBuilder: (context, index) {
                   final item = items[index];
                   final imageUrl = serverUrl != null
-                      ? '$serverUrl/api/images/${item.id}/Primary?maxWidth=300'
+                      ? '${ApiClient.proxyBaseUrl}/api/images/${item.id}/Primary?maxWidth=300'
                       : null;
 
                   return GestureDetector(
