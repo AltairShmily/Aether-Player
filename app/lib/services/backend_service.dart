@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -110,11 +111,53 @@ class BackendService {
       environment: {'PORT': '$_port'},
     );
 
+    // 必须消费子进程的输出管道，否则后端会卡死（见 _drainProcessOutput）
+    _drainProcessOutput(_process!);
+
     _process!.exitCode.then((code) {
       debugPrint('[BackendService] Process exited with code $code');
       _started = false;
       _process = null;
     });
+  }
+
+  /// 打印行数上限，防止后端异常刷日志时占用过多内存
+  static const int _maxLogLines = 2000;
+  int _logLineCount = 0;
+
+  /// 消费子进程的 stdout / stderr。
+  ///
+  /// 这一步不可省略：Go 后端的 Logger 中间件对每个请求都写两条日志，
+  /// 若无人读取，OS 管道缓冲区填满后子进程会**阻塞在日志写入上**，
+  /// 表现为后端运行一段时间后彻底卡死，同时日志全部丢失无从排障。
+  ///
+  /// 超过 [_maxLogLines] 后只停止打印、仍继续消费流，
+  /// 否则会退回到同样的阻塞问题。
+  void _drainProcessOutput(Process process) {
+    void forward(String source, String line) {
+      if (_logLineCount++ >= _maxLogLines) return;
+      debugPrint('[aether-server:$source] $line');
+    }
+
+    // allowMalformed：日志可能含被截断的多字节序列，
+    // 默认解码器会抛异常并终止流，使管道重新陷入无人消费而阻塞子进程
+    const decoder = Utf8Decoder(allowMalformed: true);
+
+    process.stdout
+        .transform(decoder)
+        .transform(const LineSplitter())
+        .listen(
+          (line) => forward('out', line),
+          onError: (Object e) => debugPrint('[BackendService] stdout error: $e'),
+        );
+
+    process.stderr
+        .transform(decoder)
+        .transform(const LineSplitter())
+        .listen(
+          (line) => forward('err', line),
+          onError: (Object e) => debugPrint('[BackendService] stderr error: $e'),
+        );
   }
 
   /// 检查端口是否已被占用
@@ -226,6 +269,10 @@ class BackendService {
   /// 注册处理器后，在退出前优雅地关闭子进程。
   void _registerSignalHandlers() {
     if (Platform.isAndroid) return;
+    // _checkHealth 失败后会重新调用 start()，
+    // 不加去重会导致信号监听被重复注册并逐次叠加
+    if (_signalHandlersRegistered) return;
+    _signalHandlersRegistered = true;
 
     // SIGTERM（窗口管理器发送的关闭信号）
     ProcessSignal.sigterm.watch().listen((_) {
@@ -240,20 +287,32 @@ class BackendService {
     });
   }
 
+  bool _signalHandlersRegistered = false;
+
   /// 紧急停止：同步杀子进程后退出
   ///
   /// 信号处理器中不能使用 async/await，必须同步操作。
   void _emergencyStop() {
     _healthCheckTimer?.cancel();
-    if (_process != null) {
-      _process!.kill(ProcessSignal.sigterm);
-      // 给子进程一点时间优雅退出，然后强制杀死
-      Future.delayed(const Duration(seconds: 2), () {
-        try {
-          _process?.kill(ProcessSignal.sigkill);
-        } catch (_) {}
-      });
+
+    final process = _process;
+    if (process == null) {
+      // 没有子进程也要退出：Dart 接管信号后已抑制默认终止行为，
+      // 不显式 exit 主进程会一直挂着
+      exit(0);
     }
+
+    // Go 后端收到 SIGTERM 后会优雅关闭在途请求
+    process.kill(ProcessSignal.sigterm);
+
+    // 给子进程一点时间优雅退出，然后强制杀死并退出主进程。
+    // 缺少这里的 exit() 会让桌面端关闭窗口后主进程残留。
+    Future.delayed(const Duration(seconds: 2), () {
+      try {
+        process.kill(ProcessSignal.sigkill);
+      } catch (_) {}
+      exit(0);
+    });
   }
 
   /// 健康检查
