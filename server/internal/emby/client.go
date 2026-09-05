@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 
 	"aether-server/internal/security"
@@ -277,48 +279,36 @@ func (c *Client) Authenticate(serverURL, username, password string) (*AuthResult
 
 func (c *Client) GetItems(serverURL, token string, params map[string]string) (*ItemListResponse, error) {
 	serverURL = strings.TrimRight(serverURL, "/")
-	url := fmt.Sprintf("%s/Users/%s/Items", serverURL, params["userId"])
+	endpoint := fmt.Sprintf("%s/Users/%s/Items", serverURL, url.PathEscape(params["userId"]))
 
-	q := "?"
-	if v, ok := params["startIndex"]; ok && v != "" {
-		q += "StartIndex=" + v + "&"
-	}
-	if v, ok := params["limit"]; ok && v != "" {
-		q += "Limit=" + v + "&"
-	}
-	if v, ok := params["sortBy"]; ok && v != "" {
-		q += "SortBy=" + v + "&"
-	}
-	if v, ok := params["sortOrder"]; ok && v != "" {
-		q += "SortOrder=" + v + "&"
-	}
-	if v, ok := params["includeItemTypes"]; ok && v != "" {
-		q += "IncludeItemTypes=" + v + "&"
-	}
-	if v, ok := params["recursive"]; ok && v != "" {
-		q += "Recursive=" + v + "&"
-	}
-	if v, ok := params["searchTerm"]; ok && v != "" {
-		q += "SearchTerm=" + v + "&"
-	}
-	if v, ok := params["genres"]; ok && v != "" {
-		q += "Genres=" + v + "&"
-	}
-	if v, ok := params["years"]; ok && v != "" {
-		q += "Years=" + v + "&"
-	}
-	if v, ok := params["parentId"]; ok && v != "" {
-		q += "ParentId=" + v + "&"
-	}
-	if v, ok := params["fields"]; ok && v != "" {
-		q += "Fields=" + v + "&"
-	}
-	q = strings.TrimRight(q, "&")
-	if q == "?" {
-		q = ""
+	// 用 url.Values 构造查询串：手工拼接不做转义，
+	// 搜索词含 &、空格、#、中文时会破坏查询串或注入额外的上游参数。
+	// Encode() 会按键排序，故遍历 map 的顺序不影响结果
+	q := url.Values{}
+	for param, key := range map[string]string{
+		"startIndex":       "StartIndex",
+		"limit":            "Limit",
+		"sortBy":           "SortBy",
+		"sortOrder":        "SortOrder",
+		"includeItemTypes": "IncludeItemTypes",
+		"recursive":        "Recursive",
+		"searchTerm":       "SearchTerm",
+		"genres":           "Genres",
+		"years":            "Years",
+		"parentId":         "ParentId",
+		"fields":           "Fields",
+	} {
+		if v, ok := params[param]; ok && v != "" {
+			q.Set(key, v)
+		}
 	}
 
-	req, err := http.NewRequest("GET", url+q, nil)
+	fullURL := endpoint
+	if encoded := q.Encode(); encoded != "" {
+		fullURL += "?" + encoded
+	}
+
+	req, err := http.NewRequest("GET", fullURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -406,10 +396,16 @@ func (c *Client) GetItemImage(serverURL, token, itemID, imageType string, maxWid
 
 func (c *Client) Search(serverURL, token, userID, searchTerm string, limit int) (*SearchResult, error) {
 	serverURL = strings.TrimRight(serverURL, "/")
-	url := fmt.Sprintf("%s/Search/Hints?UserId=%s&SearchTerm=%s&Limit=%d",
-		serverURL, userID, searchTerm, limit)
 
-	req, err := http.NewRequest("GET", url, nil)
+	// 搜索词来自用户输入，必须编码：直接拼接时 &、空格、# 等字符
+	// 会破坏查询串或注入额外的上游参数
+	q := url.Values{}
+	q.Set("UserId", userID)
+	q.Set("SearchTerm", searchTerm)
+	q.Set("Limit", strconv.Itoa(limit))
+	endpoint := fmt.Sprintf("%s/Search/Hints?%s", serverURL, q.Encode())
+
+	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
