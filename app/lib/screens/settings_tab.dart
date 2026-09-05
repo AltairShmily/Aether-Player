@@ -171,8 +171,15 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
                                     child: const Text('取消'),
                                   ),
                                   TextButton(
-                                    onPressed: () {
+                                    onPressed: () async {
                                       Navigator.pop(ctx);
+                                      // 必须先登出：ServerSelectionScreen 的
+                                      // initState 会用仍然有效的旧令牌自动登录，
+                                      // 直接跳转会立刻被弹回原账户
+                                      await ref
+                                          .read(authProvider.notifier)
+                                          .logout();
+                                      if (!context.mounted) return;
                                       Navigator.of(context).pushAndRemoveUntil(
                                         AetherPageRoute(page: const ServerSelectionScreen()),
                                         (route) => false,
