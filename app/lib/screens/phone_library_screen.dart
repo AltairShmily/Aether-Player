@@ -90,11 +90,12 @@ class _PhoneLibraryScreenState extends ConsumerState<PhoneLibraryScreen> {
         SliverPadding(
           padding: EdgeInsets.symmetric(horizontal: pad),
           sliver: SliverGrid(
-           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-             crossAxisCount: 2,
+            // 按最大块宽自适应列数：写死列数会在宽屏下把每块撑得过大
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 300,
               mainAxisSpacing: 14,
               crossAxisSpacing: 14,
-             childAspectRatio: 16 / 10,
+              childAspectRatio: 16 / 10,
             ),
             delegate: SliverChildBuilderDelegate(
               (context, index) {
@@ -265,8 +266,9 @@ class _PhoneLibraryScreenState extends ConsumerState<PhoneLibraryScreen> {
         SliverPadding(
           padding: EdgeInsets.fromLTRB(pad, 0, pad, 24),
           sliver: SliverGrid(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
+            // 海报按最大块宽自适应列数，避免宽屏下每张海报过大
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 150,
               mainAxisSpacing: 12,
               crossAxisSpacing: 10,
               childAspectRatio: 2 / 3,
@@ -468,8 +470,9 @@ class _LibraryContentPage extends StatelessWidget {
             Expanded(
               child: GridView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
+                // 海报按最大块宽自适应列数，避免宽屏下每张海报过大
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 150,
                   mainAxisSpacing: 12,
                   crossAxisSpacing: 10,
                   childAspectRatio: 2 / 3,
