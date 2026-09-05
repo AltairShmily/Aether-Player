@@ -189,9 +189,9 @@ FlutterError.onError = (details) {
 
 ---
 
-### BUG-009 手机媒体库图片全部加载失败 [已核验]
+### BUG-009 图片请求误用 Emby 地址，海报加载失败 [已核验]
 
-**位置**：`app/lib/screens/phone_library_screen.dart:288`、`:478`
+**位置**：`app/lib/screens/phone_library_screen.dart:288`、`:478`；`app/lib/screens/tv_home_screen.dart:47`、`:86`、`:605`
 
 ```dart
 // phone_library_screen.dart:288 —— 错误：拼到 Emby 服务器地址上
@@ -206,11 +206,15 @@ FlutterError.onError = (details) {
 '${ApiClient.proxyBaseUrl}/api/images/${item.id}/Primary?maxWidth=300';
 ```
 
-**根因**：`/api/images/...` 是**本地 Go 代理**的路由（`server/cmd/api/main.go` 中注册），而 `_serverUrl` 是远端 Emby 服务器地址（`phone_library_screen.dart:50` 从 storage 读出）。向 Emby 直接请求 `/api/images/` 会 404。
+**根因**：`/api/images/...` 是**本地 Go 代理**的路由（`server/cmd/api/main.go` 中注册），而 `phone_library_screen` 的 `_serverUrl` 是远端 Emby 服务器地址（`:50` 从 storage 读出）。向 Emby 直接请求 `/api/images/` 会 404。
 
-**影响**：`PhoneLibraryScreen` 中所有海报 / 封面图不显示。
+**实施修复时发现的第二处（初审报告遗漏）**：`tv_home_screen.dart:47` 的 `_serverUrl` 初始值本是正确的 `ApiClient.proxyBaseUrl`，但 `:86` 的 `_loadServerUrl()` 会用从 storage 读出的真实 Emby 地址**覆盖**它，覆盖发生后 `:605` 的 featured 背景图与传给各行卡片（`:214`、`:236`、`:268`、`:305`）的地址全部失效。该字段在本文件中仅用于图片地址，因此整个 `_loadServerUrl()` 方法都是多余且有害的。
 
-**修复思路**：统一改用 `ApiClient.proxyBaseUrl`，并保留 `X-Emby-Server` 头（该文件 `:322` 已正确设置）让代理转发。
+**排查结论**：全项目共 20 余处 `/api/images` 拼接，其余各处（`series_detail_screen.dart:44`、`episode_detail_screen.dart:141`、`media_detail_screen.dart:29`、`tv_search_overlay.dart:240`）中的同名变量实际赋的就是 `ApiClient.proxyBaseUrl`，**命名容易误导但逻辑正确**，无需改动。
+
+**影响**：`PhoneLibraryScreen` 与 `TvHomeScreen` 中所有海报 / 封面 / 背景图不显示。
+
+**修复思路**：统一改用 `ApiClient.proxyBaseUrl`，并保留 `X-Emby-Server` 头（`phone_library_screen.dart:322` 已正确设置）让代理转发；`tv_home_screen` 改为编译期常量并删除 `_loadServerUrl()`。
 
 ---
 
@@ -422,3 +426,67 @@ libmpv 无 `buffering` 属性（正确名称为 `cache-buffering-state` 或 `pau
 第三批（P2/P3）
   体验打磨、性能、i18n、无障碍、构建脚本、测试补充
 ```
+
+---
+
+## 六、本轮修复状态
+
+> 验证手段：`flutter analyze`（0 issues）、`flutter test`（21 个用例，原为 1 个）、`go vet ./...`、`go test ./...`（新增 security 包测试）、`go build` 三平台交叉编译（linux/windows/darwin）、CMake 配置校验、CI YAML 语法校验。
+
+### 已修复（30 项）
+
+| 编号 | 问题 | 备注 |
+|:--|:--|:--|
+| BUG-001 | 播放器 UI 不随状态刷新 | `addListener` + dispose 注销；顺带补 `_autoPlayTimer` 取消（BUG-024 部分） |
+| BUG-002 | 令牌明文写入 SharedPreferences | 仅存安全存储，并清理旧版遗留明文键 |
+| BUG-003 | SSRF 校验可绕过且覆盖不全 | 改为连接层强制，覆盖全部入口 |
+| BUG-004 | 绑定 0.0.0.0 + CORS `*` | 默认绑 `127.0.0.1`，CORS 不再通配 |
+| BUG-005 | C++ `int*` 当 `int64_t*` | 两处改为 `int64_t` |
+| BUG-007 | 设置永不恢复 | 构造注入初始值，避免默认值闪烁 |
+| BUG-008 | 异常被静默吞掉 | 新增 `ErrorLogger` 落盘 + 恢复 `presentError` |
+| BUG-009 | 图片请求误用 Emby 地址 | 含初审遗漏的 `tv_home_screen` |
+| BUG-010 | 搜索是空壳 | 实现完整搜索（防抖、竞态防护、四态、结果导航） |
+| BUG-011 | 切换账户死循环 | 先 `logout()` 再跳转 |
+| BUG-012 | 自动播放下一集断裂 | 3 个调用点补参 + 开播即预取 |
+| BUG-013 | 字幕被强制选中第一条 | 索引改可空，音轨判断同步修正 |
+| BUG-014 | 自动登录不校验令牌 | 调 `getUserProfile` 校验，失败不破坏凭据 |
+| BUG-015 | `copyWith` 清空 error | 两个 State 均修正，新增 `clearError` |
+| BUG-016 | 跨 async gap 的 setState | `login_screen`、`switchQuality` 补 `mounted` |
+| BUG-017 | 剧集合并键冲突 | 重写分组逻辑 + 10 个回归测试 |
+| BUG-018 | 缺移动端 media_kit 运行库 | 补 android/ios/macos 三个包 |
+| BUG-019 | 画质回退丢失直连地址 | 单独缓存 `_directPlayUrl` |
+| BUG-020 | 代理 30s 超时截断流 | 共享 Client + `ResponseHeaderTimeout` + 分块 Flush |
+| BUG-021 | 查询参数未编码 | 改用 `url.Values` |
+| BUG-022 | 管道无人消费 / 退出不 exit | 消费管道 + 显式退出 + 信号注册去重 |
+| BUG-023 | `buffering` 属性不存在 | 改 `cache-buffering-state` + 补状态恢复 |
+| BUG-025 | 进度条拖动无节流 | 抽 `_ProgressBar`，松手才 seek |
+| BUG-026 | 星空动画每帧重建粒子 | 列表只生成一次 + 缓存 MaskFilter + RepaintBoundary |
+| BUG-031 | 模型解析隐患 | 容错解析 + 10 个测试（测试暴露出 `as String?` 仍不耐类型错误） |
+| BUG-036 | 设备 ID 头注入 | `SanitizeDeviceID` 白名单过滤 |
+| BUG-037 | 无优雅关闭 / Slowloris | `http.Server` + `signal.NotifyContext` + `ReadHeaderTimeout` |
+| BUG-044 | 首页并发加载互相覆盖 | 并发拉取、单次写入 state |
+| BUG-045 | 取消静音写死 1.0 | 恢复静音前音量 |
+| — | CI 从不编译 C++ 引擎 | 新增 `build-engine` 作业；`add_custom_target` 补 `ALL` |
+| — | `TODO_UI_ISSUES` 问题 1 | 返回按钮改为避开状态栏（原报告归因有误，实为缺 SafeArea） |
+
+### 未修复（留待专项）
+
+| 编号 | 问题 | 原因 |
+|:--|:--|:--|
+| BUG-006 | FFI 回调用 `Pointer.fromFunction` | 跨 Dart/C++ 两侧且本机无 libmpv 无法验证，风险最高，需独立排期；已在 README「已知限制」中如实标注原生引擎不可用 |
+| BUG-027 | 大量设置项是死配置 | 需逐项接线到 mpv 参数并联调 |
+| BUG-028 | 死代码 | 需确认 `VideoOsd` / `MiniPlayBar` / `AudioPlayerPage` 是删除还是补入口，属产品决策 |
+| BUG-029 | i18n 覆盖极低 | 涉及全部界面文案，宜独立专项并加 CI 防回归 |
+| BUG-030 | 错误提示展示 `e.toString()` | 部分已改（搜索、自动登录），其余需配合 i18n 统一处理 |
+| BUG-032 | 测试覆盖仍偏低 | 已从 1 个用例提升到 21 个，`playback_strategy` 与各 provider 仍待补 |
+| BUG-033 | Android AAR 未纳入版控 | 属构建流程设计决策 |
+| BUG-034 | `.deb` control 文件未生成 | 需在实际打包环境验证 |
+| BUG-035 | `ToggleFavorite` 语义反转隐患 | 当前无调用方，接线时需一并明确语义 |
+| BUG-038 | 令牌进入 stream URL | 涉及播放链路改造，需 Emby 侧验证 |
+| BUG-039 | 路由表双份维护 | 重构 `buildMux` 共享，影响 gomobile 构建 |
+| BUG-040 | 健康检查无法鉴别后端身份 | 需配合鉴权握手（Bearer token）一并设计 |
+| BUG-041 | 图片无磁盘缓存 | 引入 `cached_network_image` 需代理支持 query token |
+| BUG-042 | 无障碍完全缺失 | 需设计规范配合，工作量较大 |
+| BUG-043 | 侧栏导航架构 | 即 `TODO_UI_ISSUES` 问题 3，需重构 ShellScreen 页面栈 |
+| BUG-046 | CMake 交叉编译硬编码 | 需在多架构环境验证 |
+| BUG-047 | 桌面端引擎库未打包 | 依赖 BUG-006 修复后才有意义 |
