@@ -10,12 +10,10 @@ final settingsServiceProvider = Provider<SettingsService>((ref) {
 class PlayerEngineNotifier extends StateNotifier<PlayerEngineType> {
   final SettingsService _settings;
 
-  PlayerEngineNotifier(this._settings) : super(PlayerEngineType.mediaKit);
-
-  /// 从持久化存储加载
-  Future<void> load() async {
-    state = await _settings.getPlayerEngine();
-  }
+  /// [initial] 由 main() 在启动时从持久化存储读取后注入，
+  /// 使首帧即为正确的引擎类型，避免默认值闪烁。
+  PlayerEngineNotifier(this._settings, {PlayerEngineType? initial})
+      : super(initial ?? PlayerEngineType.mediaKit);
 
   /// 切换播放引擎
   Future<void> setEngine(PlayerEngineType type) async {

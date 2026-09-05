@@ -6,18 +6,10 @@ import 'auth_provider.dart';
 class LocaleNotifier extends StateNotifier<AppLocale> {
   final StorageService _storage;
 
-  LocaleNotifier(this._storage) : super(AppLocale.zhCn);
-
-  Future<void> load() async {
-    final saved = await _storage.getLocale();
-    if (saved != null) {
-      final locale = AppLocale.values.where((l) => l.languageTag == saved).firstOrNull;
-      if (locale != null) {
-        state = locale;
-        LocaleSettings.setLocale(locale);
-      }
-    }
-  }
+  /// [initial] 由 main() 在启动时从持久化存储读取后注入，
+  /// 需与 LocaleSettings 的全局当前语言保持一致。
+  LocaleNotifier(this._storage, {AppLocale? initial})
+      : super(initial ?? AppLocale.zhCn);
 
   Future<void> setLocale(AppLocale locale) async {
     state = locale;

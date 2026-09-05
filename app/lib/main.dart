@@ -4,7 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'app.dart';
 import 'i18n/strings.g.dart';
+import 'providers/auth_provider.dart';
+import 'providers/locale_provider.dart';
+import 'providers/settings_provider.dart';
 import 'services/backend_service.dart';
+import 'services/settings_service.dart';
+import 'services/storage_service.dart';
 
 /// Go 后端服务全局实例
 final backendServiceProvider = Provider<BackendService>((ref) {
@@ -28,7 +33,21 @@ void main() async {
       // 注册应用生命周期监听，确保退出时清理后端
       WidgetsBinding.instance.addObserver(_AppLifecycleObserver());
 
-      LocaleSettings.useDeviceLocale();
+      // 恢复持久化的用户设置。
+      // 必须在 runApp 之前完成并作为初始值注入，否则会先渲染默认值再跳变。
+      final savedEngine = await SettingsService().getPlayerEngine();
+      final savedLocaleTag = await StorageService().getLocale();
+      final savedLocale = savedLocaleTag == null
+          ? null
+          : AppLocale.values
+              .where((l) => l.languageTag == savedLocaleTag)
+              .firstOrNull;
+
+      if (savedLocale != null) {
+        LocaleSettings.setLocale(savedLocale);
+      } else {
+        LocaleSettings.useDeviceLocale();
+      }
 
       // 配置 google_fonts — 启用运行时获取
       GoogleFonts.config.allowRuntimeFetching = true;
@@ -50,7 +69,21 @@ void main() async {
       runApp(
         TranslationProvider(
           child: ProviderScope(
-            overrides: [backendServiceProvider.overrideWithValue(backend)],
+            overrides: [
+              backendServiceProvider.overrideWithValue(backend),
+              playerEngineProvider.overrideWith(
+                (ref) => PlayerEngineNotifier(
+                  ref.read(settingsServiceProvider),
+                  initial: savedEngine,
+                ),
+              ),
+              localeProvider.overrideWith(
+                (ref) => LocaleNotifier(
+                  ref.read(storageServiceProvider),
+                  initial: savedLocale ?? LocaleSettings.currentLocale,
+                ),
+              ),
+            ],
             child: AetherApp(backendReady: backendReady),
           ),
         ),
