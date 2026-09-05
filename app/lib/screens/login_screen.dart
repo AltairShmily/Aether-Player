@@ -29,7 +29,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     final success =
         await ref.read(authProvider.notifier).connectToServer(serverUrl);
-    if (success) {
+    // await 期间用户可能已离开本页，此时 setState 会抛异常
+    if (success && mounted) {
       setState(() => _isServerConnected = true);
     }
   }
