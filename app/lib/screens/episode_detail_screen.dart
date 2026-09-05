@@ -38,6 +38,10 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
   bool _overviewExpanded = false;
   String _embyServerUrl = '';
 
+  /// Emby 服务器地址是否已读取完毕。
+  /// 图片请求依赖它作为 X-Emby-Server 头，就绪前渲染会导致图片永久失败
+  bool _contextLoaded = false;
+
   int _selectedSourceIndex = 0;
 
   /// null 表示用户未作选择；下拉选项与真实轨道 1:1 映射，
@@ -54,7 +58,13 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
 
   Future<void> _loadEmbyServerUrl() async {
     final url = await ref.read(storageServiceProvider).getServerUrl();
-    if (mounted && url != null) setState(() => _embyServerUrl = url);
+    // 无论是否读到都要置位，否则 build 的门控会永远停在加载态
+    if (mounted) {
+      setState(() {
+        _embyServerUrl = url ?? '';
+        _contextLoaded = true;
+      });
+    }
   }
 
   // ── Data loading ──────────────────────────────────────────────────────
@@ -145,6 +155,24 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
   Widget build(BuildContext context) {
     final token = ref.read(authProvider).authResult?.token;
     const serverUrl = ApiClient.proxyBaseUrl;
+
+    // 与剧集详情页同理：X-Emby-Server 头就绪前不渲染图片，
+    // 否则请求被代理拒绝后 NetworkImage 不会因 headers 变化而重新解析
+    if (!_contextLoaded) {
+      return const Scaffold(
+        backgroundColor: AppColors.bgPrimary,
+        body: Center(
+          child: SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AppColors.celestialCyan,
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.bgPrimary,

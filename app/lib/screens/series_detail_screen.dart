@@ -41,6 +41,10 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
   bool _loadingEpisodes = false;
   String _embyServerUrl = '';
 
+  /// Emby 服务器地址是否已读取完毕。
+  /// 图片请求依赖它作为 X-Emby-Server 头，就绪前渲染会导致图片永久失败
+  bool _contextLoaded = false;
+
   static final _serverUrl = ApiClient.proxyBaseUrl;
 
   @override
@@ -54,10 +58,19 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
   Future<void> _loadSeasons() async {
     final token = ref.read(authProvider).authResult?.token;
     final serverUrl = await ref.read(storageServiceProvider).getServerUrl();
+
+    // 无论后续能否加载，都要标记上下文已就绪：
+    // 若在此提前 return 而不置位，build 的门控会永远停在加载态
+    if (mounted) {
+      setState(() {
+        _embyServerUrl = serverUrl ?? '';
+        _contextLoaded = true;
+        _loadingSeasons = true;
+      });
+    }
+
     if (token == null || serverUrl == null) return;
 
-    if (mounted) setState(() => _embyServerUrl = serverUrl);
-    setState(() => _loadingSeasons = true);
     try {
       final userId = ref.read(authProvider).authResult?.user.id ?? '';
       final result = await ref
@@ -128,6 +141,26 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
   Widget build(BuildContext context) {
     final series = widget.series;
     final token = ref.read(authProvider).authResult?.token;
+
+    // 图片请求依赖 X-Emby-Server 头指向真实 Emby 地址，而该值是异步读取的，
+    // 首帧为空串。带空头的请求会被本地代理拒绝（502），而 NetworkImage 的
+    // 相等性只比较 url 与 scale、不含 headers，地址补上后也不会重新解析，
+    // 图片将永久停留在失败态。故在就绪前不渲染任何图片内容。
+    if (!_contextLoaded) {
+      return const Scaffold(
+        backgroundColor: AppColors.seriesBg,
+        body: Center(
+          child: SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AppColors.celestialCyan,
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.seriesBg,
