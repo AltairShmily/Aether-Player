@@ -88,6 +88,11 @@ class NativeFfiEngine implements PlayerEngine {
   final StreamController<void> _completionController =
       StreamController<void>.broadcast();
 
+  /// 轨道变更通知。原生引擎目前无法从 FFI 侧取得轨道列表
+  /// （flutter_bridge 未导出 tracks 回调），该流暂时不会发出事件。
+  final StreamController<void> _tracksController =
+      StreamController<void>.broadcast();
+
   // ── 缓存状态 ──
   PlayerState _currentState = PlayerState.idle;
   Duration _position = Duration.zero;
@@ -316,6 +321,9 @@ class NativeFfiEngine implements PlayerEngine {
   Stream<void> get completionStream => _completionController.stream;
 
   @override
+  Stream<void> get tracksStream => _tracksController.stream;
+
+  @override
   PlayerState get currentState => _currentState;
 
   @override
@@ -427,16 +435,18 @@ class NativeFfiEngine implements PlayerEngine {
 
   @override
   Future<void> dispose() async {
+    // 必须先销毁引擎再关闭控制器：_destroy 过程会触发 mpv 的 SHUTDOWN
+    // 事件回调，若控制器已关闭，回调中的 add 会抛 StateError
+    _destroy(_handle);
+    _instance = null;
+
     // 关闭流控制器
     await _stateController.close();
     await _positionController.close();
     await _durationController.close();
     await _bufferingController.close();
     await _completionController.close();
-
-    // 销毁引擎
-    _destroy(_handle);
-    _instance = null;
+    await _tracksController.close();
   }
 
 

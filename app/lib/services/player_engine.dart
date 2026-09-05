@@ -77,6 +77,13 @@ abstract class PlayerEngine {
   /// 播放完成事件流
   Stream<void> get completionStream;
 
+  /// 轨道列表变更事件流。
+  ///
+  /// 音轨与字幕是在媒体加载完成后由底层**异步**发现的，
+  /// 控制器必须订阅此流才能及时刷新 UI；
+  /// 仅在 open() 之后同步读取会拿到空列表。
+  Stream<void> get tracksStream;
+
   // ── 状态属性 ──────────────────────────────────────────────────
 
   /// 当前播放器状态

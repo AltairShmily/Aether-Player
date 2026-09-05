@@ -195,6 +195,41 @@ class PlayerController extends StateNotifier<PlayerUiState> {
   /// 静音前的音量，取消静音时恢复到该值而非固定的 1.0
   double _volumeBeforeMute = 1.0;
 
+  /// 来自 Emby 元数据（RunTimeTicks）的权威时长。
+  ///
+  /// 播放引擎从流中读到的时长并不可靠 —— 转码流尤其如此，
+  /// 表现为总时长显示错误。元数据存在时一律优先采用。
+  Duration? _metadataDuration;
+
+  /// Emby 以 External 方式提供的字幕流。
+  ///
+  /// 转码流无法内嵌文本字幕，此时引擎从流中发现不到任何字幕轨道，
+  /// 必须改用这些外挂地址，否则用户在转码播放时完全没有字幕可选。
+  List<PlaybackStreamInfo> _externalSubtitles = const [];
+
+  /// 是否应走外挂字幕：仅当引擎没从流里发现字幕、而 Emby 提供了外挂地址时
+  bool get _useExternalSubtitles =>
+      _engine.subtitleTracks.isEmpty && _externalSubtitles.isNotEmpty;
+
+  /// UI 可见的字幕列表：优先用引擎从流中发现的轨道，
+  /// 为空时回退到 Emby 提供的外挂字幕
+  List<TrackInfo> get _effectiveSubtitleTracks {
+    final engineTracks = _engine.subtitleTracks;
+    if (engineTracks.isNotEmpty || _externalSubtitles.isEmpty) {
+      return engineTracks;
+    }
+    return [
+      for (var i = 0; i < _externalSubtitles.length; i++)
+        TrackInfo(
+          index: i,
+          language: _externalSubtitles[i].language,
+          title: _externalSubtitles[i].displayTitle,
+          codec: _externalSubtitles[i].codec,
+          type: 'subtitle',
+        ),
+    ];
+  }
+
   /// 当前播放的媒体源信息（用于画质选择器）
   MediaSourceInfo? _currentMediaSource;
 
@@ -239,7 +274,10 @@ class PlayerController extends StateNotifier<PlayerUiState> {
     // 总时长
     _subscriptions.add(_engine.durationStream.listen((dur) {
       if (!mounted) return;
-      state = state.copyWith(duration: dur);
+      // 元数据时长优先：转码流上报的时长常不准确
+      final effective = _metadataDuration ?? dur;
+      if (effective <= Duration.zero) return;
+      state = state.copyWith(duration: effective);
     }));
 
     // 缓冲状态
@@ -251,12 +289,16 @@ class PlayerController extends StateNotifier<PlayerUiState> {
     // 播放完成时刷新轨道列表 + 触发回调
     _subscriptions.add(_engine.completionStream.listen((_) {
       if (!mounted) return;
-      state = state.copyWith(
-        audioTracks: _engine.audioTracks,
-        subtitleTracks: _engine.subtitleTracks,
-      );
+      _syncTracks();
       // 触发播放完成回调
       onPlaybackComplete?.call();
+    }));
+
+    // 轨道就绪通知：media_kit 是在媒体加载后**异步**发现轨道的，
+    // 不订阅此流则 UI 的音轨/字幕菜单会一直停留在空列表
+    _subscriptions.add(_engine.tracksStream.listen((_) {
+      if (!mounted) return;
+      _syncTracks();
     }));
 
     // 定时同步轨道信息（引擎内部更新后刷新到 UI）
@@ -267,7 +309,7 @@ class PlayerController extends StateNotifier<PlayerUiState> {
   void _syncTracks() {
     if (!mounted) return;
     final audioTracks = _engine.audioTracks;
-    final subtitleTracks = _engine.subtitleTracks;
+    final subtitleTracks = _effectiveSubtitleTracks;
     if (audioTracks.isNotEmpty || subtitleTracks.isNotEmpty) {
       state = state.copyWith(
         audioTracks: audioTracks,
@@ -329,6 +371,16 @@ class PlayerController extends StateNotifier<PlayerUiState> {
       try {
         final mediaSource = playbackInfo.mediaSources.first;
         _currentMediaSource = mediaSource;
+        // 元数据时长是权威值，先写入 state，
+        // 避免 UI 在引擎上报前先显示 0:00 再跳变
+        _metadataDuration = mediaSource.runTime;
+        if (_metadataDuration != null) {
+          state = state.copyWith(duration: _metadataDuration!);
+        }
+        // 收集外挂字幕：转码流不携带文本字幕时需要靠它们
+        _externalSubtitles = mediaSource.mediaStreams
+            .where((s) => s.isSubtitle && s.deliveryUrl.isNotEmpty)
+            .toList();
         final decision = PlaybackStrategy.auto(mediaSource);
         streamUrl = decision.streamUrl;
         playMode = decision.mode;
@@ -410,13 +462,24 @@ class PlayerController extends StateNotifier<PlayerUiState> {
         token: token,
       );
     } else {
-      // 切回直连不能复用 state.streamUrl：初始决策为转码时
-      // 它存的是转码地址，"原始画质"会名不副实
-      _directPlayUrl ??= await _api.getVideoStreamUrl(
-        serverUrl: serverUrl,
-        token: token,
-        itemId: itemId,
-      );
+      // 优先使用 Emby 在 PlaybackInfo 中下发的权威直连地址，
+      // 它已带上正确的容器与全部必要参数。
+      // 退路 getVideoStreamUrl 是手工拼接、Container 默认写死 mp4，
+      // 对 mkv/avi 等文件在 Static=true 下 Emby 无法正确响应，
+      // 这正是"直接播放有问题"的成因
+      final authoritative = _currentMediaSource?.directStreamUrl ?? '';
+      if (authoritative.isNotEmpty) {
+        _directPlayUrl ??= authoritative;
+      } else {
+        final container = _currentMediaSource?.container ?? '';
+        _directPlayUrl ??= await _api.getVideoStreamUrl(
+          serverUrl: serverUrl,
+          token: token,
+          itemId: itemId,
+          // 用媒体源的真实容器，而非写死的 mp4
+          container: container.isNotEmpty ? container : 'mp4',
+        );
+      }
       streamUrl = _directPlayUrl!;
     }
 
@@ -522,9 +585,50 @@ class PlayerController extends StateNotifier<PlayerUiState> {
 
   /// 选择字幕轨道（传入索引，-1 表示关闭）
   Future<void> selectSubtitleTrack(int index) async {
-    await _engine.setSubtitleTrack(index);
-    state = state.copyWith(currentSubtitleTrack: index);
+    if (index >= 0 && _useExternalSubtitles) {
+      await _selectExternalSubtitle(index);
+    } else {
+      await _engine.setSubtitleTrack(index);
+      if (!mounted) return;
+      state = state.copyWith(currentSubtitleTrack: index);
+    }
     _resetControlsHideTimer();
+  }
+
+  /// 加载 Emby 以 External 方式提供的字幕。
+  ///
+  /// 转码流无法内嵌文本字幕，引擎侧因此发现不到任何字幕轨道，
+  /// 只能由客户端自行拉取字幕文件交给播放器。
+  Future<void> _selectExternalSubtitle(int index) async {
+    if (index >= _externalSubtitles.length) return;
+
+    final stream = _externalSubtitles[index];
+    final url = _resolveEmbyUrl(stream.deliveryUrl);
+    if (url == null) return;
+
+    await _engine.loadExternalSubtitle(
+      url,
+      title: stream.displayTitle.isNotEmpty ? stream.displayTitle : null,
+      language: stream.language.isNotEmpty ? stream.language : null,
+    );
+    if (!mounted) return;
+    state = state.copyWith(currentSubtitleTrack: index);
+  }
+
+  /// Emby 的 DeliveryUrl 可能是相对路径，需拼上真实服务器地址。
+  ///
+  /// 注意 [serverUrl] 存的是 Emby 服务器地址而非本地代理地址，
+  /// 播放器需要能直接访问该地址取回字幕文件。
+  String? _resolveEmbyUrl(String deliveryUrl) {
+    if (deliveryUrl.isEmpty) return null;
+    if (deliveryUrl.startsWith('http://') ||
+        deliveryUrl.startsWith('https://')) {
+      return deliveryUrl;
+    }
+    final base = serverUrl.endsWith('/')
+        ? serverUrl.substring(0, serverUrl.length - 1)
+        : serverUrl;
+    return base + (deliveryUrl.startsWith('/') ? deliveryUrl : '/$deliveryUrl');
   }
 
   /// Load an external subtitle from a URL (for subtitles with DeliveryMethod == 'External' ).

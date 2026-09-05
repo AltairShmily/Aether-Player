@@ -85,6 +85,10 @@ class MediaSourceInfo {
   final bool supportsDirectStream;
   final bool supportsTranscoding;
 
+  /// Emby 元数据给出的权威时长，单位为 100 纳秒（tick）。
+  /// 转码流上报的时长不可靠，播放器需以此兜底。
+  final int runTimeTicks;
+
   const MediaSourceInfo({
     required this.id,
     this.name = '',
@@ -98,7 +102,13 @@ class MediaSourceInfo {
     this.supportsDirectPlay = true,
     this.supportsDirectStream = true,
     this.supportsTranscoding = false,
+    this.runTimeTicks = 0,
   });
+
+  /// 权威时长；元数据缺失时为 null
+  Duration? get runTime => runTimeTicks > 0
+      ? Duration(microseconds: runTimeTicks ~/ 10)
+      : null;
 
   factory MediaSourceInfo.fromJson(Map<String, dynamic> json) {
     return MediaSourceInfo(
@@ -118,6 +128,7 @@ class MediaSourceInfo {
       supportsDirectPlay: json['SupportsDirectPlay'] as bool? ?? true,
       supportsDirectStream: json['SupportsDirectStream'] as bool? ?? true,
       supportsTranscoding: json['SupportsTranscoding'] as bool? ?? false,
+      runTimeTicks: (json['RunTimeTicks'] as num?)?.toInt() ?? 0,
     );
   }
 

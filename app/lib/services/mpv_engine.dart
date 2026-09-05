@@ -24,6 +24,8 @@ class MpvEngine implements PlayerEngine {
       StreamController<bool>.broadcast();
   final StreamController<void> _completionController =
       StreamController<void>.broadcast();
+  final StreamController<void> _tracksController =
+      StreamController<void>.broadcast();
 
   // ── 缓存状态 ──────────────────────────────────────────────────
   PlayerState _currentState = PlayerState.idle;
@@ -158,6 +160,9 @@ class MpvEngine implements PlayerEngine {
         type: 'subtitle',
       );
     }).toList();
+
+    // 通知上层：轨道是异步发现的，不主动通知则 UI 永远停留在空列表
+    _tracksController.add(null);
   }
 
   /// 根据当前选中轨道更新索引
@@ -199,6 +204,9 @@ class MpvEngine implements PlayerEngine {
 
   @override
   Stream<void> get completionStream => _completionController.stream;
+
+  @override
+  Stream<void> get tracksStream => _tracksController.stream;
 
   // ── 状态属性 ──────────────────────────────────────────────────
 
@@ -341,6 +349,7 @@ class MpvEngine implements PlayerEngine {
     await _durationController.close();
     await _bufferingController.close();
     await _completionController.close();
+    await _tracksController.close();
 
     // 释放底层播放器资源
     await _player.dispose();
