@@ -69,7 +69,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       await _secureStorage.saveToken(result.token);
       await _storageService.saveAuthData(
-        token: result.token,
         serverUrl: serverUrl,
         userId: result.user.id,
         userName: result.user.name,
