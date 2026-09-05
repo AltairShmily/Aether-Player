@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
 	"aether-server/internal/emby"
 	"aether-server/internal/handler"
@@ -58,9 +63,40 @@ func main() {
 		port = "19800"
 	}
 
-	log.Printf("Starting Aether Server on :%s", port)
-	if err := http.ListenAndServe(":"+port, h); err != nil {
-		log.Fatal(err)
+	// 默认只监听回环地址：本服务是供同机 Flutter 客户端使用的本地代理。
+	// 绑定所有网卡会让同网段任意主机都能驱动它访问内网。
+	// 确需远程访问时通过 BIND_ADDR 显式放开。
+	bindAddr := os.Getenv("BIND_ADDR")
+	if bindAddr == "" {
+		bindAddr = "127.0.0.1"
+	}
+
+	srv := &http.Server{
+		Addr:    bindAddr + ":" + port,
+		Handler: h,
+		// 限制读取请求头的时长，防止 Slowloris 类慢速攻击占用连接
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+
+	// 优雅关闭：收到信号后停止接收新连接并等待在途请求完成，
+	// 而非直接斩断（播放进度上报等请求会因此丢失）
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	go func() {
+		log.Printf("Starting Aether Server on %s:%s", bindAddr, port)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatal(err)
+		}
+	}()
+
+	<-ctx.Done()
+	log.Printf("Shutting down Aether Server...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("Graceful shutdown failed: %v", err)
 	}
 }
 

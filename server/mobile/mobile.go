@@ -34,8 +34,9 @@ var (
 // Returns "" on success.
 //
 // gomobile will expose this as:
-//   Java:  AetherServer.startServer(port) -> String
-//   Swift: AetherServerStartServer(port) -> String
+//
+//	Java:  AetherServer.startServer(port) -> String
+//	Swift: AetherServerStartServer(port) -> String
 func StartServer(port int) string {
 	mu.Lock()
 	defer mu.Unlock()

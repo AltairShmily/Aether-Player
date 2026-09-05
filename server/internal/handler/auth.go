@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"aether-server/internal/emby"
+	"aether-server/internal/security"
 )
 
 type AuthHandler struct {
@@ -38,6 +39,14 @@ func (h *AuthHandler) HandleConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 连接层的安全 Transport 会强制拦截非法目标，
+	// 此处提前校验以便返回明确错误并省去无谓的 DNS 解析
+	if err := security.ValidateServerURL(req.ServerURL); err != nil {
+		log.Printf("Connect rejected server URL: %v", err)
+		http.Error(w, "Invalid server URL", http.StatusBadRequest)
+		return
+	}
+
 	info, err := h.EmbyClient.TestConnection(req.ServerURL)
 	if err != nil {
 		log.Printf("Connect error: %v", err)
@@ -60,6 +69,12 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := security.ValidateServerURL(req.ServerURL); err != nil {
+		log.Printf("Login rejected server URL: %v", err)
+		http.Error(w, "Invalid server URL", http.StatusBadRequest)
 		return
 	}
 

@@ -3,39 +3,35 @@ package handler
 import (
 	"io"
 	"log"
-	"net"
 	"net/http"
-	"net/url"
 	"strings"
-	"time"
+
+	"aether-server/internal/security"
 )
 
 // ProxyHandler transparently proxies unmatched /api/* requests to the Emby server.
 // It reads X-Emby-Server and X-Emby-Token headers to target the correct server.
 type ProxyHandler struct{}
 
-func NewProxyHandler() *ProxyHandler {
-	return &ProxyHandler{}
+// proxyClient 全局复用，保持连接池。
+// 每个请求新建 http.Client 会导致 TCP/TLS 无法复用，代理延迟显著上升。
+var proxyClient = security.NewSafeClient()
+
+// hopByHopHeaders 是不应被转发的逐跳头。
+var hopByHopHeaders = map[string]struct{}{
+	"host":                {},
+	"connection":          {},
+	"keep-alive":          {},
+	"transfer-encoding":   {},
+	"te":                  {},
+	"trailer":             {},
+	"upgrade":             {},
+	"proxy-authorization": {},
+	"proxy-authenticate":  {},
 }
 
-// validateServerURL checks that the server URL is safe to proxy to.
-func validateServerURL(serverURL string) error {
-	u, err := url.Parse(serverURL)
-	if err != nil {
-		return err
-	}
-	if u.Scheme != "http" && u.Scheme != "https" {
-		return &url.Error{Op: "validate", URL: serverURL, Err: net.InvalidAddrError("scheme must be http or https")}
-	}
-	if u.Hostname() == "" {
-		return &url.Error{Op: "validate", URL: serverURL, Err: net.InvalidAddrError("empty host")}
-	}
-	// Block cloud metadata endpoints
-	host := u.Hostname()
-	if strings.HasPrefix(host, "169.254.") || host == "0.0.0.0" {
-		return &url.Error{Op: "validate", URL: serverURL, Err: net.InvalidAddrError("blocked host")}
-	}
-	return nil
+func NewProxyHandler() *ProxyHandler {
+	return &ProxyHandler{}
 }
 
 // ServeHTTP forwards the request to the Emby server.
@@ -43,17 +39,18 @@ func validateServerURL(serverURL string) error {
 func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	serverURL := r.Header.Get("X-Emby-Server")
 	token := r.Header.Get("X-Emby-Token")
-	deviceID := r.Header.Get("X-Device-Id")
-	if deviceID == "" {
-		deviceID = "Aether-Client"
-	}
+
+	// deviceID 会被拼进 X-Emby-Authorization 的引号内，必须净化，
+	// 否则调用方可用引号突破字段边界、篡改授权头语义
+	deviceID := security.SanitizeDeviceID(r.Header.Get("X-Device-Id"))
 
 	if serverURL == "" {
 		http.Error(w, `{"error":"Missing X-Emby-Server header"}`, http.StatusBadRequest)
 		return
 	}
 
-	if err := validateServerURL(serverURL); err != nil {
+	if err := security.ValidateServerURL(serverURL); err != nil {
+		log.Printf("Proxy rejected server URL: %v", err)
 		http.Error(w, `{"error":"Invalid server URL"}`, http.StatusBadRequest)
 		return
 	}
@@ -81,9 +78,7 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Forward original headers
 	for key, values := range r.Header {
-		// Skip hop-by-hop headers
-		switch strings.ToLower(key) {
-		case "host", "connection", "keep-alive", "transfer-encoding":
+		if _, skip := hopByHopHeaders[strings.ToLower(key)]; skip {
 			continue
 		}
 		for _, v := range values {
@@ -97,9 +92,9 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="Aether", Device="Linux", DeviceId="`+deviceID+`", Version="0.0.1"`)
 
-	// Execute request with timeout
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
+	// 不设整体超时：流式响应与大 body 需要长时间传输，
+	// 超时约束由 Transport 的连接与响应头阶段负责
+	resp, err := proxyClient.Do(req)
 	if err != nil {
 		log.Printf("Proxy error: %v", err)
 		http.Error(w, `{"error":"Failed to reach Emby server"}`, http.StatusBadGateway)
@@ -109,8 +104,7 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Forward response headers
 	for key, values := range resp.Header {
-		switch strings.ToLower(key) {
-		case "transfer-encoding", "connection":
+		if _, skip := hopByHopHeaders[strings.ToLower(key)]; skip {
 			continue
 		}
 		for _, v := range values {
@@ -118,7 +112,29 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Forward status code and body
 	w.WriteHeader(resp.StatusCode)
-	io.Copy(w, resp.Body)
+
+	// 边收边转发：io.Copy 写完再 Flush 对流式响应毫无帮助，
+	// 数据仍会被缓冲到结束才发出，表现为播放器长时间无数据
+	flusher, canFlush := w.(http.Flusher)
+	buf := make([]byte, 32*1024)
+	for {
+		n, readErr := resp.Body.Read(buf)
+		if n > 0 {
+			if _, writeErr := w.Write(buf[:n]); writeErr != nil {
+				log.Printf("Proxy write error (%s %s): %v", r.Method, targetURL, writeErr)
+				return
+			}
+			if canFlush {
+				flusher.Flush()
+			}
+		}
+		if readErr != nil {
+			if readErr != io.EOF {
+				// 状态码已发出，无法再改写，只能记录
+				log.Printf("Proxy copy error (%s %s): %v", r.Method, targetURL, readErr)
+			}
+			return
+		}
+	}
 }

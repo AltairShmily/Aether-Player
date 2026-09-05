@@ -6,7 +6,8 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
+
+	"aether-server/internal/security"
 )
 
 type Client struct {
@@ -20,8 +21,8 @@ type SystemInfo struct {
 }
 
 type AuthResult struct {
-	User   User       `json:"User"`
-	Token  string     `json:"AccessToken"`
+	User   User   `json:"User"`
+	Token  string `json:"AccessToken"`
 	Server SystemInfo
 }
 
@@ -36,26 +37,26 @@ type ItemListResponse struct {
 }
 
 type MediaItem struct {
-	ID               string   `json:"Id"`
-	Name             string   `json:"Name"`
-	Type             string   `json:"Type"`
-	Overview         string   `json:"Overview,omitempty"`
-	CommunityRating  float64  `json:"CommunityRating,omitempty"`
-	OfficialRating   string   `json:"OfficialRating,omitempty"`
-	Genres           []string `json:"Genres,omitempty"`
-	ProductionYear   int      `json:"ProductionYear,omitempty"`
-	RunTimeTicks     int64    `json:"RunTimeTicks,omitempty"`
-	DateCreated      string   `json:"DateCreated,omitempty"`
-	ImageTags        struct {
+	ID              string   `json:"Id"`
+	Name            string   `json:"Name"`
+	Type            string   `json:"Type"`
+	Overview        string   `json:"Overview,omitempty"`
+	CommunityRating float64  `json:"CommunityRating,omitempty"`
+	OfficialRating  string   `json:"OfficialRating,omitempty"`
+	Genres          []string `json:"Genres,omitempty"`
+	ProductionYear  int      `json:"ProductionYear,omitempty"`
+	RunTimeTicks    int64    `json:"RunTimeTicks,omitempty"`
+	DateCreated     string   `json:"DateCreated,omitempty"`
+	ImageTags       struct {
 		Primary  string `json:"Primary,omitempty"`
 		Backdrop string `json:"Backdrop,omitempty"`
 	} `json:"ImageTags,omitempty"`
-	BackdropImageTags []string `json:"BackdropImageTags,omitempty"`
-	SeriesName        string   `json:"SeriesName,omitempty"`
-	IndexNumber       int      `json:"IndexNumber,omitempty"`
-	ParentIndexNumber int      `json:"ParentIndexNumber,omitempty"`
-	SeriesID          string   `json:"SeriesId,omitempty"`
-	SeasonId          string   `json:"SeasonId,omitempty"`
+	BackdropImageTags []string  `json:"BackdropImageTags,omitempty"`
+	SeriesName        string    `json:"SeriesName,omitempty"`
+	IndexNumber       int       `json:"IndexNumber,omitempty"`
+	ParentIndexNumber int       `json:"ParentIndexNumber,omitempty"`
+	SeriesID          string    `json:"SeriesId,omitempty"`
+	SeasonId          string    `json:"SeasonId,omitempty"`
 	UserData          *UserData `json:"UserData,omitempty"`
 }
 
@@ -86,12 +87,12 @@ type UserView struct {
 }
 
 type SearchHint struct {
-	ID             string  `json:"Id"`
-	Name           string  `json:"Name"`
-	Type           string  `json:"Type"`
-	Overview       string  `json:"Overview,omitempty"`
+	ID              string  `json:"Id"`
+	Name            string  `json:"Name"`
+	Type            string  `json:"Type"`
+	Overview        string  `json:"Overview,omitempty"`
 	CommunityRating float64 `json:"CommunityRating,omitempty"`
-	ProductionYear int     `json:"ProductionYear,omitempty"`
+	ProductionYear  int     `json:"ProductionYear,omitempty"`
 	PrimaryImageTag string  `json:"PrimaryImageTag,omitempty"`
 }
 
@@ -101,39 +102,39 @@ type MediaStreamInfo struct {
 }
 
 type MediaSource struct {
-	ID           string       `json:"Id"`
-	Name         string       `json:"Name"`
-	Path         string       `json:"Path,omitempty"`
-	Container    string       `json:"Container,omitempty"`
-	Size         int64        `json:"Size,omitempty"`
-	Bitrate      int          `json:"Bitrate,omitempty"`
-	MediaStreams []MediaStream `json:"MediaStreams,omitempty"`
-	DirectStreamUrl    string `json:"DirectStreamUrl,omitempty"`
-	TranscodingUrl     string `json:"TranscodingUrl,omitempty"`
-	IsRemote           bool   `json:"IsRemote"`
-	SupportsDirectPlay bool   `json:"SupportsDirectPlay"`
-	SupportsDirectStream bool `json:"SupportsDirectStream"`
-	SupportsTranscoding  bool `json:"SupportsTranscoding"`
+	ID                   string        `json:"Id"`
+	Name                 string        `json:"Name"`
+	Path                 string        `json:"Path,omitempty"`
+	Container            string        `json:"Container,omitempty"`
+	Size                 int64         `json:"Size,omitempty"`
+	Bitrate              int           `json:"Bitrate,omitempty"`
+	MediaStreams         []MediaStream `json:"MediaStreams,omitempty"`
+	DirectStreamUrl      string        `json:"DirectStreamUrl,omitempty"`
+	TranscodingUrl       string        `json:"TranscodingUrl,omitempty"`
+	IsRemote             bool          `json:"IsRemote"`
+	SupportsDirectPlay   bool          `json:"SupportsDirectPlay"`
+	SupportsDirectStream bool          `json:"SupportsDirectStream"`
+	SupportsTranscoding  bool          `json:"SupportsTranscoding"`
 }
 
 type MediaStream struct {
-	Type         string `json:"Type"`
-	Codec        string `json:"Codec,omitempty"`
-	Language     string `json:"Language,omitempty"`
-	DisplayTitle string `json:"DisplayTitle,omitempty"`
-	Width        int    `json:"Width,omitempty"`
-	Height       int    `json:"Height,omitempty"`
-	BitRate      int    `json:"BitRate,omitempty"`
+	Type          string `json:"Type"`
+	Codec         string `json:"Codec,omitempty"`
+	Language      string `json:"Language,omitempty"`
+	DisplayTitle  string `json:"DisplayTitle,omitempty"`
+	Width         int    `json:"Width,omitempty"`
+	Height        int    `json:"Height,omitempty"`
+	BitRate       int    `json:"BitRate,omitempty"`
 	ChannelLayout string `json:"ChannelLayout,omitempty"`
-	Index        int    `json:"Index"`
+	Index         int    `json:"Index"`
 }
 
 // PlaybackInfoRequest is sent to Emby POST /Items/{Id}/PlaybackInfo
 type PlaybackInfoRequest struct {
-	MediaSourceId      string        `json:"MediaSourceId,omitempty"`
-	DeviceProfile      *DeviceProfile `json:"DeviceProfile,omitempty"`
-	DeviceId           string        `json:"DeviceId,omitempty"`
-	MaxStreamingBitrate int          `json:"MaxStreamingBitrate,omitempty"`
+	MediaSourceId       string         `json:"MediaSourceId,omitempty"`
+	DeviceProfile       *DeviceProfile `json:"DeviceProfile,omitempty"`
+	DeviceId            string         `json:"DeviceId,omitempty"`
+	MaxStreamingBitrate int            `json:"MaxStreamingBitrate,omitempty"`
 }
 
 type DeviceProfile struct {
@@ -149,55 +150,58 @@ type DeviceProfile struct {
 }
 
 type DirectPlayProfile struct {
-	Container  string   `json:"Container"`
-	AudioCodec string   `json:"AudioCodec"`
-	VideoCodec string   `json:"VideoCodec"`
-	Type       string   `json:"Type"`
+	Container  string `json:"Container"`
+	AudioCodec string `json:"AudioCodec"`
+	VideoCodec string `json:"VideoCodec"`
+	Type       string `json:"Type"`
 }
 
 type TranscodingProfile struct {
-	Container            string `json:"Container"`
-	Type                 string `json:"Type"`
-	VideoCodec           string `json:"VideoCodec"`
-	AudioCodec           string `json:"AudioCodec"`
-	MaxAudioChannels     int    `json:"MaxAudioChannels,omitempty"`
-	Protocol             string `json:"Protocol"`
-	EstimateContentLength bool  `json:"EstimateContentLength,omitempty"`
-	CopyTimestamps       bool   `json:"CopyTimestamps,omitempty"`
+	Container             string `json:"Container"`
+	Type                  string `json:"Type"`
+	VideoCodec            string `json:"VideoCodec"`
+	AudioCodec            string `json:"AudioCodec"`
+	MaxAudioChannels      int    `json:"MaxAudioChannels,omitempty"`
+	Protocol              string `json:"Protocol"`
+	EstimateContentLength bool   `json:"EstimateContentLength,omitempty"`
+	CopyTimestamps        bool   `json:"CopyTimestamps,omitempty"`
 }
 
 type CodecProfile struct {
-	Type          string   `json:"Type"`
-	Codec         string   `json:"Codec,omitempty"`
-	Container     string   `json:"Container,omitempty"`
-	Conditions    []ProfileCondition `json:"Conditions,omitempty"`
+	Type            string             `json:"Type"`
+	Codec           string             `json:"Codec,omitempty"`
+	Container       string             `json:"Container,omitempty"`
+	Conditions      []ProfileCondition `json:"Conditions,omitempty"`
 	ApplyConditions []ProfileCondition `json:"ApplyConditions,omitempty"`
 }
 
 type ProfileCondition struct {
-	Condition string `json:"Condition"`
-	Property  string `json:"Property"`
-	Value     string `json:"Value"`
-	IsRequired bool  `json:"IsRequired"`
+	Condition  string `json:"Condition"`
+	Property   string `json:"Property"`
+	Value      string `json:"Value"`
+	IsRequired bool   `json:"IsRequired"`
 }
 
 type ContainerProfile struct {
-	Type      string `json:"Type"`
-	Container string `json:"Container,omitempty"`
+	Type       string             `json:"Type"`
+	Container  string             `json:"Container,omitempty"`
 	Conditions []ProfileCondition `json:"Conditions,omitempty"`
 }
 
 type SubtitleProfile struct {
-	Format        string `json:"Format"`
-	Method        string `json:"Method"`
-	Didlize       bool   `json:"Didlize,omitempty"`
-	Language      string `json:"Language,omitempty"`
-	Container     string `json:"Container,omitempty"`
+	Format    string `json:"Format"`
+	Method    string `json:"Method"`
+	Didlize   bool   `json:"Didlize,omitempty"`
+	Language  string `json:"Language,omitempty"`
+	Container string `json:"Container,omitempty"`
 }
 
 func NewClient() *Client {
 	return &Client{
-		HTTPClient: &http.Client{Timeout: 30 * time.Second},
+		// 安全 Transport 在建连前校验解析后的 IP，覆盖所有 handler 入口。
+		// 不设整体 Timeout：它会连 body 读取一起计时，
+		// 使 GetItemImage 等返回流式 body 的大响应在传输途中被截断。
+		HTTPClient: security.NewSafeClient(),
 	}
 }
 
@@ -276,19 +280,43 @@ func (c *Client) GetItems(serverURL, token string, params map[string]string) (*I
 	url := fmt.Sprintf("%s/Users/%s/Items", serverURL, params["userId"])
 
 	q := "?"
-	if v, ok := params["startIndex"]; ok && v != "" { q += "StartIndex=" + v + "&" }
-	if v, ok := params["limit"]; ok && v != "" { q += "Limit=" + v + "&" }
-	if v, ok := params["sortBy"]; ok && v != "" { q += "SortBy=" + v + "&" }
-	if v, ok := params["sortOrder"]; ok && v != "" { q += "SortOrder=" + v + "&" }
-	if v, ok := params["includeItemTypes"]; ok && v != "" { q += "IncludeItemTypes=" + v + "&" }
-	if v, ok := params["recursive"]; ok && v != "" { q += "Recursive=" + v + "&" }
-	if v, ok := params["searchTerm"]; ok && v != "" { q += "SearchTerm=" + v + "&" }
-	if v, ok := params["genres"]; ok && v != "" { q += "Genres=" + v + "&" }
-	if v, ok := params["years"]; ok && v != "" { q += "Years=" + v + "&" }
-	if v, ok := params["parentId"]; ok && v != "" { q += "ParentId=" + v + "&" }
-	if v, ok := params["fields"]; ok && v != "" { q += "Fields=" + v + "&" }
+	if v, ok := params["startIndex"]; ok && v != "" {
+		q += "StartIndex=" + v + "&"
+	}
+	if v, ok := params["limit"]; ok && v != "" {
+		q += "Limit=" + v + "&"
+	}
+	if v, ok := params["sortBy"]; ok && v != "" {
+		q += "SortBy=" + v + "&"
+	}
+	if v, ok := params["sortOrder"]; ok && v != "" {
+		q += "SortOrder=" + v + "&"
+	}
+	if v, ok := params["includeItemTypes"]; ok && v != "" {
+		q += "IncludeItemTypes=" + v + "&"
+	}
+	if v, ok := params["recursive"]; ok && v != "" {
+		q += "Recursive=" + v + "&"
+	}
+	if v, ok := params["searchTerm"]; ok && v != "" {
+		q += "SearchTerm=" + v + "&"
+	}
+	if v, ok := params["genres"]; ok && v != "" {
+		q += "Genres=" + v + "&"
+	}
+	if v, ok := params["years"]; ok && v != "" {
+		q += "Years=" + v + "&"
+	}
+	if v, ok := params["parentId"]; ok && v != "" {
+		q += "ParentId=" + v + "&"
+	}
+	if v, ok := params["fields"]; ok && v != "" {
+		q += "Fields=" + v + "&"
+	}
 	q = strings.TrimRight(q, "&")
-	if q == "?" { q = "" }
+	if q == "?" {
+		q = ""
+	}
 
 	req, err := http.NewRequest("GET", url+q, nil)
 	if err != nil {
@@ -413,7 +441,7 @@ func (c *Client) GetPlaybackInfo(serverURL, token, userID, itemID string) (*Medi
 	url := fmt.Sprintf("%s/Items/%s/PlaybackInfo", serverURL, itemID)
 
 	reqBody := PlaybackInfoRequest{
-		DeviceId:           "Aether-Client",
+		DeviceId:            "Aether-Client",
 		MaxStreamingBitrate: 80000000,
 		DeviceProfile: &DeviceProfile{
 			Name: "Aether Player",
@@ -435,7 +463,7 @@ func (c *Client) GetPlaybackInfo(serverURL, token, userID, itemID string) (*Medi
 					},
 				},
 				{
-					Type: "Video",
+					Type:  "Video",
 					Codec: "h264",
 					Conditions: []ProfileCondition{
 						{Condition: "EqualsAny", Property: "VideoProfile", Value: "High|Main|Baseline|Constrained Baseline", IsRequired: false},
@@ -522,11 +550,11 @@ func (c *Client) ReportPlaybackStarted(serverURL, token, itemID, mediaSourceID, 
 	url := fmt.Sprintf("%s/Sessions/Playing", serverURL)
 
 	body := map[string]interface{}{
-		"ItemId":         itemID,
-		"MediaSourceId":  mediaSourceID,
-		"PlaySessionId":  playSessionID,
-		"CanSeek":        true,
-		"IsPaused":       false,
+		"ItemId":        itemID,
+		"MediaSourceId": mediaSourceID,
+		"PlaySessionId": playSessionID,
+		"CanSeek":       true,
+		"IsPaused":      false,
 	}
 	jsonBody, _ := json.Marshal(body)
 
@@ -558,12 +586,12 @@ func (c *Client) ReportPlaybackProgress(serverURL, token, itemID, mediaSourceID,
 	url := fmt.Sprintf("%s/Sessions/Playing/Progress", serverURL)
 
 	body := map[string]interface{}{
-		"ItemId":              itemID,
-		"MediaSourceId":       mediaSourceID,
-		"PlaySessionId":       playSessionID,
-		"PositionTicks":       positionTicks,
-		"IsPaused":            isPaused,
-		"CanSeek":             true,
+		"ItemId":        itemID,
+		"MediaSourceId": mediaSourceID,
+		"PlaySessionId": playSessionID,
+		"PositionTicks": positionTicks,
+		"IsPaused":      isPaused,
+		"CanSeek":       true,
 	}
 	jsonBody, _ := json.Marshal(body)
 
@@ -595,10 +623,10 @@ func (c *Client) ReportPlaybackStopped(serverURL, token, itemID, mediaSourceID, 
 	url := fmt.Sprintf("%s/Sessions/Playing/Stopped", serverURL)
 
 	body := map[string]interface{}{
-		"ItemId":              itemID,
-		"MediaSourceId":       mediaSourceID,
-		"PlaySessionId":       playSessionID,
-		"PositionTicks":       positionTicks,
+		"ItemId":        itemID,
+		"MediaSourceId": mediaSourceID,
+		"PlaySessionId": playSessionID,
+		"PositionTicks": positionTicks,
 	}
 	jsonBody, _ := json.Marshal(body)
 
