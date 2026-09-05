@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../i18n/strings.g.dart';
@@ -33,10 +35,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
   String? _selectedCategory; // null = 全部, 'movies', 'tvshows', 'music'
 
   void _showSearchOverlay(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => _SearchDialog(),
-    );
+    showSearchDialog(context);
   }
 
   @override
@@ -841,29 +840,157 @@ class _LibraryRowState extends State<_LibraryRow> {
 // ══════════════════════════════════════════════════
 //  _SearchDialog — 搜索对话框
 // ══════════════════════════════════════════════════
-class _SearchDialog extends StatefulWidget {
-  const _SearchDialog();
 
-  @override
-  State<_SearchDialog> createState() => _SearchDialogState();
+/// 弹出搜索对话框。
+///
+/// 抽为顶层函数，让 ShellScreen 的 Ctrl+K 搜索叠加层提交后也能复用
+/// 同一套搜索实现，避免两处各写一份。
+Future<void> showSearchDialog(
+  BuildContext context, {
+  String initialQuery = '',
+}) {
+  return showDialog<void>(
+    context: context,
+    builder: (ctx) => _SearchDialog(initialQuery: initialQuery),
+  );
 }
 
-class _SearchDialogState extends State<_SearchDialog> {
-  final _controller = TextEditingController();
+class _SearchDialog extends ConsumerStatefulWidget {
+  final String initialQuery;
+
+  const _SearchDialog({this.initialQuery = ''});
+
+  @override
+  ConsumerState<_SearchDialog> createState() => _SearchDialogState();
+}
+
+class _SearchDialogState extends ConsumerState<_SearchDialog> {
+  late final TextEditingController _controller;
   final _focusNode = FocusNode();
+
   String _query = '';
+  List<SearchHint> _results = const [];
+  bool _searching = false;
+  String? _error;
+
+  /// 结果缩略图经本地代理获取时需要转发的上游地址与令牌
+  String? _serverUrl;
+  String? _token;
+
+  /// 输入防抖，避免每敲一个字符就发一次请求
+  Timer? _debounce;
+  static const _debounceDelay = Duration(milliseconds: 350);
+
+  /// 请求序号：只采纳最后一次请求的结果，防止慢响应覆盖新查询
+  int _requestSeq = 0;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _focusNode.requestFocus());
+    _controller = TextEditingController(text: widget.initialQuery);
+    _query = widget.initialQuery;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _focusNode.requestFocus();
+      // 由快捷键叠加层带入关键词时立即搜一次
+      final term = widget.initialQuery.trim();
+      if (term.isNotEmpty) _performSearch(term);
+    });
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  void _onChanged(String value) {
+    setState(() => _query = value);
+    _debounce?.cancel();
+
+    final term = value.trim();
+    if (term.isEmpty) {
+      setState(() {
+        _results = const [];
+        _searching = false;
+        _error = null;
+      });
+      return;
+    }
+    _debounce = Timer(_debounceDelay, () => _performSearch(term));
+  }
+
+  Future<void> _performSearch(String term) async {
+    final seq = ++_requestSeq;
+    setState(() {
+      _searching = true;
+      _error = null;
+    });
+
+    try {
+      final auth = ref.read(authProvider).authResult;
+      final serverUrl = await ref.read(storageServiceProvider).getServerUrl();
+      if (auth == null || serverUrl == null) {
+        throw Exception('missing auth context');
+      }
+
+      // 结果缩略图经本地代理获取，需要这两个值构造转发头
+      _serverUrl = serverUrl;
+      _token = auth.token;
+
+      final result = await ref.read(apiClientProvider).search(
+            serverUrl: serverUrl,
+            token: auth.token,
+            userId: auth.user.id,
+            term: term,
+          );
+
+      // 期间已发出更新的请求，丢弃这次过时的结果
+      if (!mounted || seq != _requestSeq) return;
+      setState(() {
+        _results = result.searchHints;
+        _searching = false;
+      });
+    } catch (e) {
+      debugPrint('[search] failed: $e');
+      if (!mounted || seq != _requestSeq) return;
+      setState(() {
+        _searching = false;
+        _results = const [];
+        // 面向用户的可读文案，技术细节只进日志
+        _error = '搜索失败，请检查网络后重试';
+      });
+    }
+  }
+
+  void _openResult(SearchHint hint) {
+    final item = MediaItem(
+      id: hint.id,
+      name: hint.name,
+      type: hint.type,
+      overview: hint.overview,
+      communityRating: hint.communityRating,
+      productionYear: hint.productionYear,
+      primaryImageTag: hint.primaryImageTag,
+    );
+
+    // 先捕获 Navigator：pop 之后 context 即失效，不能再用于 push
+    final navigator = Navigator.of(context);
+    navigator.pop();
+
+    final Widget dest;
+    if (item.isSeries) {
+      dest = SeriesDetailScreen(series: item);
+    } else if (item.isEpisode) {
+      dest = EpisodeDetailScreen(item: item);
+    } else {
+      dest = MediaDetailScreen(item: item);
+    }
+    navigator.push(
+      AetherPageRoute(page: dest, type: AetherTransitionType.slideFromRight),
+    );
   }
 
   @override
@@ -893,7 +1020,7 @@ class _SearchDialogState extends State<_SearchDialog> {
                           icon: const Icon(Icons.close_rounded, color: AppColors.textTertiary, size: 18),
                           onPressed: () {
                             _controller.clear();
-                            setState(() => _query = '');
+                            _onChanged('');
                           },
                         )
                       : null,
@@ -913,34 +1040,193 @@ class _SearchDialogState extends State<_SearchDialog> {
                     borderSide: const BorderSide(color: AppColors.borderSubtle, width: 0.5),
                   ),
                 ),
-                onChanged: (v) => setState(() => _query = v),
+                textInputAction: TextInputAction.search,
+                onChanged: _onChanged,
+                onSubmitted: (v) {
+                  _debounce?.cancel();
+                  final term = v.trim();
+                  if (term.isNotEmpty) _performSearch(term);
+                },
               ),
             ),
             // ── 结果区域 ──
-            Expanded(
-              child: _query.isEmpty
-                  ? const Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.search_rounded, size: 48, color: AppColors.textTertiary),
-                          SizedBox(height: 12),
-                          Text('输入关键词搜索', style: TextStyle(color: AppColors.textTertiary, fontSize: 14)),
-                        ],
-                      ),
-                    )
-                  : Center(
-                      child: Text(
-                        '搜索 "$_query"…',
-                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
-                      ),
-                    ),
+            Expanded(child: _buildResultArea()),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 加载中 / 失败 / 无结果 / 有结果 四态
+  Widget _buildResultArea() {
+    if (_searching) {
+      return const Center(
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: AppColors.celestialCyan,
+          ),
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return _buildMessage(Icons.error_outline, _error!);
+    }
+
+    if (_query.trim().isEmpty) {
+      return _buildMessage(Icons.search_rounded, '输入关键词搜索');
+    }
+
+    if (_results.isEmpty) {
+      return _buildMessage(Icons.search_off_rounded, '没有找到「$_query」相关内容');
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+      itemCount: _results.length,
+      separatorBuilder: (_, __) =>
+          const Divider(height: 1, color: AppColors.borderSubtle),
+      itemBuilder: (context, index) {
+        final hint = _results[index];
+        return _SearchResultTile(
+          hint: hint,
+          serverUrl: _serverUrl ?? '',
+          token: _token ?? '',
+          onTap: () => _openResult(hint),
+        );
+      },
+    );
+  }
+
+  Widget _buildMessage(IconData icon, String text) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 40, color: AppColors.textTertiary),
+            const SizedBox(height: 12),
+            Text(
+              text,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.textTertiary, fontSize: 14),
             ),
           ],
         ),
       ),
     );
   }
+}
+
+/// 单条搜索结果
+class _SearchResultTile extends StatelessWidget {
+  final SearchHint hint;
+  final String serverUrl;
+  final String token;
+  final VoidCallback onTap;
+
+  const _SearchResultTile({
+    required this.hint,
+    required this.serverUrl,
+    required this.token,
+    required this.onTap,
+  });
+
+  String get _typeLabel => switch (hint.type) {
+        'Movie' => '电影',
+        'Series' => '剧集',
+        'Episode' => '单集',
+        'Audio' => '音乐',
+        'MusicAlbum' => '专辑',
+        'Person' => '人物',
+        _ => hint.type,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage =
+        hint.primaryImageTag != null && hint.primaryImageTag!.isNotEmpty;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        child: Row(
+          children: [
+            // 缩略图
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: SizedBox(
+                width: 40,
+                height: 56,
+                child: hasImage
+                    ? Image.network(
+                        '${ApiClient.proxyBaseUrl}/api/images/${hint.id}/Primary?maxWidth=80',
+                        fit: BoxFit.cover,
+                        headers: {
+                          'Accept': 'image/*',
+                          'X-Emby-Server': serverUrl,
+                          'X-Emby-Token': token,
+                        },
+                        errorBuilder: (_, __, ___) => _thumbPlaceholder(),
+                      )
+                    : _thumbPlaceholder(),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // 标题与元信息
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    hint.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    [
+                      _typeLabel,
+                      if (hint.productionYear > 0) '${hint.productionYear}',
+                      if (hint.communityRating > 0)
+                        '★ ${hint.communityRating.toStringAsFixed(1)}',
+                    ].join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textTertiary,
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded,
+                color: AppColors.textTertiary, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _thumbPlaceholder() => Container(
+        color: AppColors.stardust,
+        alignment: Alignment.center,
+        child: const Icon(Icons.movie_rounded,
+            size: 18, color: AppColors.textTertiary),
+      );
 }
 
 // ══════════════════════════════════════════════════

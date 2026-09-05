@@ -44,7 +44,20 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
     final serverName = authState.authResult?.server.serverName ?? '';
     final isCompact = MediaQuery.sizeOf(context).width < 720;
 
-    void openSearch() => SearchOverlay.show(context);
+    // SearchOverlay 关闭后才能弹搜索对话框：它的 _close() 会先播放
+    // 反向动画、之后才 pop，而 pop 移除的是栈顶路由，
+    // 同步弹对话框会被那次延迟的 pop 直接关掉
+    Future<void> openSearch() async {
+      String? submitted;
+      await SearchOverlay.show(
+        context,
+        onSubmitted: (query) => submitted = query,
+      );
+      final query = submitted;
+      if (query != null && context.mounted) {
+        await showSearchDialog(context, initialQuery: query);
+      }
+    }
 
     Widget buildKeyboardShortcuts(Widget child) {
       return KeyboardListener(
