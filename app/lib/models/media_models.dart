@@ -117,6 +117,16 @@ class MediaItem {
     return '';
   }
 
+  /// 卡片与列表用的展示标题。
+  ///
+  /// 单集的 [name] 常常只是「第 3 集」这类，脱离剧集名无法辨认，
+  /// 而首页继续观看、媒体库、搜索结果都会直接列出单集，故统一带上剧集名与集号。
+  String get displayTitle {
+    if (!isEpisode || seriesName.isEmpty) return name;
+    final label = episodeLabel;
+    return label.isEmpty ? seriesName : '$seriesName - $label';
+  }
+
   String get durationFormatted {
     if (runTimeTicks == 0) return '';
     final totalSeconds = (runTimeTicks / 10000000).round();

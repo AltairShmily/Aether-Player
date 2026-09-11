@@ -245,10 +245,9 @@ class _TvSearchOverlayState extends ConsumerState<TvSearchOverlay> {
   }
 
   Widget _buildResultCard(SearchHint item) {
-    final serverUrl = ApiClient.proxyBaseUrl;
     // 远端地址未就绪时不构造 URL，回退到占位
     final imageUrl = (item.hasImage && _embyServerUrl.isNotEmpty)
-        ? '$serverUrl/api/images/${item.id}/Primary?maxWidth=300'
+        ? ApiClient.imageProxyUrl(item.id, maxWidth: 300)
         : null;
 
     return Focus(

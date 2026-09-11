@@ -5,13 +5,10 @@ import '../theme/app_breakpoints.dart';
 import '../models/media_models.dart';
 import '../providers/home_provider.dart';
 import '../providers/auth_provider.dart';
-import '../services/api_client.dart';
+import '../utils/media_navigation.dart';
 import '../widgets/aether_page_route.dart';
 import '../widgets/media_card.dart';
 import '../widgets/skeleton_loader.dart';
-import 'series_detail_screen.dart';
-import 'episode_detail_screen.dart';
-import 'media_detail_screen.dart';
 
 /// Phone 媒体库页面 — 匹配设计稿
 ///
@@ -529,10 +526,7 @@ class _LibraryContentPageState extends ConsumerState<_LibraryContentPage> {
         final progress = item.userData?.progressPercent ?? 0;
         return MediaCard(
           item: item,
-          onTap: () => _openItem(item),
-          imageUrlBuilder: (id, {type = 'Primary', maxWidth}) =>
-              '${ApiClient.proxyBaseUrl}/api/images/$id/$type'
-              '${maxWidth != null ? '?maxWidth=$maxWidth' : ''}',
+          onTap: () => openMediaItem(context, item),
           imageHeaders: {
             'X-Emby-Server': _embyServerUrl ?? '',
             'X-Emby-Token':
@@ -600,20 +594,6 @@ class _LibraryContentPageState extends ConsumerState<_LibraryContentPage> {
           ],
         ),
       ),
-    );
-  }
-
-  void _openItem(MediaItem item) {
-    final Widget dest;
-    if (item.isSeries) {
-      dest = SeriesDetailScreen(series: item);
-    } else if (item.isEpisode) {
-      dest = EpisodeDetailScreen(item: item);
-    } else {
-      dest = MediaDetailScreen(item: item);
-    }
-    Navigator.of(context).push(
-      AetherPageRoute(page: dest, type: AetherTransitionType.slideFromRight),
     );
   }
 }

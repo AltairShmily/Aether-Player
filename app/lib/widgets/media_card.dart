@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/media_models.dart';
+import '../services/api_client.dart';
 import '../theme/app_colors.dart';
 import 'aether_progress.dart';
 import 'rating_badge.dart';
@@ -11,15 +12,18 @@ import 'rating_badge.dart';
 /// glow shadow. A play-button overlay fades in over the poster.
 /// On mobile: tap works as usual with no hover decoration.
 ///
-/// **调用契约**：[imageHeaders] 必须在首次渲染时就已就绪。
-/// `NetworkImage` 的相等性只比较 url 与 scale、**不含 headers**，
-/// 因此若首帧用空头发起请求（会被本地代理拒绝为 502），
-/// 事后补上 headers 也不会触发重新解析，图片将永久停留在失败态。
-/// 需要异步读取服务器地址的页面，应在地址就绪前不渲染本组件。
+/// **图片请求头**：[imageHeaders] 需包含 `X-Emby-Server` 与 `X-Emby-Token`，
+/// 本地代理据此转发到上游 Emby。地址未就绪时组件会自行退化为占位图，
+/// 不会发出必然被拒绝(502)的请求 —— 因为 `NetworkImage` 的相等性
+/// 只比较 url 与 scale、不含 headers，一旦首帧失败，事后补头也不会重新解析。
+/// 调用方仍应尽早传入 headers，否则会先看到一轮占位图再刷成海报。
 /// ---------------------------------------------------------------------------
 class MediaCard extends StatefulWidget {
   final MediaItem item;
   final VoidCallback onTap;
+
+  /// 图片地址构造器，默认走本地代理（[ApiClient.imageProxyUrl]）。
+  /// 只有需要直连上游 Emby 等特殊场景才需覆盖。
   final String Function(String, {String type, int? maxWidth}) imageUrlBuilder;
 
   /// 本地代理转发所需的头（X-Emby-Server / X-Emby-Token）。
@@ -38,7 +42,7 @@ class MediaCard extends StatefulWidget {
     super.key,
     required this.item,
     required this.onTap,
-    required this.imageUrlBuilder,
+    this.imageUrlBuilder = ApiClient.imageProxyUrl,
     this.imageHeaders = const {},
     this.progress,
     this.posterAspectRatio,
@@ -132,7 +136,7 @@ class _MediaCardState extends State<MediaCard>
                     child: SizedBox(
                       width: double.infinity,
                       child: Text(
-                        item.name,
+                        item.displayTitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -225,6 +229,12 @@ class _PosterSection extends StatelessWidget {
     this.aspectRatio,
   });
 
+  /// 代理转发所需的服务器地址是否就绪。
+  ///
+  /// 未就绪时不能发请求：会被代理拒绝(502)，而 `NetworkImage` 的相等性
+  /// 只比较 url 与 scale、不含 headers，首帧失败后即使补上头也不会重新解析。
+  bool get _serverReady => (headers['X-Emby-Server'] ?? '').isNotEmpty;
+
   @override
   Widget build(BuildContext context) {
     final poster = ClipRRect(
@@ -240,7 +250,7 @@ class _PosterSection extends StatelessWidget {
           Container(
             width: double.infinity,
             color: AppColors.stardust,
-            child: item.hasPrimaryImage
+            child: item.hasPrimaryImage && _serverReady
                 ? Image.network(
                     imageUrl,
                     fit: BoxFit.cover,
@@ -300,7 +310,7 @@ class _PosterSection extends StatelessWidget {
             right: 14,
             bottom: 14,
             child: Text(
-              item.name,
+              item.displayTitle,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -383,18 +393,19 @@ class _PosterSection extends StatelessWidget {
 class SearchHintCard extends StatelessWidget {
   final SearchHint hint;
   final VoidCallback onTap;
+
+  /// 图片地址构造器，默认走本地代理（[ApiClient.imageProxyUrl]）
   final String Function(String, {String type, int? maxWidth}) imageUrlBuilder;
 
   /// 本地代理转发所需的头（X-Emby-Server / X-Emby-Token）。
-  /// 缺失时图片请求会被代理拒绝（502）；且须在首次渲染时就绪，
-  /// 因 `NetworkImage` 的相等性不含 headers，事后补头不会触发重新解析。
+  /// 缺失时图片请求会被代理拒绝（502），缩略图无法显示。
   final Map<String, String> imageHeaders;
 
   const SearchHintCard({
     super.key,
     required this.hint,
     required this.onTap,
-    required this.imageUrlBuilder,
+    this.imageUrlBuilder = ApiClient.imageProxyUrl,
     this.imageHeaders = const {},
   });
 
@@ -402,6 +413,9 @@ class SearchHintCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final imageUrl = imageUrlBuilder(hint.id, type: 'Primary', maxWidth: 200);
+    // 与 MediaCard 同理：地址未就绪时请求必然被代理拒绝(502)，
+    // 而 NetworkImage 的相等性不含 headers，首帧失败后补头也不会重新解析
+    final serverReady = (imageHeaders['X-Emby-Server'] ?? '').isNotEmpty;
 
     return ListTile(
       leading: ClipRRect(
@@ -409,7 +423,7 @@ class SearchHintCard extends StatelessWidget {
         child: SizedBox(
           width: 48,
           height: 48,
-          child: hint.hasImage
+          child: hint.hasImage && serverReady
               ? Image.network(
                   imageUrl,
                   fit: BoxFit.cover,

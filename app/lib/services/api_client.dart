@@ -216,16 +216,16 @@ class ApiClient {
     }
   }
 
-  /// Build image URL for the given item.
-  /// Uses the Go backend proxy at the same base URL as the API client.
-  String getImageUrl({
-    required String serverUrl,
-    required String token,
-    required String itemId,
-    String imageType = 'Primary',
+  /// 海报 / 背景图地址：一律走本地 Go 代理，由代理带 token 转发到上游 Emby。
+  ///
+  /// 签名与 `MediaCard.imageUrlBuilder` 一致，可直接作为 tear-off 传入。
+  /// 此前各页手写同一段拼接（近 20 处），代理路径一改就得逐个同步。
+  static String imageProxyUrl(
+    String itemId, {
+    String type = 'Primary',
     int? maxWidth,
   }) {
-    var url = '$proxyBaseUrl/api/images/$itemId/$imageType';
+    var url = '$proxyBaseUrl/api/images/$itemId/$type';
     if (maxWidth != null) url += '?maxWidth=$maxWidth';
     return url;
   }

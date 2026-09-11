@@ -9,17 +9,13 @@ import '../services/api_client.dart';
 import '../models/media_models.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_breakpoints.dart';
+import '../utils/media_navigation.dart';
 import '../widgets/aether_card.dart';
 import '../widgets/aether_button.dart';
 import '../widgets/aether_hero.dart';
 import '../widgets/media_card.dart';
-import '../widgets/aether_progress.dart';
-import '../widgets/aether_badge.dart';
 import '../widgets/scroll_arrows.dart';
 import '../widgets/aether_page_route.dart';
-import 'series_detail_screen.dart';
-import 'episode_detail_screen.dart';
-import 'media_detail_screen.dart';
 import 'server_selection_screen.dart';
 
 class HomeTab extends ConsumerStatefulWidget {
@@ -190,8 +186,11 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                         onPageChanged: (index) => setState(() => _currentPage = index),
                         itemBuilder: (context, index) {
                           final item = homeState.resumeItems[index];
-                          final imageUrl =
-                              '${ApiClient.proxyBaseUrl}/api/images/${item.id}/Backdrop?maxWidth=800';
+                          final imageUrl = ApiClient.imageProxyUrl(
+                            item.id,
+                            type: 'Backdrop',
+                            maxWidth: 800,
+                          );
                           return Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 6),
                             child: AetherHero.carousel(
@@ -210,9 +209,9 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                                 label: '继续播放',
                                 icon: Icons.play_arrow_rounded,
                                 compact: true,
-                                onPressed: () => _navigateToItem(context, item),
+                                onPressed: () => openMediaItem(context, item),
                               ),
-                              onTap: () => _navigateToItem(context, item),
+                              onTap: () => openMediaItem(context, item),
                             ),
                           );
                         },
@@ -391,20 +390,6 @@ class _HomeTabState extends ConsumerState<HomeTab> {
     );
   }
 
-  void _navigateToItem(BuildContext context, MediaItem item) {
-    Widget destination;
-    if (item.isSeries) {
-      destination = SeriesDetailScreen(series: item);
-    } else if (item.isEpisode) {
-      destination = EpisodeDetailScreen(item: item);
-    } else {
-      destination = MediaDetailScreen(item: item);
-    }
-    Navigator.of(context).push(
-      AetherPageRoute(page: destination, type: AetherTransitionType.slideFromRight),
-    );
-  }
-
   void _switchAccount(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
@@ -534,158 +519,26 @@ class _SectionRowState extends State<_SectionRow> {
                   SizedBox(width: AetherBreakpoints.cardSpacing(context)),
               itemBuilder: (context, index) {
                 final item = widget.items[index];
-                return _HomeItemCard(
-                  item: item,
-                  serverUrl: widget.serverUrl,
-                  token: widget.token,
-                  height: cardH,
+                final progress = item.userData?.progressPercent ?? 0;
+                // 横向行内宽度不受限、高度由外层 SizedBox 固定，
+                // 故自己给定宽度，海报填满标题行之外的剩余空间
+                return SizedBox(
+                  width: 152,
+                  child: MediaCard(
+                    item: item,
+                    onTap: () => openMediaItem(context, item),
+                    imageHeaders: {
+                      'X-Emby-Server': widget.serverUrl ?? '',
+                      'X-Emby-Token': widget.token ?? '',
+                    },
+                    progress: progress > 0 ? progress : null,
+                  ),
                 );
               },
             ),
           ),
         ),
       ],
-    );
-  }
-}
-
-// ══════════════════════════════════════════════════
-//  _HomeItemCard — 星辉卡片
-// ══════════════════════════════════════════════════
-class _HomeItemCard extends StatelessWidget {
-  final MediaItem item;
-  final String? serverUrl;
-  final String? token;
-  final double height;
-
-  const _HomeItemCard({
-    required this.item,
-    this.serverUrl,
-    this.token,
-    this.height = 220,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final imageUrl =
-        '${ApiClient.proxyBaseUrl}/api/images/${item.id}/Primary?maxWidth=300';
-    return SizedBox(
-      width: 152,
-      child: AetherCard.simple(
-        onTap: () {
-          Widget dest;
-          if (item.isSeries) {
-            dest = SeriesDetailScreen(series: item);
-          } else if (item.isEpisode) {
-            dest = EpisodeDetailScreen(item: item);
-          } else {
-            dest = MediaDetailScreen(item: item);
-          }
-          Navigator.of(context).push(AetherPageRoute(page: dest, type: AetherTransitionType.slideFromRight));
-        },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 海报区
-            Expanded(
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(12),
-                ),
-                child: AspectRatio(
-                  aspectRatio: 2 / 3,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Container(
-                        color: AppColors.stardust,
-                        child: item.hasPrimaryImage
-                            ? Image.network(
-                                imageUrl,
-                                fit: BoxFit.cover,
-                                headers: {
-                                  'Accept': 'image/*',
-                                  'X-Emby-Server': serverUrl ?? '',
-                                  'X-Emby-Token': token ?? '',
-                                },
-                                errorBuilder: (_, __, ___) => _placeholder(),
-                              )
-                            : _placeholder(),
-                      ),
-                      // 进度条
-                      if (item.userData != null &&
-                          item.userData!.progressPercent > 0)
-                        Positioned(
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                          child: AetherProgress.mini(
-                            value: item.userData!.progressPercent,
-                          ),
-                        ),
-                      // 评分角标
-                      if (item.communityRating > 0)
-                        Positioned(
-                          top: 8,
-                          right: 8,
-                          child: AetherBadge.rating(score: item.communityRating),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // 信息区
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.isEpisode
-                        ? '${item.seriesName} - ${item.episodeLabel}'
-                        : item.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      if (item.productionYear > 0)
-                        Text(
-                          '${item.productionYear}',
-                          style: const TextStyle(
-                            color: AppColors.textTertiary,
-                            fontSize: 11,
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _placeholder() {
-    return Center(
-      child: Icon(
-        item.isMovie
-            ? Icons.movie_outlined
-            : item.isSeries
-                ? Icons.tv_outlined
-                : Icons.play_circle_outline,
-        size: 32,
-        color: AppColors.cosmicGray,
-      ),
     );
   }
 }
@@ -981,14 +834,7 @@ class _SearchDialogState extends ConsumerState<_SearchDialog> {
     final navigator = Navigator.of(context);
     navigator.pop();
 
-    final Widget dest;
-    if (item.isSeries) {
-      dest = SeriesDetailScreen(series: item);
-    } else if (item.isEpisode) {
-      dest = EpisodeDetailScreen(item: item);
-    } else {
-      dest = MediaDetailScreen(item: item);
-    }
+    final Widget dest = detailPageFor(item);
     navigator.push(
       AetherPageRoute(page: dest, type: AetherTransitionType.slideFromRight),
     );
@@ -1094,9 +940,6 @@ class _SearchDialogState extends ConsumerState<_SearchDialog> {
         return SearchHintCard(
           hint: hint,
           onTap: () => _openResult(hint),
-          imageUrlBuilder: (id, {type = 'Primary', maxWidth}) =>
-              '${ApiClient.proxyBaseUrl}/api/images/$id/$type'
-              '${maxWidth != null ? '?maxWidth=$maxWidth' : ''}',
           imageHeaders: {
             'X-Emby-Server': _serverUrl ?? '',
             'X-Emby-Token': _token ?? '',

@@ -23,11 +23,8 @@ import '../providers/home_provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_client.dart';
 import '../models/media_models.dart';
-import 'series_detail_screen.dart';
-import 'episode_detail_screen.dart';
-import 'media_detail_screen.dart';
+import '../utils/media_navigation.dart';
 import 'tv_search_overlay.dart';
-import '../widgets/aether_page_route.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  TV 主界面
@@ -45,14 +42,11 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
   Timer? _clockTimer;
   String _clockText = '';
 
-  /// 图片请求走本地 Go 代理，远端 Emby 地址由 X-Emby-Server 头传递
-  static const String _serverUrl = ApiClient.proxyBaseUrl;
-
   /// 远端 Emby 服务器真实地址，**仅用于请求头**。
   ///
-  /// 必须与 [_serverUrl] 分开：前者拼图片 URL（本地代理），
-  /// 后者供代理转发（远端 Emby）。混用同一字段正是此前 TV 首页
-  /// 图片地址被覆盖而出错的根因。
+  /// 图片 URL 一律走本地代理（见 ApiClient.imageProxyUrl），本字段供代理
+  /// 转发到上游 Emby。把两者混用同一字段，正是此前 TV 首页图片地址
+  /// 被覆盖而出错的根因。
   String _embyServerUrl = '';
 
   /// 图片请求所需的代理转发头
@@ -163,17 +157,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
   }
 
   // ── 导航到媒体详情 ──
-  void _navigateToItem(MediaItem item) {
-    Widget destination;
-    if (item.isSeries) {
-      destination = SeriesDetailScreen(series: item);
-    } else if (item.isEpisode) {
-      destination = EpisodeDetailScreen(item: item);
-    } else {
-      destination = MediaDetailScreen(item: item);
-    }
-    Navigator.of(context).push(AetherPageRoute(page: destination, type: AetherTransitionType.slideFromRight));
-  }
+  void _navigateToItem(MediaItem item) => openMediaItem(context, item);
 
   @override
   Widget build(BuildContext context) {
@@ -251,7 +235,6 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
                 items: homeState.resumeItems,
                 focusNodes: _cardFocusNodes,
                 onItemTap: _navigateToItem,
-                serverUrl: _serverUrl,
                 imageHeaders: _imageHeaders,
               ),
             ),
@@ -274,7 +257,6 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
               child: _TvMediaRow(
                 items: _getAnimeItems(homeState),
                 onItemTap: _navigateToItem,
-                serverUrl: _serverUrl,
                 imageHeaders: _imageHeaders,
               ),
             ),
@@ -307,7 +289,6 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
               child: _TvMediaRow(
                 items: items,
                 onItemTap: _navigateToItem,
-                serverUrl: _serverUrl,
                 imageHeaders: _imageHeaders,
               ),
             )
@@ -345,7 +326,6 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
               child: _TvMediaRow(
                 items: animeItems,
                 onItemTap: _navigateToItem,
-                serverUrl: _serverUrl,
                 imageHeaders: _imageHeaders,
               ),
             )
@@ -733,7 +713,11 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
     // 而 NetworkImage 不会因 headers 变化重新解析，图片将永久停在失败态
     final imageUrl =
         (featuredItem != null && _embyServerUrl.isNotEmpty)
-        ? '$_serverUrl/api/images/${featuredItem.id}/Backdrop?maxWidth=800'
+        ? ApiClient.imageProxyUrl(
+            featuredItem.id,
+            type: 'Backdrop',
+            maxWidth: 800,
+          )
         : null;
 
     return Padding(
@@ -1027,7 +1011,6 @@ class _TvMediaRow extends StatelessWidget {
   final List<MediaItem> items;
   final List<FocusNode>? focusNodes;
   final Function(MediaItem) onItemTap;
-  final String serverUrl;
 
   /// 代理转发所需的头（X-Emby-Server / X-Emby-Token）；缺失则海报 502
   final Map<String, String> imageHeaders;
@@ -1036,7 +1019,6 @@ class _TvMediaRow extends StatelessWidget {
     required this.items,
     this.focusNodes,
     required this.onItemTap,
-    this.serverUrl = ApiClient.proxyBaseUrl,
     this.imageHeaders = const {},
   });
 
@@ -1060,7 +1042,6 @@ class _TvMediaRow extends StatelessWidget {
             focusNode: focusNode,
             isFirst: index == 0,
             onTap: () => onItemTap(item),
-            serverUrl: serverUrl,
             imageHeaders: imageHeaders,
           );
         },
@@ -1078,7 +1059,6 @@ class _TvMediaCard extends StatelessWidget {
   final FocusNode? focusNode;
   final bool isFirst;
   final VoidCallback onTap;
-  final String serverUrl;
 
   /// 代理转发所需的头；缺失则海报请求被代理拒绝(502)
   final Map<String, String> imageHeaders;
@@ -1088,7 +1068,6 @@ class _TvMediaCard extends StatelessWidget {
     this.focusNode,
     this.isFirst = false,
     required this.onTap,
-    this.serverUrl = ApiClient.proxyBaseUrl,
     this.imageHeaders = const {},
   });
 
@@ -1098,7 +1077,7 @@ class _TvMediaCard extends StatelessWidget {
     // 带空头请求失败后 NetworkImage 不会因 headers 变化而重新解析
     final hasServer = (imageHeaders['X-Emby-Server'] ?? '').isNotEmpty;
     final imageUrl = hasServer
-        ? '$serverUrl/api/images/${item.id}/Primary?maxWidth=300'
+        ? ApiClient.imageProxyUrl(item.id, maxWidth: 300)
         : null;
 
     return SizedBox(
