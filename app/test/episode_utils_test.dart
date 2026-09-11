@@ -17,6 +17,31 @@ MediaItem _ep({
   );
 }
 
+/// 构造带播放进度的合并集，用于 pickResumeEpisode 测试
+MergedEpisode _merged(
+  String id, {
+  int indexNumber = 0,
+  int positionTicks = 0,
+  bool played = false,
+}) {
+  final item = MediaItem(
+    id: id,
+    name: id,
+    type: 'Episode',
+    indexNumber: indexNumber,
+    parentIndexNumber: 1,
+    userData: UserData(
+      playbackPositionTicks: positionTicks,
+      played: played,
+      playedPercentage: positionTicks > 0 ? 50 : 0,
+    ),
+  );
+  return MergedEpisode(
+    primary: item,
+    versions: [EpisodeVersion(id: id, name: id)],
+  );
+}
+
 void main() {
   group('mergeEpisodes', () {
     test('空列表返回空结果', () {
@@ -125,6 +150,86 @@ void main() {
 
       expect(result, hasLength(2));
       expect(result.map((m) => m.primary.id), ['e1', 'neg']);
+    });
+  });
+
+  group('pickResumeEpisode', () {
+    test('空列表返回 null', () {
+      expect(pickResumeEpisode([]), isNull);
+    });
+
+    test('全部无进度时取第一集，且标记为无进度', () {
+      final target = pickResumeEpisode([
+        _merged('e1', indexNumber: 1),
+        _merged('e2', indexNumber: 2),
+      ]);
+
+      expect(target, isNotNull);
+      expect(target!.episode.primary.id, 'e1');
+      expect(target.hasProgress, isFalse);
+    });
+
+    test('有未看完的进度时取该集', () {
+      final target = pickResumeEpisode([
+        _merged('e1', indexNumber: 1),
+        _merged('e2', indexNumber: 2, positionTicks: 12345),
+        _merged('e3', indexNumber: 3),
+      ]);
+
+      expect(target!.episode.primary.id, 'e2');
+      expect(target.hasProgress, isTrue);
+    });
+
+    // 关键分支：取「最后」一集而非第一集，用户可能跳着看
+    test('多集都有进度时取最后一集', () {
+      final target = pickResumeEpisode([
+        _merged('e1', indexNumber: 1, positionTicks: 100),
+        _merged('e2', indexNumber: 2, positionTicks: 200),
+        _merged('e3', indexNumber: 3, positionTicks: 300),
+      ]);
+
+      expect(target!.episode.primary.id, 'e3');
+      expect(target.hasProgress, isTrue);
+    });
+
+    // 关键分支：已看完的集即使留有进度也不应被当作「接着看」目标
+    test('有进度但已看完的集被跳过', () {
+      final target = pickResumeEpisode([
+        _merged('e1', indexNumber: 1, positionTicks: 999, played: true),
+        _merged('e2', indexNumber: 2),
+        _merged('e3', indexNumber: 3),
+      ]);
+
+      expect(target!.episode.primary.id, 'e2');
+      expect(target.hasProgress, isFalse);
+    });
+
+    test('全部看完时回到第一集', () {
+      final target = pickResumeEpisode([
+        _merged('e1', indexNumber: 1, played: true),
+        _merged('e2', indexNumber: 2, played: true),
+      ]);
+
+      expect(target!.episode.primary.id, 'e1');
+      expect(target.hasProgress, isFalse);
+    });
+
+    test('进度为 0 不算在看，即便未标记已看完', () {
+      final target = pickResumeEpisode([
+        _merged('e1', indexNumber: 1, positionTicks: 0),
+        _merged('e2', indexNumber: 2, positionTicks: 500),
+      ]);
+
+      expect(target!.episode.primary.id, 'e2');
+      expect(target.hasProgress, isTrue);
+    });
+
+    test('目标集带有 SxxExx 标签供按钮文案使用', () {
+      final target = pickResumeEpisode([
+        _merged('e3', indexNumber: 3, positionTicks: 500),
+      ]);
+
+      expect(target!.episode.primary.episodeLabel, 'S01E03');
     });
   });
 }

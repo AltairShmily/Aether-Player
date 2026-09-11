@@ -368,6 +368,13 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
 
   // ── Title section ─────────────────────────────────────────────
 
+  /// 主播放按钮的目标集 —— 按进度选集，规则见 [pickResumeEpisode]
+  ResumeTarget? get _resumeTarget => pickResumeEpisode(_episodes);
+
+  /// 目标集的 SxxExx 标签；缺失时为空串，按钮文案会退化为不带集号
+  String get _resumeLabel =>
+      _resumeTarget?.episode.primary.episodeLabel ?? '';
+
   Widget _buildTitleSection(MediaItem series) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
@@ -487,19 +494,19 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
             ),
           const SizedBox(height: 20),
 
-          // Play button
-          PillButton(
-            icon: Icons.play_arrow_rounded,
-            label: '播放',
-            backgroundColor: AppColors.playMint,
-            showMenuIcon: false,
-            onPressed: () {
-              // TODO: Start playing first unwatched episode or first episode
-              if (_episodes.isNotEmpty) {
-                _onEpisodeTap(_episodes.first.primary);
-              }
-            },
-          ),
+          // Play button —— 按进度选集，而非固定播第一集
+          if (_resumeTarget != null)
+            PillButton(
+              icon: Icons.play_arrow_rounded,
+              label: _resumeTarget!.hasProgress
+                  ? (_resumeLabel.isNotEmpty
+                      ? '继续播放 $_resumeLabel'
+                      : '继续播放')
+                  : (_resumeLabel.isNotEmpty ? '播放 $_resumeLabel' : '播放'),
+              backgroundColor: AppColors.playMint,
+              showMenuIcon: false,
+              onPressed: () => _onEpisodeTap(_resumeTarget!.episode.primary),
+            ),
         ],
       ),
     );

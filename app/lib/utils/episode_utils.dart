@@ -34,6 +34,58 @@ List<MergedEpisode> mergeEpisodes(List<MediaItem> raw) {
   ];
 }
 
+/// 「接着看」的选集结果
+class ResumeTarget {
+  /// 应当播放的那一集
+  final MergedEpisode episode;
+
+  /// 该集是否带有未看完的播放进度，决定按钮文案是「继续播放」还是「播放」
+  final bool hasProgress;
+
+  const ResumeTarget({required this.episode, required this.hasProgress});
+}
+
+/// 选出主播放按钮应当播放的那一集。
+///
+/// 此前按钮固定播 `_episodes.first`，完全不看进度，用户每次进详情页
+/// 都要自己翻到上次看到的那一集。
+///
+/// 优先级：
+/// 1. 有播放进度且未看完的**最后**一集 —— 用户最可能想接着看的
+/// 2. 第一个未看完的集
+/// 3. 第一集（全部看完时从头开始）
+///
+/// 抽为纯函数而非写在 widget 内，因为进度选集的分支容易出错，需要单测覆盖。
+///
+/// 注：设计规格原文第 2 条为「若无则 played == true 数量最少的下一集」，
+/// 措辞含糊，此处按「第一个未看完的集」实现。
+///
+/// [episodes] 为空时返回 null。
+ResumeTarget? pickResumeEpisode(List<MergedEpisode> episodes) {
+  if (episodes.isEmpty) return null;
+
+  MergedEpisode? lastInProgress;
+  for (final ep in episodes) {
+    final userData = ep.primary.userData;
+    if (userData != null &&
+        userData.playbackPositionTicks > 0 &&
+        !userData.played) {
+      lastInProgress = ep; // 不 break：要的是最后一集
+    }
+  }
+  if (lastInProgress != null) {
+    return ResumeTarget(episode: lastInProgress, hasProgress: true);
+  }
+
+  for (final ep in episodes) {
+    if (ep.primary.userData?.played != true) {
+      return ResumeTarget(episode: ep, hasProgress: false);
+    }
+  }
+
+  return ResumeTarget(episode: episodes.first, hasProgress: false);
+}
+
 /// 将同一集的多个版本合并为一条记录。
 MergedEpisode _mergeVersions(List<MediaItem> items) {
   // Pick the primary version: prefer the one with an image, then the first
