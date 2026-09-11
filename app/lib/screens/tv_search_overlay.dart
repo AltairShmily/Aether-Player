@@ -48,6 +48,10 @@ class _TvSearchOverlayState extends ConsumerState<TvSearchOverlay> {
   bool _isSearching = false;
   Timer? _debounce;
 
+  /// 结果海报经本地代理加载所需的远端地址与令牌
+  String _embyServerUrl = '';
+  String _token = '';
+
   @override
   void initState() {
     super.initState();
@@ -86,6 +90,10 @@ class _TvSearchOverlayState extends ConsumerState<TvSearchOverlay> {
     final userId = authResult?.user.id;
     final serverUrl = await ref.read(storageServiceProvider).getServerUrl();
     if (token == null || serverUrl == null || userId == null) return;
+
+    // 结果海报经本地代理加载，需要这两个值构造转发头
+    _embyServerUrl = serverUrl;
+    _token = token;
 
     try {
       final api = ref.read(apiClientProvider);
@@ -238,7 +246,8 @@ class _TvSearchOverlayState extends ConsumerState<TvSearchOverlay> {
 
   Widget _buildResultCard(SearchHint item) {
     final serverUrl = ApiClient.proxyBaseUrl;
-    final imageUrl = item.hasImage
+    // 远端地址未就绪时不构造 URL，回退到占位
+    final imageUrl = (item.hasImage && _embyServerUrl.isNotEmpty)
         ? '$serverUrl/api/images/${item.id}/Primary?maxWidth=300'
         : null;
 
@@ -281,6 +290,11 @@ class _TvSearchOverlayState extends ConsumerState<TvSearchOverlay> {
                         Image.network(
                           imageUrl,
                           fit: BoxFit.cover,
+                          headers: {
+                            'Accept': 'image/*',
+                            'X-Emby-Server': _embyServerUrl,
+                            'X-Emby-Token': _token,
+                          },
                           errorBuilder: (_, __, ___) => _placeholder(),
                         )
                       else
