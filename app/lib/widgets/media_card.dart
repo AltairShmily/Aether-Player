@@ -29,6 +29,11 @@ class MediaCard extends StatefulWidget {
   /// 播放进度（0–1），非空时在海报底部显示进度条，用于「继续观看」卡片
   final double? progress;
 
+  /// 海报宽高比。默认 null = 填满父级给定的空间，
+  /// 比例由调用方控制（网格用 childAspectRatio，或外层 SizedBox）。
+  /// 横向滚动行等宽度受限、高度自由的场景可显式传 2/3。
+  final double? posterAspectRatio;
+
   const MediaCard({
     super.key,
     required this.item,
@@ -36,6 +41,7 @@ class MediaCard extends StatefulWidget {
     required this.imageUrlBuilder,
     this.imageHeaders = const {},
     this.progress,
+    this.posterAspectRatio,
   });
 
   @override
@@ -115,6 +121,7 @@ class _MediaCardState extends State<MediaCard>
                       isHovered: _isHovered,
                       headers: widget.imageHeaders,
                       progress: widget.progress,
+                      aspectRatio: widget.posterAspectRatio,
                     ),
                   ),
 
@@ -153,8 +160,11 @@ class _MediaCardState extends State<MediaCard>
                           ),
                         if (item.communityRating > 0) ...[
                           if (item.productionYear > 0) const SizedBox(width: 8),
-                          const Icon(Icons.star_rounded,
-                              size: 13, color: AppColors.supernova),
+                          const Icon(
+                            Icons.star_rounded,
+                            size: 13,
+                            color: AppColors.supernova,
+                          ),
                           const SizedBox(width: 2),
                           Text(
                             item.communityRating.toStringAsFixed(1),
@@ -202,141 +212,151 @@ class _PosterSection extends StatelessWidget {
   /// 播放进度（0–1），非空时在海报底部显示进度条
   final double? progress;
 
+  /// 海报宽高比。为 null 时填满父级给定的空间，
+  /// 由调用方（网格的 childAspectRatio 或外层 SizedBox）控制比例。
+  final double? aspectRatio;
+
   const _PosterSection({
     required this.imageUrl,
     required this.item,
     required this.isHovered,
     this.headers = const {},
     this.progress,
+    this.aspectRatio,
   });
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
+    final poster = ClipRRect(
       borderRadius: const BorderRadius.vertical(
         top: Radius.circular(AppColors.radiusMd),
       ),
-      child: AspectRatio(
-        aspectRatio: 2 / 3,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // ── Poster image / placeholder ──
-            Container(
-              width: double.infinity,
-              color: AppColors.stardust,
-              child: item.hasPrimaryImage
-                  ? Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      // X-Emby-Server / X-Emby-Token 由调用方注入，
-                      // 缺失时本地代理无法定位上游而返回 502
-                      headers: {'Accept': 'image/*', ...headers},
-                      errorBuilder: (_, __, ___) => _buildPlaceholder(),
-                      // 参数名避开字段 progress：此处是图片下载事件，非播放进度
-                      loadingBuilder: (_, child, chunk) {
-                        if (chunk == null) return child;
-                        return Center(
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            value: chunk.expectedTotalBytes != null
-                                ? chunk.cumulativeBytesLoaded /
+      // 不在此处强制 AspectRatio：它位于 Expanded 内部时会依据紧高度约束
+      // 反推宽度，超出单元格可用宽度即溢出。比例交由调用方决定。
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // ── Poster image / placeholder ──
+          Container(
+            width: double.infinity,
+            color: AppColors.stardust,
+            child: item.hasPrimaryImage
+                ? Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    // X-Emby-Server / X-Emby-Token 由调用方注入，
+                    // 缺失时本地代理无法定位上游而返回 502
+                    headers: {'Accept': 'image/*', ...headers},
+                    errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                    // 参数名避开字段 progress：此处是图片下载事件，非播放进度
+                    loadingBuilder: (_, child, chunk) {
+                      if (chunk == null) return child;
+                      return Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          value: chunk.expectedTotalBytes != null
+                              ? chunk.cumulativeBytesLoaded /
                                     chunk.expectedTotalBytes!
-                                : null,
-                            color: AppColors.celestialCyan,
-                          ),
-                        );
-                      },
-                    )
-                  : _buildPlaceholder(),
-            ),
+                              : null,
+                          color: AppColors.celestialCyan,
+                        ),
+                      );
+                    },
+                  )
+                : _buildPlaceholder(),
+          ),
 
-            // ── Bottom gradient for text readability ──
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [Color(0xCC0A0E14), Colors.transparent],
-                  stops: [0.0, 0.6],
-                ),
+          // ── Bottom gradient for text readability ──
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [Color(0xCC0A0E14), Colors.transparent],
+                stops: [0.0, 0.6],
               ),
             ),
+          ),
 
-            // ── 右上角评分角标（仅有评分时出现）──
+          // ── 右上角评分角标（仅有评分时出现）──
+          Positioned(
+            top: 8,
+            right: 8,
+            child: RatingBadge(rating: item.communityRating),
+          ),
+
+          // ── 底部播放进度条（仅「继续观看」等有进度时出现）──
+          if (progress != null && progress! > 0)
             Positioned(
-              top: 8,
-              right: 8,
-              child: RatingBadge(rating: item.communityRating),
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: AetherProgress.mini(value: progress!.clamp(0.0, 1.0)),
             ),
 
-            // ── 底部播放进度条（仅「继续观看」等有进度时出现）──
-            if (progress != null && progress! > 0)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: AetherProgress.mini(value: progress!.clamp(0.0, 1.0)),
-              ),
-
-            // ── Poster inner title (bottom overlay) ──
-            Positioned(
-              left: 14,
-              right: 14,
-              bottom: 14,
-              child: Text(
-                item.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xE6F0F4F8), // rgba(240,244,248,0.9)
-                  fontSize: 9.8,
-                  fontWeight: FontWeight.w600,
-                  height: 1.3,
-                ),
+          // ── Poster inner title (bottom overlay) ──
+          Positioned(
+            left: 14,
+            right: 14,
+            bottom: 14,
+            child: Text(
+              item.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xE6F0F4F8), // rgba(240,244,248,0.9)
+                fontSize: 9.8,
+                fontWeight: FontWeight.w600,
+                height: 1.3,
               ),
             ),
+          ),
 
-            // ── Play button overlay (fades in on hover) ──
-            AnimatedOpacity(
-              opacity: isHovered ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOutCubic,
-              child: Container(
-                color: AppColors.deepVoid.withValues(alpha: 0.35),
-                child: Center(
-                  child: AnimatedScale(
-                    scale: isHovered ? 1.0 : 0.8,
-                    duration: const Duration(milliseconds: 350),
-                    curve: Curves.elasticOut,
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: AppColors.celestialCyan.withValues(alpha: 0.9),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.celestialCyan.withValues(alpha: 0.3),
-                            blurRadius: 20,
-                            spreadRadius: 0,
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.play_arrow_rounded,
-                        size: 20,
-                        color: AppColors.deepVoid,
-                      ),
+          // ── Play button overlay (fades in on hover) ──
+          AnimatedOpacity(
+            opacity: isHovered ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            child: Container(
+              color: AppColors.deepVoid.withValues(alpha: 0.35),
+              child: Center(
+                child: AnimatedScale(
+                  scale: isHovered ? 1.0 : 0.8,
+                  duration: const Duration(milliseconds: 350),
+                  curve: Curves.elasticOut,
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppColors.celestialCyan.withValues(alpha: 0.9),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.celestialCyan.withValues(alpha: 0.3),
+                          blurRadius: 20,
+                          spreadRadius: 0,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.play_arrow_rounded,
+                      size: 20,
+                      color: AppColors.deepVoid,
                     ),
                   ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
+
+    // 仅在显式要求时才自行约束比例（横向滚动行等宽度受限、高度自由的场景）；
+    // 网格单元格已由 childAspectRatio 决定比例，此时应填满
+    return aspectRatio == null
+        ? poster
+        : AspectRatio(aspectRatio: aspectRatio!, child: poster);
   }
 
   Widget _buildPlaceholder() {
@@ -345,10 +365,10 @@ class _PosterSection extends StatelessWidget {
         item.type == 'Movie'
             ? Icons.movie_outlined
             : item.type == 'Series'
-                ? Icons.tv_outlined
-                : item.type == 'Audio'
-                    ? Icons.music_note_outlined
-                    : Icons.video_file_outlined,
+            ? Icons.tv_outlined
+            : item.type == 'Audio'
+            ? Icons.music_note_outlined
+            : Icons.video_file_outlined,
         size: 40,
         color: AppColors.textTertiary,
       ),
@@ -399,11 +419,7 @@ class SearchHintCard extends StatelessWidget {
               : _buildSmallPlaceholder(theme),
         ),
       ),
-      title: Text(
-        hint.name,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
+      title: Text(hint.name, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
         [
           _typeLabel(hint.type),

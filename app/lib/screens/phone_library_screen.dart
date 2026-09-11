@@ -7,6 +7,8 @@ import '../providers/home_provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_client.dart';
 import '../widgets/aether_page_route.dart';
+import '../widgets/media_card.dart';
+import '../widgets/skeleton_loader.dart';
 import 'series_detail_screen.dart';
 import 'episode_detail_screen.dart';
 import 'media_detail_screen.dart';
@@ -38,7 +40,8 @@ class _PhoneLibraryScreenState extends ConsumerState<PhoneLibraryScreen> {
   @override
   void didUpdateWidget(covariant PhoneLibraryScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.selectedLibId != widget.selectedLibId && widget.selectedLibId != null) {
+    if (oldWidget.selectedLibId != widget.selectedLibId &&
+        widget.selectedLibId != null) {
       ref.read(homeProvider.notifier).loadAll();
     }
   }
@@ -97,13 +100,10 @@ class _PhoneLibraryScreenState extends ConsumerState<PhoneLibraryScreen> {
               crossAxisSpacing: 14,
               childAspectRatio: 16 / 10,
             ),
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final lib = homeState.libraries[index];
-                return _buildLibCard(lib);
-              },
-              childCount: homeState.libraries.length,
-            ),
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final lib = homeState.libraries[index];
+              return _buildLibCard(lib);
+            }, childCount: homeState.libraries.length),
           ),
         ),
       ],
@@ -153,10 +153,7 @@ class _PhoneLibraryScreenState extends ConsumerState<PhoneLibraryScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              AppColors.nebulaDark,
-              AppColors.stardust,
-            ],
+            colors: [AppColors.nebulaDark, AppColors.stardust],
           ),
         ),
         child: Stack(
@@ -213,16 +210,23 @@ class _PhoneLibraryScreenState extends ConsumerState<PhoneLibraryScreen> {
     );
   }
 
-  Widget _buildLibraryContent(HomeState homeState, String selectedId, double pad) {
+  Widget _buildLibraryContent(
+    HomeState homeState,
+    String selectedId,
+    double pad,
+  ) {
     final items = homeState.libraryItems[selectedId] ?? [];
     final lib = homeState.libraries.firstWhere(
       (l) => l.id == selectedId,
-      orElse: () => MediaFolder(
-        id: '',
-        name: '',
-        collectionType: '',
-      ),
+      orElse: () => MediaFolder(id: '', name: '', collectionType: ''),
     );
+
+    // MediaCard 的调用契约要求图片请求头首帧就绪：_serverUrl 是异步读取的，
+    // 未就绪时渲染会让请求带空的 X-Emby-Server 而被代理拒绝(502)，
+    // 且 NetworkImage 不会因 headers 变化重新解析，图片将永久停在失败态
+    if (_serverUrl == null) {
+      return _buildPosterSkeletonGrid(pad);
+    }
 
     return CustomScrollView(
       slivers: [
@@ -232,8 +236,8 @@ class _PhoneLibraryScreenState extends ConsumerState<PhoneLibraryScreen> {
             padding: EdgeInsets.fromLTRB(pad, 12, pad, 8),
             child: Row(
               children: [
-                  GestureDetector(
-                    onTap: () => Navigator.of(context).pop(),
+                GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
                   child: Container(
                     width: 36,
                     height: 36,
@@ -271,15 +275,16 @@ class _PhoneLibraryScreenState extends ConsumerState<PhoneLibraryScreen> {
               maxCrossAxisExtent: 150,
               mainAxisSpacing: 12,
               crossAxisSpacing: 10,
-              childAspectRatio: 2 / 3,
+              // MediaCard = 海报 + 标题行 + meta 行，比只有海报的内联卡
+              // 多出约 44px 文字区。按「海报保持 2:3」反推：
+              // 块宽 w 时总高 = 1.5w + 44，比例 = w/(1.5w+44)，
+              // 在 100–150px 块宽区间约 0.52–0.56，取 0.55 折中
+              childAspectRatio: 0.55,
             ),
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final item = items[index];
-                return _buildMediaCard(item);
-              },
-              childCount: items.length,
-            ),
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final item = items[index];
+              return _buildMediaCard(item);
+            }, childCount: items.length),
           ),
         ),
       ],
@@ -287,126 +292,51 @@ class _PhoneLibraryScreenState extends ConsumerState<PhoneLibraryScreen> {
   }
 
   Widget _buildMediaCard(MediaItem item) {
-    // /api/images 是本地 Go 代理的路由，须走 proxyBaseUrl；
-    // 远端 Emby 地址通过 X-Emby-Server 头交给代理转发
-    final imageUrl =
-        '${ApiClient.proxyBaseUrl}/api/images/${item.id}/Primary?maxWidth=300';
-
-    return GestureDetector(
-      onTap: () {
-        Widget dest;
-        if (item.isSeries) {
-          dest = SeriesDetailScreen(series: item);
-        } else if (item.isEpisode) {
-          dest = EpisodeDetailScreen(item: item);
-        } else {
-          dest = MediaDetailScreen(item: item);
-        }
-        Navigator.of(context).push(
-          AetherPageRoute(page: dest, type: AetherTransitionType.slideFromRight),
-        );
+    final progress = item.userData?.progressPercent ?? 0;
+    return MediaCard(
+      item: item,
+      onTap: () => _openItem(item),
+      // /api/images 是本地 Go 代理的路由，须走 proxyBaseUrl；
+      // 远端 Emby 地址通过 X-Emby-Server 头交给代理转发
+      imageUrlBuilder: (id, {type = 'Primary', maxWidth}) =>
+          '${ApiClient.proxyBaseUrl}/api/images/$id/$type'
+          '${maxWidth != null ? '?maxWidth=$maxWidth' : ''}',
+      imageHeaders: {
+        'X-Emby-Server': _serverUrl ?? '',
+        'X-Emby-Token': _token ?? '',
       },
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 海报
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(AppColors.radiusSm),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Container(
-                    color: AppColors.stardust,
-                    child: item.hasPrimaryImage
-                        ? Image.network(
-                            imageUrl,
-                            fit: BoxFit.cover,
-                            headers: {
-                              'Accept': 'image/*',
-                              'X-Emby-Server': _serverUrl ?? '',
-                              'X-Emby-Token': _token ?? '',
-                            },
-                            errorBuilder: (_, __, ___) => _placeholder(item),
-                          )
-                        : _placeholder(item),
-                  ),
-                  // 底部渐变
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    height: 40,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            AppColors.deepVoid.withValues(alpha: 0.7),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  // 标题
-                  Positioned(
-                    bottom: 6,
-                    left: 8,
-                    right: 8,
-                    child: Text(
-                      item.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  // 评分
-                  if (item.communityRating > 0)
-                    Positioned(
-                      top: 4,
-                      right: 4,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.celestialCyan.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          item.communityRating.toStringAsFixed(1),
-                          style: const TextStyle(
-                            color: AppColors.celestialCyan,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+      progress: progress > 0 ? progress : null,
     );
   }
 
-  Widget _placeholder(MediaItem item) {
-    return Center(
-      child: Icon(
-        item.isMovie
-            ? Icons.movie_outlined
-            : item.isSeries
-                ? Icons.tv_outlined
-                : Icons.play_circle_outline,
-        size: 28,
-        color: AppColors.cosmicGray,
+  void _openItem(MediaItem item) {
+    final Widget dest;
+    if (item.isSeries) {
+      dest = SeriesDetailScreen(series: item);
+    } else if (item.isEpisode) {
+      dest = EpisodeDetailScreen(item: item);
+    } else {
+      dest = MediaDetailScreen(item: item);
+    }
+    Navigator.of(context).push(
+      AetherPageRoute(page: dest, type: AetherTransitionType.slideFromRight),
+    );
+  }
+
+  /// 海报网格骨架，复用共享的 [AetherSkeleton]。
+  /// delegate 与真实网格保持一致，避免就绪切换时布局跳动。
+  Widget _buildPosterSkeletonGrid(double pad) {
+    return GridView.builder(
+      padding: EdgeInsets.fromLTRB(pad, 60, pad, 24),
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 150,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 10,
+        childAspectRatio: 0.55,
       ),
+      itemCount: 12,
+      itemBuilder: (_, __) => const AetherSkeleton.card(),
     );
   }
 }
@@ -475,94 +405,25 @@ class _LibraryContentPage extends StatelessWidget {
                   maxCrossAxisExtent: 150,
                   mainAxisSpacing: 12,
                   crossAxisSpacing: 10,
-                  childAspectRatio: 2 / 3,
+                  // MediaCard 在海报下方还有标题行与 meta 行（约 44px），
+                  // 沿用 2/3 会把海报挤压得偏离 2:3
+                  childAspectRatio: 0.55,
                 ),
                 itemCount: items.length,
                 itemBuilder: (context, index) {
                   final item = items[index];
-                  final imageUrl = serverUrl != null
-                      ? '${ApiClient.proxyBaseUrl}/api/images/${item.id}/Primary?maxWidth=300'
-                      : null;
-
-                  return GestureDetector(
-                    onTap: () {
-                      Widget dest;
-                      if (item.isSeries) {
-                        dest = SeriesDetailScreen(series: item);
-                      } else if (item.isEpisode) {
-                        dest = EpisodeDetailScreen(item: item);
-                      } else {
-                        dest = MediaDetailScreen(item: item);
-                      }
-                      Navigator.of(context).push(
-                        AetherPageRoute(page: dest, type: AetherTransitionType.slideFromRight),
-                      );
+                  final progress = item.userData?.progressPercent ?? 0;
+                  return MediaCard(
+                    item: item,
+                    onTap: () => _openItem(context, item),
+                    imageUrlBuilder: (id, {type = 'Primary', maxWidth}) =>
+                        '${ApiClient.proxyBaseUrl}/api/images/$id/$type'
+                        '${maxWidth != null ? '?maxWidth=$maxWidth' : ''}',
+                    imageHeaders: {
+                      'X-Emby-Server': serverUrl ?? '',
+                      'X-Emby-Token': token ?? '',
                     },
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(AppColors.radiusSm),
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                Container(
-                                  color: AppColors.stardust,
-                                  child: imageUrl != null
-                                      ? Image.network(
-                                          imageUrl,
-                                          fit: BoxFit.cover,
-                                          headers: {
-                                            'Accept': 'image/*',
-                                            'X-Emby-Server': serverUrl ?? '',
-                                            'X-Emby-Token': token ?? '',
-                                          },
-                                          errorBuilder: (_, __, ___) => _placeholder(item),
-                                        )
-                                      : _placeholder(item),
-                                ),
-                                // 底部渐变
-                                Positioned(
-                                  bottom: 0,
-                                  left: 0,
-                                  right: 0,
-                                  height: 40,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.topCenter,
-                                        end: Alignment.bottomCenter,
-                                        colors: [
-                                          Colors.transparent,
-                                          AppColors.deepVoid.withValues(alpha: 0.7),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                // 标题
-                                Positioned(
-                                  bottom: 6,
-                                  left: 8,
-                                  right: 8,
-                                  child: Text(
-                                    item.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: AppColors.textPrimary,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    progress: progress > 0 ? progress : null,
                   );
                 },
               ),
@@ -573,17 +434,17 @@ class _LibraryContentPage extends StatelessWidget {
     );
   }
 
-  Widget _placeholder(MediaItem item) {
-    return Center(
-      child: Icon(
-        item.isMovie
-            ? Icons.movie_outlined
-            : item.isSeries
-                ? Icons.tv_outlined
-                : Icons.play_circle_outline,
-        size: 28,
-        color: AppColors.cosmicGray,
-      ),
+  void _openItem(BuildContext context, MediaItem item) {
+    final Widget dest;
+    if (item.isSeries) {
+      dest = SeriesDetailScreen(series: item);
+    } else if (item.isEpisode) {
+      dest = EpisodeDetailScreen(item: item);
+    } else {
+      dest = MediaDetailScreen(item: item);
+    }
+    Navigator.of(context).push(
+      AetherPageRoute(page: dest, type: AetherTransitionType.slideFromRight),
     );
   }
 }
@@ -612,12 +473,14 @@ class _HoverableLibCardState extends State<_HoverableLibCard>
       vsync: this,
       duration: const Duration(milliseconds: 200),
     );
-    _scaleAnim = Tween<double>(begin: 1.0, end: 1.02).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeOut),
-    );
-    _translateAnim = Tween<double>(begin: 0.0, end: -4.0).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeOut),
-    );
+    _scaleAnim = Tween<double>(
+      begin: 1.0,
+      end: 1.02,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+    _translateAnim = Tween<double>(
+      begin: 0.0,
+      end: -4.0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
   }
 
   @override
@@ -639,10 +502,7 @@ class _HoverableLibCardState extends State<_HoverableLibCard>
           builder: (context, child) {
             return Transform.translate(
               offset: Offset(0, _translateAnim.value),
-              child: Transform.scale(
-                scale: _scaleAnim.value,
-                child: child,
-              ),
+              child: Transform.scale(scale: _scaleAnim.value, child: child),
             );
           },
           child: widget.child,
