@@ -7,6 +7,7 @@ import '../widgets/diamond_badge.dart';
 import '../widgets/pill_button.dart';
 import '../widgets/aether_chip.dart';
 import '../widgets/episode_card.dart';
+import '../widgets/skeleton_loader.dart';
 import '../models/media_models.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_client.dart';
@@ -375,6 +376,18 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
   String get _resumeLabel =>
       _resumeTarget?.episode.primary.episodeLabel ?? '';
 
+  /// 「继续观看」条的内容：有未看完进度的集，最多 3 集。
+  ///
+  /// 判定条件与 [pickResumeEpisode] 一致（有播放位置且未标记看完），
+  /// 避免主按钮指向的集不出现在继续观看条里。
+  List<MergedEpisode> get _continueWatching => _episodes
+      .where((m) {
+        final ud = m.primary.userData;
+        return ud != null && ud.playbackPositionTicks > 0 && !ud.played;
+      })
+      .take(3)
+      .toList();
+
   Widget _buildTitleSection(MediaItem series) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
@@ -634,16 +647,75 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
 
   // ── Episode list ──────────────────────────────────────────────
 
+  /// 剧集加载骨架：3 行 Tile（缩略图 130×73 + 两条灰条）。
+  ///
+  /// 复用共享的 [AetherSkeleton]，不再各页自绘加载态。
+  Widget _buildEpisodeSkeleton() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+      child: Column(
+        children: List.generate(3, (_) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: Row(
+              children: [
+                const AetherSkeleton(width: 130, height: 73, borderRadius: 8),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      AetherSkeleton.text(width: 160),
+                      SizedBox(height: 8),
+                      AetherSkeleton.text(width: 100),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  /// 空季提示。原先直接返回 SizedBox.shrink()，
+  /// 用户无法区分「本季确实没有剧集」与「请求失败或还没请求」。
+  Widget _buildEmptyEpisodes() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+      child: Center(
+        child: Column(
+          children: [
+            const Icon(Icons.video_library_outlined,
+                size: 40, color: AppColors.textTertiary),
+            const SizedBox(height: 12),
+            const Text(
+              '本季还没有剧集',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            TextButton.icon(
+              onPressed: _loadSeasons,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('刷新'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.celestialCyan,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildEpisodeList(MediaItem series, String? token) {
     if (_loadingEpisodes && _episodes.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 32),
-        child: Center(
-          child: CircularProgressIndicator(color: AppColors.playMint),
-        ),
-      );
+      return _buildEpisodeSkeleton();
     }
-    if (_episodes.isEmpty) return const SizedBox.shrink();
+    if (_episodes.isEmpty) {
+      return _buildEmptyEpisodes();
+    }
 
     // Determine the selected season name for header
     final selectedSeason = _seasons
@@ -687,18 +759,39 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Horizontal scroll preview (first 10 episodes)
-          if (_episodes.length > 1)
+          // ── 继续观看条 ──
+          // 原先这里横向展示前 10 集，与下方纵向全量列表完全重复，
+          // 白占首屏约 140px。改为只展示有未看完进度的集（≤3），
+          // 无进度时整条不渲染，把首屏让给纵向列表。
+          if (_continueWatching.isNotEmpty) ...[
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                children: [
+                  Icon(Icons.play_circle_outline_rounded,
+                      size: 18, color: AppColors.playMint),
+                  SizedBox(width: 8),
+                  Text(
+                    '继续观看',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
             SizedBox(
               height: 140,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 24),
-                itemCount: _episodes.length.clamp(0, 10),
+                itemCount: _continueWatching.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 12),
                 itemBuilder: (context, index) {
-                  final merged = _episodes[index];
-                  final ep = merged.primary;
+                  final ep = _continueWatching[index].primary;
                   return EpisodeCard(
                     imageUrl: ep.hasPrimaryImage
                         ? '$_serverUrl/api/images/${ep.id}/Primary?maxWidth=200'
@@ -709,11 +802,16 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                     subtitle: ep.name,
                     progress: ep.userData?.progressPercent,
                     token: token,
+                    // 必须传：EpisodeCard 用它填 X-Emby-Server 头，
+                    // 缺失时代理无法定位上游而返回 502，缩略图全部加载失败
+                    serverUrl: _embyServerUrl,
                     onTap: () => _onEpisodeTap(ep),
                   );
                 },
               ),
             ),
+            const SizedBox(height: 20),
+          ],
 
           // Full episode list
           const SizedBox(height: 16),
@@ -724,6 +822,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
               token: token,
               embyServerUrl: _embyServerUrl,
               versions: merged.hasMultipleVersions ? merged.versions : null,
+              // 与主播放按钮的目标集比对，保证高亮与按钮指向一致
+              isResumeTarget:
+                  _resumeTarget?.episode.primary.id == merged.primary.id,
               onTap: () => _onEpisodeTap(merged.primary),
             ),
           ),
@@ -800,6 +901,10 @@ class _EpisodeTile extends StatefulWidget {
   final List<EpisodeVersion>? versions;
   final VoidCallback? onTap;
 
+  /// 是否为「接着看」目标集 —— 主播放按钮会播这一集，
+  /// 用青色左边线高亮，让用户一眼看出按钮指向哪里
+  final bool isResumeTarget;
+
   const _EpisodeTile({
     required this.episode,
     required this.serverUrl,
@@ -807,6 +912,7 @@ class _EpisodeTile extends StatefulWidget {
     required this.embyServerUrl,
     this.versions,
     this.onTap,
+    this.isResumeTarget = false,
   });
 
   @override
@@ -836,8 +942,16 @@ class _EpisodeTileState extends State<_EpisodeTile> {
           margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 1),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: _isHovered ? AppColors.surfaceHover : Colors.transparent,
+            color: widget.isResumeTarget
+                ? AppColors.accentSoft
+                : (_isHovered ? AppColors.surfaceHover : Colors.transparent),
             borderRadius: BorderRadius.circular(AppColors.radiusMd),
+            // 青色左边线标示主播放按钮指向的那一集
+            border: widget.isResumeTarget
+                ? const Border(
+                    left: BorderSide(color: AppColors.celestialCyan, width: 2),
+                  )
+                : null,
           ),
           child: Row(
             children: [
