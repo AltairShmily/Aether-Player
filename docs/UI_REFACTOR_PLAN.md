@@ -372,7 +372,7 @@ class RatingBadge extends StatelessWidget {
 
 ## 十二、执行状态（截至 2026-09-11）
 
-### 12.1 已提交（`dev` 分支，领先 `origin/dev` 14 个提交，**尚未推送**）
+### 12.1 已提交（`dev` 分支，**尚未推送**；准确列表以 `git log origin/dev..HEAD` 为准）
 
 | 提交 | 对应阶段 |
 |:--|:--|
