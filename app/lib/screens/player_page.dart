@@ -8,6 +8,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../theme/app_colors.dart';
+import '../utils/subtitle_utils.dart';
 import '../providers/auth_provider.dart';
 import '../providers/player_provider.dart';
 import '../providers/settings_provider.dart';
@@ -1067,10 +1068,90 @@ class _PlayerControlsOverlay extends StatelessWidget {
           ],
         ),
 
-        // ── 右侧：音量 + 倍速 + 设置 ──
+        // ── 右侧：字幕 + 音量 + 倍速 + 设置 ──
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // ── 字幕一级入口 + 当前语言角标 ──
+            // 此前字幕只藏在设置弹窗里，底栏看不出当前是否开了中字
+            PopupMenuButton<int>(
+              tooltip: '字幕',
+              initialValue: state.currentSubtitleTrack,
+              onSelected: onSubtitleTrackSelected,
+              color: AppColors.stardust,
+              enabled: state.subtitleTracks.isNotEmpty,
+              position: PopupMenuPosition.over,
+              itemBuilder: (ctx) => [
+                PopupMenuItem<int>(
+                  value: -1,
+                  child: Text(
+                    '关闭字幕',
+                    style: TextStyle(
+                      color: state.currentSubtitleTrack < 0
+                          ? AppColors.celestialCyan
+                          : AppColors.textPrimary,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                for (final track in state.subtitleTracks)
+                  PopupMenuItem<int>(
+                    value: track.index,
+                    child: Text(
+                      // player_engine 的 TrackInfo 无 displayTitle，
+                      // 依次退回 title → language → 序号
+                      track.title.isNotEmpty
+                          ? track.title
+                          : (track.language.isNotEmpty
+                              ? track.language
+                              : '字幕 ${track.index + 1}'),
+                      style: TextStyle(
+                        color: track.index == state.currentSubtitleTrack
+                            ? AppColors.celestialCyan
+                            : AppColors.textPrimary,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+              ],
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 44),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                alignment: Alignment.center,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      state.currentSubtitleTrack >= 0
+                          ? Icons.subtitles_rounded
+                          : Icons.subtitles_off_rounded,
+                      color: state.currentSubtitleTrack >= 0
+                          ? AppColors.celestialCyan
+                          : AppColors.textSecondary,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 4),
+                    // 语言角标：不打开菜单也能看出当前是中字还是英文
+                    Text(
+                      subtitleShortLabel(
+                        state.subtitleTracks,
+                        state.currentSubtitleTrack,
+                      ),
+                      style: TextStyle(
+                        color: state.currentSubtitleTrack >= 0
+                            ? AppColors.celestialCyan
+                            : AppColors.textTertiary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(width: 4),
+
             // 音量图标 + 滑块（合并）
             IconButton(
               icon: Icon(
@@ -1080,8 +1161,11 @@ class _PlayerControlsOverlay extends StatelessWidget {
               ),
               onPressed: onMuteToggle,
             ),
+            // 音量滑条宽度随屏幕自适应：固定 70px 在平板/电视上难以拖动。
+            // 取屏宽 20%、上限 120，下限 56 保证窄屏仍可拖动
             SizedBox(
-              width: 70,
+              width: (MediaQuery.sizeOf(context).width * 0.2)
+                  .clamp(56.0, 120.0),
               child: SliderTheme(
                 data: SliderThemeData(
                   activeTrackColor: AppColors.celestialCyan,
@@ -1100,35 +1184,78 @@ class _PlayerControlsOverlay extends StatelessWidget {
 
             const SizedBox(width: 8),
 
-            // 倍速标签
-            GestureDetector(
-              onTap: () {
-                final speeds = state.speedOptions;
-                final currentIndex = speeds.indexOf(state.playbackSpeed);
-                final nextIndex = (currentIndex + 1) % speeds.length;
-                onSpeedChanged(speeds[nextIndex]);
-              },
+            // 倍速：直选菜单，当前值常显
+            // 原实现是点击循环切下一档，想选 1.5x 得反复点到轮到它，
+            // 且看不到有哪些档位可选
+            PopupMenuButton<double>(
+              tooltip: '倍速',
+              initialValue: state.playbackSpeed,
+              onSelected: onSpeedChanged,
+              color: AppColors.stardust,
+              position: PopupMenuPosition.over,
+              itemBuilder: (ctx) => [
+                for (final speed in state.speedOptions)
+                  PopupMenuItem<double>(
+                    value: speed,
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 18,
+                          child: speed == state.playbackSpeed
+                              ? const Icon(Icons.check_rounded,
+                                  size: 15, color: AppColors.celestialCyan)
+                              : null,
+                        ),
+                        Text(
+                          '${speed}x',
+                          style: TextStyle(
+                            color: speed == state.playbackSpeed
+                                ? AppColors.celestialCyan
+                                : AppColors.textPrimary,
+                            fontSize: 13,
+                            fontFamily: 'DM Mono',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.stardust,
-                  borderRadius: BorderRadius.circular(6),
-                  border:
-                      Border.all(color: AppColors.borderSubtle, width: 0.5),
-                ),
-                child: Text(
-                  '${state.playbackSpeed}x',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                    fontFamily: 'DM Mono',
+                constraints: const BoxConstraints(minHeight: 44),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                alignment: Alignment.center,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.stardust,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                        color: AppColors.borderSubtle, width: 0.5),
+                  ),
+                  child: Text(
+                    '${state.playbackSpeed}x',
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                      fontFamily: 'DM Mono',
+                    ),
                   ),
                 ),
               ),
             ),
 
             const SizedBox(width: 4),
+
+            // ── 画质一级入口 ──
+            // 此前只能经右侧设置弹窗进入，路径过深
+            if (onQualityPressed != null)
+              IconButton(
+                tooltip: '画质',
+                icon: const Icon(Icons.high_quality_rounded,
+                    color: AppColors.textSecondary, size: 22),
+                onPressed: onQualityPressed,
+              ),
 
             // 统一设置菜单按钮
             IconButton(
