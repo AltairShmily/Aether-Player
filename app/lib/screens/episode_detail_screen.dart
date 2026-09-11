@@ -154,7 +154,6 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final token = ref.read(authProvider).authResult?.token;
-    const serverUrl = ApiClient.proxyBaseUrl;
 
     // 与剧集详情页同理：X-Emby-Server 头就绪前不渲染图片，
     // 否则请求被代理拒绝后 NetworkImage 不会因 headers 变化而重新解析
@@ -180,9 +179,9 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
         builder: (context, constraints) {
           final isDesktop = AetherBreakpoints.isDesktop(context);
           if (isDesktop) {
-            return _buildDesktopLayout(serverUrl, token);
+            return _buildDesktopLayout(token);
           }
-          return _buildMobileLayout(serverUrl, token);
+          return _buildMobileLayout(token);
         },
       ),
     );
@@ -192,7 +191,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
   //  Desktop dual-column layout
   // ══════════════════════════════════════════════════════════════════════
 
-  Widget _buildDesktopLayout(String serverUrl, String? token) {
+  Widget _buildDesktopLayout(String? token) {
     final padding = AetherBreakpoints.pagePadding(context);
 
     return Row(
@@ -227,7 +226,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
                 ),
               ),
               SliverToBoxAdapter(
-                child: _buildDesktopContent(serverUrl, token, padding),
+                child: _buildDesktopContent(token, padding),
               ),
             ],
           ),
@@ -247,15 +246,14 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
     );
   }
 
-  Widget _buildDesktopContent(
-      String serverUrl, String? token, double padding) {
+  Widget _buildDesktopContent(String? token, double padding) {
     return Padding(
       padding: EdgeInsets.fromLTRB(padding, 0, padding, 48),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 16:9 cover image
-          _buildCoverImage(serverUrl, token),
+          _buildCoverImage(token),
           const SizedBox(height: 20),
 
           // Breadcrumb
@@ -291,16 +289,16 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
   //  Mobile / tablet single-column layout
   // ══════════════════════════════════════════════════════════════════════
 
-  Widget _buildMobileLayout(String serverUrl, String? token) {
+  Widget _buildMobileLayout(String? token) {
     return CustomScrollView(
       slivers: [
-        _buildHeroAppBar(serverUrl, token),
-        SliverToBoxAdapter(child: _buildMobileContent(serverUrl, token)),
+        _buildHeroAppBar(token),
+        SliverToBoxAdapter(child: _buildMobileContent(token)),
       ],
     );
   }
 
-  Widget _buildMobileContent(String serverUrl, String? token) {
+  Widget _buildMobileContent(String? token) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 48),
       child: Column(
@@ -332,7 +330,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
 
   // ── Hero App Bar (mobile only) ────────────────────────────────────────
 
-  Widget _buildHeroAppBar(String serverUrl, String? token) {
+  Widget _buildHeroAppBar(String? token) {
     return SliverAppBar(
       expandedHeight: 320,
       pinned: true,
@@ -350,8 +348,8 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
             if (_item.hasBackdrop || _item.hasPrimaryImage)
               Image.network(
                 _item.hasBackdrop
-                    ? '$serverUrl/api/images/${_item.id}/Backdrop?maxWidth=800'
-                    : '$serverUrl/api/images/${_item.id}/Primary?maxWidth=600',
+                    ? ApiClient.imageProxyUrl(_item.id, type: 'Backdrop', maxWidth: 800)
+                    : ApiClient.imageProxyUrl(_item.id, maxWidth: 600),
                 fit: BoxFit.cover,
                 headers: {
                   'Accept': 'image/*',
@@ -398,7 +396,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
 
   // ── Cover Image (desktop) ────────────────────────────────────────────
 
-  Widget _buildCoverImage(String serverUrl, String? token) {
+  Widget _buildCoverImage(String? token) {
     return AspectRatio(
       aspectRatio: 16 / 9,
       child: ClipRRect(
@@ -412,8 +410,8 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
               if (_item.hasBackdrop || _item.hasPrimaryImage)
                 Image.network(
                   _item.hasBackdrop
-                      ? '$serverUrl/api/images/${_item.id}/Backdrop?maxWidth=960'
-                      : '$serverUrl/api/images/${_item.id}/Primary?maxWidth=600',
+                      ? ApiClient.imageProxyUrl(_item.id, type: 'Backdrop', maxWidth: 960)
+                      : ApiClient.imageProxyUrl(_item.id, maxWidth: 600),
                   fit: BoxFit.cover,
                   headers: {
                     'Accept': 'image/*',
@@ -630,7 +628,6 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
   Widget _buildSeriesCard() {
     if (_item.seriesName.isEmpty) return const SizedBox.shrink();
 
-    const serverUrl = ApiClient.proxyBaseUrl;
     final token = ref.read(authProvider).authResult?.token;
 
     return Container(
@@ -649,7 +646,7 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
               height: 64,
               child: _item.hasPrimaryImage
                   ? Image.network(
-                      '$serverUrl/api/images/${_item.id}/Primary?maxWidth=128',
+                      ApiClient.imageProxyUrl(_item.id, maxWidth: 128),
                       fit: BoxFit.cover,
                       headers: {
                         'Accept': 'image/*',
@@ -804,7 +801,6 @@ class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
                 final person = _allPeople[index];
                 return _CastCard(
                   person: person,
-                  serverUrl: ApiClient.proxyBaseUrl,
                   token:
                       ref.read(authProvider).authResult?.token,
                   embyServerUrl: _embyServerUrl,
@@ -1198,21 +1194,21 @@ class _HoverPlayButtonState extends State<_HoverPlayButton> {
 /// Cast / crew avatar card for horizontal scrolling list
 class _CastCard extends StatelessWidget {
   final Person person;
-  final String serverUrl;
   final String? token;
   final String embyServerUrl;
 
   const _CastCard({
     required this.person,
-    required this.serverUrl,
     this.token,
     required this.embyServerUrl,
   });
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = person.hasImage
-        ? '$serverUrl/api/images/${person.id}/Primary?maxWidth=120'
+    // Person.id 可空：为空时不能出图，否则地址里会拼出 "null" 而必然 404
+    final personId = person.id;
+    final imageUrl = (personId != null && person.hasImage)
+        ? ApiClient.imageProxyUrl(personId, maxWidth: 120)
         : null;
 
     return SizedBox(

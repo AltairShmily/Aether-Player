@@ -26,7 +26,6 @@ class _MediaDetailScreenState extends ConsumerState<MediaDetailScreen> {
   bool _loadingSeasons = false;
   bool _loadingEpisodes = false;
 
-  static final _proxyUrl = ApiClient.proxyBaseUrl;
   String? _serverUrl;
 
   @override
@@ -147,14 +146,14 @@ class _MediaDetailScreenState extends ConsumerState<MediaDetailScreen> {
                 children: [
                   if (item.hasBackdrop)
                     Image.network(
-                      '$_proxyUrl/api/images/${item.id}/Backdrop?maxWidth=800',
+                      ApiClient.imageProxyUrl(item.id, type: 'Backdrop', maxWidth: 800),
                       fit: BoxFit.cover,
                       headers: {'Accept': 'image/*', 'X-Emby-Server': serverUrl, 'X-Emby-Token': token ?? ''},
                       errorBuilder: (_, __, ___) => _buildHeaderFallback(theme),
                     )
                   else if (item.hasPrimaryImage)
                     Image.network(
-                      '$_proxyUrl/api/images/${item.id}/Primary?maxWidth=600',
+                      ApiClient.imageProxyUrl(item.id, maxWidth: 600),
                       fit: BoxFit.cover,
                       headers: {'Accept': 'image/*', 'X-Emby-Server': serverUrl, 'X-Emby-Token': token ?? ''},
                       errorBuilder: (_, __, ___) => _buildHeaderFallback(theme),
@@ -320,7 +319,6 @@ class _MediaDetailScreenState extends ConsumerState<MediaDetailScreen> {
                       else
                         ..._episodes.map((merged) => _EpisodeTile(
                               merged: merged,
-                              proxyUrl: _proxyUrl,
                               serverUrl: serverUrl,
                               token: token,
                             )),
@@ -475,13 +473,11 @@ class _MediaDetailScreenState extends ConsumerState<MediaDetailScreen> {
 
 class _EpisodeTile extends StatefulWidget {
   final MergedEpisode merged;
-  final String proxyUrl;
   final String serverUrl;
   final String? token;
 
   const _EpisodeTile({
     required this.merged,
-    required this.proxyUrl,
     required this.serverUrl,
     this.token,
   });
@@ -498,7 +494,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
     final theme = Theme.of(context);
     final merged = widget.merged;
     final episode = merged.primary;
-    final imageUrl = '${widget.proxyUrl}/api/images/${merged.selectedVersion.id}/Primary?maxWidth=200';
+    final imageUrl = ApiClient.imageProxyUrl(merged.selectedVersion.id, maxWidth: 200);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),

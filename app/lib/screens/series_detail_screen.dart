@@ -46,7 +46,6 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
   /// 图片请求依赖它作为 X-Emby-Server 头，就绪前渲染会导致图片永久失败
   bool _contextLoaded = false;
 
-  static final _serverUrl = ApiClient.proxyBaseUrl;
 
   @override
   void initState() {
@@ -200,7 +199,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                       borderRadius: BorderRadius.circular(AppColors.radiusLg),
                       child: series.hasPrimaryImage
                           ? Image.network(
-                              '$_serverUrl/api/images/${series.id}/Primary?maxWidth=400',
+                              ApiClient.imageProxyUrl(series.id, maxWidth: 400),
                               fit: BoxFit.cover,
                               headers: {
                                 'Accept': 'image/*',
@@ -274,7 +273,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                     children: [
                       if (series.hasBackdrop)
                         Image.network(
-                          '$_serverUrl/api/images/${series.id}/Backdrop?maxWidth=800',
+                          ApiClient.imageProxyUrl(series.id, type: 'Backdrop', maxWidth: 800),
                           fit: BoxFit.cover,
                           headers: {
                             'Accept': 'image/*',
@@ -285,7 +284,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                         )
                       else if (series.hasPrimaryImage)
                         Image.network(
-                          '$_serverUrl/api/images/${series.id}/Primary?maxWidth=600',
+                          ApiClient.imageProxyUrl(series.id, maxWidth: 600),
                           fit: BoxFit.cover,
                           headers: {
                             'Accept': 'image/*',
@@ -794,7 +793,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                   final ep = _continueWatching[index].primary;
                   return EpisodeCard(
                     imageUrl: ep.hasPrimaryImage
-                        ? '$_serverUrl/api/images/${ep.id}/Primary?maxWidth=200'
+                        ? ApiClient.imageProxyUrl(ep.id, maxWidth: 200)
                         : null,
                     title: ep.episodeLabel.isNotEmpty
                         ? ep.episodeLabel
@@ -818,7 +817,6 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
           ..._episodes.map(
             (merged) => _EpisodeTile(
               episode: merged.primary,
-              serverUrl: _serverUrl,
               token: token,
               embyServerUrl: _embyServerUrl,
               versions: merged.hasMultipleVersions ? merged.versions : null,
@@ -874,7 +872,6 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                   name: actor.name,
                   role: actor.role,
                   personId: actor.id,
-                  serverUrl: _serverUrl,
                   token: token,
                   embyServerUrl: _embyServerUrl,
                   index: index,
@@ -895,7 +892,6 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
 /// Episode tile for the full list view
 class _EpisodeTile extends StatefulWidget {
   final MediaItem episode;
-  final String serverUrl;
   final String? token;
   final String embyServerUrl;
   final List<EpisodeVersion>? versions;
@@ -907,7 +903,6 @@ class _EpisodeTile extends StatefulWidget {
 
   const _EpisodeTile({
     required this.episode,
-    required this.serverUrl,
     this.token,
     required this.embyServerUrl,
     this.versions,
@@ -925,7 +920,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
   @override
   Widget build(BuildContext context) {
     final imageUrl =
-        '${widget.serverUrl}/api/images/${widget.episode.id}/Primary?maxWidth=200';
+        ApiClient.imageProxyUrl(widget.episode.id, maxWidth: 200);
     final hasProgress =
         widget.episode.userData != null &&
         widget.episode.userData!.playedPercentage > 0;
@@ -1152,7 +1147,6 @@ class _CastMember extends StatelessWidget {
   final String name;
   final String? role;
   final String? personId;
-  final String serverUrl;
   final String? token;
   final String embyServerUrl;
   final int index;
@@ -1169,7 +1163,6 @@ class _CastMember extends StatelessWidget {
     required this.name,
     this.role,
     this.personId,
-    required this.serverUrl,
     this.token,
     required this.embyServerUrl,
     this.index = 0,
@@ -1190,7 +1183,7 @@ class _CastMember extends StatelessWidget {
             child: personId != null && personId!.isNotEmpty
                 ? ClipOval(
                     child: Image.network(
-                      '$serverUrl/api/images/$personId/Primary?maxWidth=80',
+                      ApiClient.imageProxyUrl(personId!, maxWidth: 80),
                       width: 58,
                       height: 58,
                       fit: BoxFit.cover,
