@@ -437,11 +437,13 @@ class SearchHintCard extends StatelessWidget {
       case 'Series':
         return '剧集';
       case 'Episode':
-        return '剧集';
+        return '单集';
       case 'Audio':
         return '音乐';
       case 'MusicAlbum':
         return '专辑';
+      case 'Person':
+        return '人物';
       default:
         return type;
     }

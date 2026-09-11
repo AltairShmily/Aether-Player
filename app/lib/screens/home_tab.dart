@@ -12,6 +12,7 @@ import '../theme/app_breakpoints.dart';
 import '../widgets/aether_card.dart';
 import '../widgets/aether_button.dart';
 import '../widgets/aether_hero.dart';
+import '../widgets/media_card.dart';
 import '../widgets/aether_progress.dart';
 import '../widgets/aether_badge.dart';
 import '../widgets/scroll_arrows.dart';
@@ -1084,18 +1085,22 @@ class _SearchDialogState extends ConsumerState<_SearchDialog> {
       return _buildMessage(Icons.search_off_rounded, '没有找到「$_query」相关内容');
     }
 
-    return ListView.separated(
+    return ListView.builder(
       padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
       itemCount: _results.length,
-      separatorBuilder: (_, __) =>
-          const Divider(height: 1, color: AppColors.borderSubtle),
       itemBuilder: (context, index) {
         final hint = _results[index];
-        return _SearchResultTile(
+        // 复用共享组件而非在本文件内联一份，避免与其它页面的搜索结果卡漂移
+        return SearchHintCard(
           hint: hint,
-          serverUrl: _serverUrl ?? '',
-          token: _token ?? '',
           onTap: () => _openResult(hint),
+          imageUrlBuilder: (id, {type = 'Primary', maxWidth}) =>
+              '${ApiClient.proxyBaseUrl}/api/images/$id/$type'
+              '${maxWidth != null ? '?maxWidth=$maxWidth' : ''}',
+          imageHeaders: {
+            'X-Emby-Server': _serverUrl ?? '',
+            'X-Emby-Token': _token ?? '',
+          },
         );
       },
     );
@@ -1120,113 +1125,6 @@ class _SearchDialogState extends ConsumerState<_SearchDialog> {
       ),
     );
   }
-}
-
-/// 单条搜索结果
-class _SearchResultTile extends StatelessWidget {
-  final SearchHint hint;
-  final String serverUrl;
-  final String token;
-  final VoidCallback onTap;
-
-  const _SearchResultTile({
-    required this.hint,
-    required this.serverUrl,
-    required this.token,
-    required this.onTap,
-  });
-
-  String get _typeLabel => switch (hint.type) {
-        'Movie' => '电影',
-        'Series' => '剧集',
-        'Episode' => '单集',
-        'Audio' => '音乐',
-        'MusicAlbum' => '专辑',
-        'Person' => '人物',
-        _ => hint.type,
-      };
-
-  @override
-  Widget build(BuildContext context) {
-    final hasImage =
-        hint.primaryImageTag != null && hint.primaryImageTag!.isNotEmpty;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-        child: Row(
-          children: [
-            // 缩略图
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: SizedBox(
-                width: 40,
-                height: 56,
-                child: hasImage
-                    ? Image.network(
-                        '${ApiClient.proxyBaseUrl}/api/images/${hint.id}/Primary?maxWidth=80',
-                        fit: BoxFit.cover,
-                        headers: {
-                          'Accept': 'image/*',
-                          'X-Emby-Server': serverUrl,
-                          'X-Emby-Token': token,
-                        },
-                        errorBuilder: (_, __, ___) => _thumbPlaceholder(),
-                      )
-                    : _thumbPlaceholder(),
-              ),
-            ),
-            const SizedBox(width: 12),
-            // 标题与元信息
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    hint.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    [
-                      _typeLabel,
-                      if (hint.productionYear > 0) '${hint.productionYear}',
-                      if (hint.communityRating > 0)
-                        '★ ${hint.communityRating.toStringAsFixed(1)}',
-                    ].join(' · '),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.textTertiary,
-                      fontSize: 11.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right_rounded,
-                color: AppColors.textTertiary, size: 20),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _thumbPlaceholder() => Container(
-        color: AppColors.stardust,
-        alignment: Alignment.center,
-        child: const Icon(Icons.movie_rounded,
-            size: 18, color: AppColors.textTertiary),
-      );
 }
 
 // ══════════════════════════════════════════════════
