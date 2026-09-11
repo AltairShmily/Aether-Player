@@ -101,6 +101,17 @@ abstract class PlayerEngine {
   /// 是否正在缓冲
   bool get isBuffering;
 
+  /// 已缓冲到的位置；null 表示该引擎不上报
+  ///
+  /// 用于在进度条上画出缓冲段。不上报时 UI 应省略该段，而非画在 0 处。
+  Duration? get bufferedPosition;
+
+  /// 缓存填充百分比（0-100）；null 表示该引擎不上报
+  ///
+  /// 注意与 [isBuffering] 的区别：后者只说明"此刻是否在等数据"，
+  /// 本值说明"还要等多久"。不上报时 UI 应退化为无数字的转圈。
+  double? get bufferingPercent;
+
   /// 音量（0.0 - 1.0）
   double get volume;
 

@@ -226,6 +226,12 @@ class MpvEngine implements PlayerEngine {
   bool get isBuffering => _isBuffering;
 
   @override
+  Duration? get bufferedPosition => _player.state.buffer;
+
+  @override
+  double? get bufferingPercent => _player.state.bufferingPercentage;
+
+  @override
   double get volume => _volume;
 
   @override

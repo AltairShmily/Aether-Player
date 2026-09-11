@@ -338,6 +338,16 @@ class NativeFfiEngine implements PlayerEngine {
   @override
   bool get isBuffering => _isBufferingState;
 
+  // C++ 侧已经算出 cache-buffering-state 百分比，但 buffering 回调的
+  // 载荷是布尔值（见 engine/src/core/playback_engine.cpp），FFI 拿不到数字。
+  // 要打通需让回调改传 0-100 并同步 _onBufferingNative 的判定，
+  // 在此之前返回 null，UI 退化为无百分比的转圈。
+  @override
+  Duration? get bufferedPosition => null;
+
+  @override
+  double? get bufferingPercent => null;
+
   @override
   double get volume => _volume / 100.0; // 转换为 0-1 范围
 

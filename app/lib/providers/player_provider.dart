@@ -76,6 +76,12 @@ class PlayerUiState {
   /// 播放模式原因
   final String? playModeReason;
 
+  /// 已缓冲到的位置；null 表示当前引擎不上报，进度条应省略缓冲段
+  final Duration? bufferedPosition;
+
+  /// 缓存填充百分比（0-100）；null 表示当前引擎不上报
+  final double? bufferingPercent;
+
   const PlayerUiState({
     this.playerState = PlayerState.idle,
     this.position = Duration.zero,
@@ -98,6 +104,8 @@ class PlayerUiState {
     this.isSeeking = false,
     this.currentPlayMode,
     this.playModeReason,
+    this.bufferedPosition,
+    this.bufferingPercent,
   });
 
   /// 是否正在播放
@@ -112,6 +120,12 @@ class PlayerUiState {
           ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
           : 0.0;
 
+  /// 区分「调用方未传该参数」与「显式传 null」的哨兵。
+  ///
+  /// 可空字段若用 `??` 就永远清不掉，若直接赋值又会被无关的 copyWith 抹掉
+  /// （error 曾因此刚显示就被下一次 position 更新清除）。
+  static const Object _unset = Object();
+
   PlayerUiState copyWith({
     PlayerState? playerState,
     Duration? position,
@@ -120,7 +134,7 @@ class PlayerUiState {
     bool? showControls,
     double? volume,
     double? playbackSpeed,
-    String? error,
+    Object? error = _unset,
     List<TrackInfo>? audioTracks,
     List<TrackInfo>? subtitleTracks,
     int? currentAudioTrack,
@@ -134,6 +148,8 @@ class PlayerUiState {
     bool? isSeeking,
     PlayMode? currentPlayMode,
     String? playModeReason,
+    Object? bufferedPosition = _unset,
+    Object? bufferingPercent = _unset,
   }) {
     return PlayerUiState(
       playerState: playerState ?? this.playerState,
@@ -143,7 +159,8 @@ class PlayerUiState {
       showControls: showControls ?? this.showControls,
       volume: volume ?? this.volume,
       playbackSpeed: playbackSpeed ?? this.playbackSpeed,
-      error: error, // 允许设为 null 来清除错误
+      // 显式传 null 才清除错误，未传参时保留原值
+      error: identical(error, _unset) ? this.error : error as String?,
       audioTracks: audioTracks ?? this.audioTracks,
       subtitleTracks: subtitleTracks ?? this.subtitleTracks,
       currentAudioTrack: currentAudioTrack ?? this.currentAudioTrack,
@@ -158,6 +175,12 @@ class PlayerUiState {
       isSeeking: isSeeking ?? this.isSeeking,
       currentPlayMode: currentPlayMode ?? this.currentPlayMode,
       playModeReason: playModeReason ?? this.playModeReason,
+      bufferedPosition: identical(bufferedPosition, _unset)
+          ? this.bufferedPosition
+          : bufferedPosition as Duration?,
+      bufferingPercent: identical(bufferingPercent, _unset)
+          ? this.bufferingPercent
+          : bufferingPercent as double?,
     );
   }
 }
@@ -178,6 +201,9 @@ class PlayerController extends StateNotifier<PlayerUiState> {
 
   /// 控制面板自动隐藏定时器
   Timer? _controlsHideTimer;
+
+  /// 缓冲期间刷新缓冲段与百分比的轮询定时器
+  Timer? _bufferPollTimer;
 
   /// 引擎事件订阅
   final List<StreamSubscription> _subscriptions = [];
@@ -239,9 +265,9 @@ class PlayerController extends StateNotifier<PlayerUiState> {
     required this.userId,
     PlayerEngine? engine,
     ApiClient? api,
-  })  : _engine = engine ?? MpvEngine(),
-        _api = api ?? ApiClient(),
-        super(const PlayerUiState()) {
+  }) : _engine = engine ?? MpvEngine(),
+       _api = api ?? ApiClient(),
+       super(const PlayerUiState()) {
     _listenToEngine();
   }
 
@@ -268,7 +294,14 @@ class PlayerController extends StateNotifier<PlayerUiState> {
     // 播放位置
     _subscriptions.add(_engine.positionStream.listen((pos) {
       if (!mounted) return;
-      state = state.copyWith(position: pos);
+      // 位置继续前进说明播放已恢复，此前那次失败不该再遮挡画面
+      final resumed = state.hasError && pos > state.position;
+      // 缓冲段随位置一起刷新，共用同一次 state 写入，避免额外重建
+      state = state.copyWith(
+        position: pos,
+        bufferedPosition: _engine.bufferedPosition,
+      );
+      if (resumed) clearError();
     }));
 
     // 总时长
@@ -283,7 +316,7 @@ class PlayerController extends StateNotifier<PlayerUiState> {
     // 缓冲状态
     _subscriptions.add(_engine.bufferingStream.listen((buffering) {
       if (!mounted) return;
-      state = state.copyWith(isBuffering: buffering);
+      _setBuffering(buffering);
     }));
 
     // 播放完成时刷新轨道列表 + 触发回调
@@ -318,6 +351,29 @@ class PlayerController extends StateNotifier<PlayerUiState> {
         currentSubtitleTrack: _engine.currentSubtitleTrackIndex,
       );
     }
+  }
+
+  /// 写入缓冲态，并在缓冲期间轮询缓冲进度。
+  ///
+  /// 缓冲时播放位置不再前进，positionStream 随之停摆，
+  /// 只靠引擎的布尔事件无法让缓冲段与百分比动起来，故短时轮询。
+  void _setBuffering(bool buffering) {
+    if (!mounted) return;
+    state = state.copyWith(
+      isBuffering: buffering,
+      bufferingPercent: _engine.bufferingPercent,
+      bufferedPosition: _engine.bufferedPosition,
+    );
+
+    _bufferPollTimer?.cancel();
+    if (!buffering) return;
+    _bufferPollTimer = Timer.periodic(const Duration(milliseconds: 300), (_) {
+      if (!mounted) return;
+      state = state.copyWith(
+        bufferingPercent: _engine.bufferingPercent,
+        bufferedPosition: _engine.bufferedPosition,
+      );
+    });
   }
 
   // ══════════════════════════════════════════════════════════
@@ -488,16 +544,7 @@ class PlayerController extends StateNotifier<PlayerUiState> {
     // 获取直连地址可能触发网络请求，其间用户可能已退出播放页
     if (!mounted) return;
 
-    await _engine.stop();
-    await _engine.open(streamUrl, headers: {
-      'Authorization': 'MediaBrowser Token="$token"',
-      'X-Emby-Token': token,
-    });
-
-    if (currentPosition.inMilliseconds > 0) {
-      await Future.delayed(const Duration(milliseconds: 500));
-      await _engine.seek(currentPosition);
-    }
+    await _reopenStream(streamUrl, resumeAt: currentPosition);
 
     // 上述 await 期间控制器可能已被销毁，写入已销毁的 StateNotifier 会抛异常
     if (!mounted) return;
@@ -506,6 +553,55 @@ class PlayerController extends StateNotifier<PlayerUiState> {
       currentPlayMode: mode,
       playModeReason: mode == PlayMode.transcode ? '画质: ${maxHeight ?? "auto"}p' : 'Direct Play',
     );
+  }
+
+  /// 以当前进度重新打开指定流地址。
+  ///
+  /// 切画质与失败重试共用：两者都是「停引擎 → 换地址重开 → 回到原位置」，
+  /// 分写两份很容易只修一处（例如漏掉 seek，或漏掉清除上一次的错误）。
+  Future<void> _reopenStream(
+    String streamUrl, {
+    Duration resumeAt = Duration.zero,
+  }) async {
+    if (!mounted) return;
+
+    // 重新发起播放即视为放弃上一次的失败结果，否则错误卡片会盖住新画面
+    clearError();
+
+    try {
+      await _engine.stop();
+      await _engine.open(streamUrl, headers: {
+        'Authorization': 'MediaBrowser Token="$token"',
+        'X-Emby-Token': token,
+      });
+
+      if (resumeAt.inMilliseconds > 0) {
+        // open 刚返回时引擎尚未就绪，立刻 seek 会被忽略
+        await Future.delayed(const Duration(milliseconds: 500));
+        await _engine.seek(resumeAt);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
+  /// 重试当前播放：不改画质与播放模式，用当前流地址从原位置重开。
+  ///
+  /// 供播放失败后的「重试」动作使用。不复用 loadAndPlay，
+  /// 那会重新走一遍 PlaybackInfo 决策并重置进度上报，代价远大于重开流。
+  Future<void> retry() async {
+    final url = state.streamUrl ?? _directPlayUrl;
+    if (url == null || url.isEmpty) return;
+    await _reopenStream(url, resumeAt: state.position);
+    if (!mounted) return;
+    _resetControlsHideTimer();
+  }
+
+  /// 清除错误提示。无错误时不写入 state，避免无谓的重建。
+  void clearError() {
+    if (!mounted || !state.hasError) return;
+    state = state.copyWith(error: null);
   }
 
   // ══════════════════════════════════════════════════════════
@@ -754,6 +850,7 @@ class PlayerController extends StateNotifier<PlayerUiState> {
   void dispose() {
     _progressTimer?.cancel();
     _controlsHideTimer?.cancel();
+    _bufferPollTimer?.cancel();
     for (final sub in _subscriptions) {
       sub.cancel();
     }

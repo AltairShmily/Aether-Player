@@ -16,6 +16,7 @@ import '../services/mpv_engine.dart';
 import '../services/api_client.dart';
 import '../services/player_engine_factory.dart';
 import '../services/playback_strategy.dart';
+import '../widgets/player_error_card.dart';
 import '../widgets/quality_selector.dart';
 
 // ══════════════════════════════════════════════════════════════════
@@ -489,12 +490,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
 
           // ── 加载中指示器 ──
           if (!_isInitialized || (state != null && state.isBuffering))
-            const Center(
-              child: CircularProgressIndicator(
-                color: AppColors.celestialCyan,
-                strokeWidth: 2,
-              ),
-            ),
+            Center(child: _buildBufferingIndicator(state)),
 
           // ── 点击区域（手势检测） ──
           Positioned.fill(
@@ -554,28 +550,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               onSkipNext: _nextEpisodeId.isNotEmpty ? _playNextEpisode : null,
             ),
 
-          // ── 错误提示 ──
+          // ── 错误卡片 ──
           if (state != null && state.hasError)
-            Positioned(
-              bottom: 120,
-              left: 40,
-              right: 40,
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.error.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                  border:
-                      Border.all(color: AppColors.error.withValues(alpha: 0.3)),
-                ),
-                child: Text(
-                  state.error!,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 13,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
+            Positioned.fill(
+              child: PlayerErrorCard(
+                message: state.error!,
+                onRetry: () => _playerController?.retry(),
+                onSwitchQuality: () => _showQualitySelector(context),
+                onBack: () => Navigator.of(context).pop(),
               ),
             ),
 
@@ -700,6 +682,43 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       ),
     );
   }
+
+  /// 加载 / 缓冲指示器。
+  ///
+  /// 光转圈无法区分"正在缓冲"与"已经卡死"，引擎上报了缓存填充进度就把数字带上。
+  /// 不上报时（原生 FFI 引擎）只显示转圈 —— 用 0% 冒充会被读成"完全没缓冲"。
+  Widget _buildBufferingIndicator(PlayerUiState? state) {
+    final percent = state?.bufferingPercent;
+    // 已缓冲满时数字没有信息量，且会在恢复播放前的一瞬间停在 100%
+    final label = (percent != null && percent < 100)
+        ? '缓冲中 ${percent.round()}%'
+        : null;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(
+          width: 36,
+          height: 36,
+          child: CircularProgressIndicator(
+            color: AppColors.celestialCyan,
+            strokeWidth: 2,
+          ),
+        ),
+        if (label != null) ...[
+          const SizedBox(height: 10),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+              fontFamily: 'DM Mono',
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -715,6 +734,10 @@ class _ProgressBar extends StatefulWidget {
   final double progress;
   final Duration position;
   final Duration duration;
+
+  /// 已缓冲到的位置；null 表示当前引擎不上报，此时不画缓冲段
+  final Duration? buffered;
+
   final ValueChanged<double> onSeek;
 
   const _ProgressBar({
@@ -722,6 +745,7 @@ class _ProgressBar extends StatefulWidget {
     required this.position,
     required this.duration,
     required this.onSeek,
+    this.buffered,
   });
 
   @override
@@ -729,6 +753,12 @@ class _ProgressBar extends StatefulWidget {
 }
 
 class _ProgressBarState extends State<_ProgressBar> {
+  /// 滑块半径。缓冲段必须与 Slider 的轨道几何对齐，
+  /// 而轨道两端各内缩一个滑块半径，否则缓冲段会超出轨道头尾
+  static const double _thumbRadius = 6;
+
+  static const double _trackHeight = 4;
+
   bool _dragging = false;
   double _dragProgress = 0;
 
@@ -742,8 +772,17 @@ class _ProgressBarState extends State<_ProgressBar> {
 
   @override
   Widget build(BuildContext context) {
-    final sliderValue =
-        (_dragging ? _dragProgress : widget.progress).clamp(0.0, 1.0);
+    final sliderValue = (_dragging ? _dragProgress : widget.progress).clamp(
+      0.0,
+      1.0,
+    );
+
+    final totalMs = widget.duration.inMilliseconds;
+    final buffered = widget.buffered;
+    // 引擎不上报或时长未知时不画缓冲段：画在 0 处会被误读成"完全没缓冲"
+    final bufferedValue = (buffered != null && totalMs > 0)
+        ? (buffered.inMilliseconds / totalMs).clamp(0.0, 1.0)
+        : null;
 
     return Row(
       children: [
@@ -759,30 +798,48 @@ class _ProgressBarState extends State<_ProgressBar> {
         const SizedBox(width: 12),
         // 进度滑块
         Expanded(
-          child: SliderTheme(
-            data: SliderThemeData(
-              activeTrackColor: AppColors.celestialCyan,
-              inactiveTrackColor: AppColors.cosmicGray,
-              thumbColor: AppColors.celestialCyan,
-              overlayColor: AppColors.celestialCyan.withValues(alpha: 0.12),
-              trackHeight: 3,
-              thumbShape:
-                  const RoundSliderThumbShape(enabledThumbRadius: 6),
-              overlayShape:
-                  const RoundSliderOverlayShape(overlayRadius: 14),
-            ),
-            child: Slider(
-              value: sliderValue,
-              onChangeStart: (v) => setState(() {
-                _dragging = true;
-                _dragProgress = v;
-              }),
-              onChanged: (v) => setState(() => _dragProgress = v),
-              onChangeEnd: (v) {
-                setState(() => _dragging = false);
-                widget.onSeek(v);
-              },
-            ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              if (bufferedValue != null && bufferedValue > sliderValue)
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _BufferTrackPainter(
+                      from: sliderValue,
+                      to: bufferedValue,
+                      thumbRadius: _thumbRadius,
+                      trackHeight: _trackHeight,
+                    ),
+                  ),
+                ),
+              SliderTheme(
+                data: SliderThemeData(
+                  activeTrackColor: AppColors.celestialCyan,
+                  inactiveTrackColor: AppColors.cosmicGray,
+                  thumbColor: AppColors.celestialCyan,
+                  overlayColor: AppColors.celestialCyan.withValues(alpha: 0.12),
+                  trackHeight: _trackHeight,
+                  thumbShape: const RoundSliderThumbShape(
+                    enabledThumbRadius: _thumbRadius,
+                  ),
+                  overlayShape: const RoundSliderOverlayShape(
+                    overlayRadius: 14,
+                  ),
+                ),
+                child: Slider(
+                  value: sliderValue,
+                  onChangeStart: (v) => setState(() {
+                    _dragging = true;
+                    _dragProgress = v;
+                  }),
+                  onChanged: (v) => setState(() => _dragProgress = v),
+                  onChangeEnd: (v) {
+                    setState(() => _dragging = false);
+                    widget.onSeek(v);
+                  },
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(width: 12),
@@ -798,6 +855,55 @@ class _ProgressBarState extends State<_ProgressBar> {
       ],
     );
   }
+}
+
+/// 进度条上「已播放 → 已缓冲」那一段的绘制。
+///
+/// 只画进度之后的部分：已播放段由 Slider 的青色轨道覆盖，
+/// 全画会与它重叠并在边缘露出杂色。
+class _BufferTrackPainter extends CustomPainter {
+  final double from;
+  final double to;
+  final double thumbRadius;
+  final double trackHeight;
+
+  _BufferTrackPainter({
+    required this.from,
+    required this.to,
+    required this.thumbRadius,
+    required this.trackHeight,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Slider 的轨道两端各内缩一个滑块半径
+    final trackWidth = size.width - thumbRadius * 2;
+    if (trackWidth <= 0) return;
+
+    final left = thumbRadius + trackWidth * from;
+    final right = thumbRadius + trackWidth * to;
+    if (right - left < 1) return;
+
+    final top = (size.height - trackHeight) / 2;
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.28)
+      ..style = PaintingStyle.fill;
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTRB(left, top, right, top + trackHeight),
+        Radius.circular(trackHeight / 2),
+      ),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_BufferTrackPainter old) =>
+      old.from != from ||
+      old.to != to ||
+      old.thumbRadius != thumbRadius ||
+      old.trackHeight != trackHeight;
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -998,6 +1104,7 @@ class _PlayerControlsOverlay extends StatelessWidget {
       progress: progress,
       position: state.position,
       duration: state.duration,
+      buffered: state.bufferedPosition,
       onSeek: onSeek,
     );
   }
