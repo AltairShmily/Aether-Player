@@ -102,7 +102,7 @@ class _PhoneLibraryScreenState extends ConsumerState<PhoneLibraryScreen> {
             ),
             delegate: SliverChildBuilderDelegate((context, index) {
               final lib = homeState.libraries[index];
-              return _buildLibCard(lib);
+              return _buildLibCard(lib, homeState.libraryCounts[lib.id]);
             }, childCount: homeState.libraries.length),
           ),
         ),
@@ -110,7 +110,25 @@ class _PhoneLibraryScreenState extends ConsumerState<PhoneLibraryScreen> {
     );
   }
 
-  Widget _buildLibCard(MediaFolder lib) {
+  /// 库卡副文案：条目数量 + 按类型选择的量词。
+  ///
+  /// 此前写死「点击查看」，不传达任何信息，用户无法判断库里有什么、规模多大。
+  /// 数量取自 getItems 响应自带的 TotalRecordCount，无需额外请求。
+  /// 尚未加载到时显示「加载中…」，而不是误导性的 0。
+  String _libCountLabel(String collectionType, int? count) {
+    if (count == null) return '加载中…';
+    final unit = switch (collectionType) {
+      'movies' || 'tvshows' => '部',
+      'music' => '首',
+      'photos' => '张',
+      'books' => '本',
+      _ => '项',
+    };
+    return '$count $unit';
+  }
+
+  /// [itemCount] 为该库的条目总数，null 表示尚未加载到
+  Widget _buildLibCard(MediaFolder lib, int? itemCount) {
     // 根据库类型选择图标和颜色
     IconData icon;
     Color color;
@@ -194,7 +212,7 @@ class _PhoneLibraryScreenState extends ConsumerState<PhoneLibraryScreen> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '点击查看',
+                    _libCountLabel(lib.collectionType, itemCount),
                     style: const TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 11,

@@ -12,6 +12,14 @@ class HomeState {
   final List<MediaItem> resumeItems;
   final List<MediaFolder> libraries;
   final Map<String, List<MediaItem>> libraryItems;
+
+  /// 各媒体库的条目总数（libraryId → TotalRecordCount）。
+  ///
+  /// 零额外请求即可获得：加载各库条目时 getItems 的响应本身就带
+  /// totalRecordCount，此前被直接丢弃。库卡副文案据此显示「N 部」，
+  /// 取代原先写死且不提供任何信息的「点击查看」。
+  final Map<String, int> libraryCounts;
+
   final bool isLoading;
   final String? error;
 
@@ -19,6 +27,7 @@ class HomeState {
     this.resumeItems = const [],
     this.libraries = const [],
     this.libraryItems = const {},
+    this.libraryCounts = const {},
     this.isLoading = false,
     this.error,
   });
@@ -27,6 +36,7 @@ class HomeState {
     List<MediaItem>? resumeItems,
     List<MediaFolder>? libraries,
     Map<String, List<MediaItem>>? libraryItems,
+    Map<String, int>? libraryCounts,
     bool? isLoading,
     String? error,
     bool clearError = false,
@@ -35,6 +45,7 @@ class HomeState {
       resumeItems: resumeItems ?? this.resumeItems,
       libraries: libraries ?? this.libraries,
       libraryItems: libraryItems ?? this.libraryItems,
+      libraryCounts: libraryCounts ?? this.libraryCounts,
       isLoading: isLoading ?? this.isLoading,
       // 默认保留已有错误：否则任何无关字段更新都会把错误信息抹掉
       error: clearError ? null : (error ?? this.error),
@@ -121,7 +132,12 @@ class HomeNotifier extends StateNotifier<HomeState> {
             includeItemTypes: library.itemType,
             recursive: true,
           );
-          return MapEntry(library.id, result.items);
+          return (
+            id: library.id,
+            items: result.items,
+            // 响应自带总数，无需为库卡的「N 部」文案额外发请求
+            count: result.totalRecordCount,
+          );
         } catch (e) {
           // 单个媒体库失败不应拖垮整屏，但也不能完全无声
           debugPrint('[home] library ${library.name} failed: $e');
@@ -130,10 +146,15 @@ class HomeNotifier extends StateNotifier<HomeState> {
       }),
     );
 
-    final updated = Map<String, List<MediaItem>>.from(state.libraryItems);
-    for (final entry in results.nonNulls) {
-      updated[entry.key] = entry.value;
+    final updatedItems = Map<String, List<MediaItem>>.from(state.libraryItems);
+    final updatedCounts = Map<String, int>.from(state.libraryCounts);
+    for (final r in results.nonNulls) {
+      updatedItems[r.id] = r.items;
+      updatedCounts[r.id] = r.count;
     }
-    state = state.copyWith(libraryItems: updated);
+    state = state.copyWith(
+      libraryItems: updatedItems,
+      libraryCounts: updatedCounts,
+    );
   }
 }
