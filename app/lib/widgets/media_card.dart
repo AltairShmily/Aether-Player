@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/media_models.dart';
 import '../theme/app_colors.dart';
+import 'aether_progress.dart';
+import 'rating_badge.dart';
 
 /// ---------------------------------------------------------------------------
 /// MediaCard — Premium media card with Celestial Glow hover effects.
@@ -8,17 +10,32 @@ import '../theme/app_colors.dart';
 /// On desktop: hover triggers translateY(-6px) lift, scale(1.03), and a cyan
 /// glow shadow. A play-button overlay fades in over the poster.
 /// On mobile: tap works as usual with no hover decoration.
+///
+/// **调用契约**：[imageHeaders] 必须在首次渲染时就已就绪。
+/// `NetworkImage` 的相等性只比较 url 与 scale、**不含 headers**，
+/// 因此若首帧用空头发起请求（会被本地代理拒绝为 502），
+/// 事后补上 headers 也不会触发重新解析，图片将永久停留在失败态。
+/// 需要异步读取服务器地址的页面，应在地址就绪前不渲染本组件。
 /// ---------------------------------------------------------------------------
 class MediaCard extends StatefulWidget {
   final MediaItem item;
   final VoidCallback onTap;
   final String Function(String, {String type, int? maxWidth}) imageUrlBuilder;
 
+  /// 本地代理转发所需的头（X-Emby-Server / X-Emby-Token）。
+  /// 缺失时图片请求会被代理拒绝（502），海报无法显示。
+  final Map<String, String> imageHeaders;
+
+  /// 播放进度（0–1），非空时在海报底部显示进度条，用于「继续观看」卡片
+  final double? progress;
+
   const MediaCard({
     super.key,
     required this.item,
     required this.onTap,
     required this.imageUrlBuilder,
+    this.imageHeaders = const {},
+    this.progress,
   });
 
   @override
@@ -96,14 +113,17 @@ class _MediaCardState extends State<MediaCard>
                       imageUrl: imageUrl,
                       item: item,
                       isHovered: _isHovered,
+                      headers: widget.imageHeaders,
+                      progress: widget.progress,
                     ),
                   ),
 
                   // ── Title ──
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 8, 2, 0),
+                    padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                    // 宽度跟随卡片：写死数值会在自适应网格下截断或留白
                     child: SizedBox(
-                      width: 95,
+                      width: double.infinity,
                       child: Text(
                         item.name,
                         maxLines: 1,
@@ -176,10 +196,18 @@ class _PosterSection extends StatelessWidget {
   final MediaItem item;
   final bool isHovered;
 
+  /// 代理转发所需的头；与 Accept 合并后一并发送
+  final Map<String, String> headers;
+
+  /// 播放进度（0–1），非空时在海报底部显示进度条
+  final double? progress;
+
   const _PosterSection({
     required this.imageUrl,
     required this.item,
     required this.isHovered,
+    this.headers = const {},
+    this.progress,
   });
 
   @override
@@ -201,16 +229,19 @@ class _PosterSection extends StatelessWidget {
                   ? Image.network(
                       imageUrl,
                       fit: BoxFit.cover,
-                      headers: const {'Accept': 'image/*'},
+                      // X-Emby-Server / X-Emby-Token 由调用方注入，
+                      // 缺失时本地代理无法定位上游而返回 502
+                      headers: {'Accept': 'image/*', ...headers},
                       errorBuilder: (_, __, ___) => _buildPlaceholder(),
-                      loadingBuilder: (_, child, progress) {
-                        if (progress == null) return child;
+                      // 参数名避开字段 progress：此处是图片下载事件，非播放进度
+                      loadingBuilder: (_, child, chunk) {
+                        if (chunk == null) return child;
                         return Center(
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            value: progress.expectedTotalBytes != null
-                                ? progress.cumulativeBytesLoaded /
-                                    progress.expectedTotalBytes!
+                            value: chunk.expectedTotalBytes != null
+                                ? chunk.cumulativeBytesLoaded /
+                                    chunk.expectedTotalBytes!
                                 : null,
                             color: AppColors.celestialCyan,
                           ),
@@ -231,6 +262,22 @@ class _PosterSection extends StatelessWidget {
                 ),
               ),
             ),
+
+            // ── 右上角评分角标（仅有评分时出现）──
+            Positioned(
+              top: 8,
+              right: 8,
+              child: RatingBadge(rating: item.communityRating),
+            ),
+
+            // ── 底部播放进度条（仅「继续观看」等有进度时出现）──
+            if (progress != null && progress! > 0)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: AetherProgress.mini(value: progress!.clamp(0.0, 1.0)),
+              ),
 
             // ── Poster inner title (bottom overlay) ──
             Positioned(
@@ -318,11 +365,17 @@ class SearchHintCard extends StatelessWidget {
   final VoidCallback onTap;
   final String Function(String, {String type, int? maxWidth}) imageUrlBuilder;
 
+  /// 本地代理转发所需的头（X-Emby-Server / X-Emby-Token）。
+  /// 缺失时图片请求会被代理拒绝（502）；且须在首次渲染时就绪，
+  /// 因 `NetworkImage` 的相等性不含 headers，事后补头不会触发重新解析。
+  final Map<String, String> imageHeaders;
+
   const SearchHintCard({
     super.key,
     required this.hint,
     required this.onTap,
     required this.imageUrlBuilder,
+    this.imageHeaders = const {},
   });
 
   @override
@@ -340,7 +393,7 @@ class SearchHintCard extends StatelessWidget {
               ? Image.network(
                   imageUrl,
                   fit: BoxFit.cover,
-                  headers: const {'Accept': 'image/*'},
+                  headers: {'Accept': 'image/*', ...imageHeaders},
                   errorBuilder: (_, __, ___) => _buildSmallPlaceholder(theme),
                 )
               : _buildSmallPlaceholder(theme),
