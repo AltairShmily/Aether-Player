@@ -87,6 +87,8 @@ body, contentType, err := h.EmbyClient.GetItemImage(serverURL, token, ...)
 
 已在 `series_detail_screen` / `episode_detail_screen` 用 build 入口门控修复。共享组件必须把这一约束固化进契约，否则每个调用方都要重复踩坑。
 
+**执行结果（已修正做法）**：契约没有停留在文档里。第 2 批接入 `home_tab` 时发现它恰好违反了这条契约（`_serverUrl` 异步读取，首帧为 null），说明「调用方必须自己门控」是写不住的。因此改为由组件自我约束：`MediaCard` / `SearchHintCard` 内部检查 `X-Emby-Server` 是否就绪，未就绪直接渲染占位图，不发那个必然 502 的请求。地址就绪后重建即正常加载，调用方不再有踩坑的可能。
+
 ---
 
 ## 三、施工顺序
@@ -161,14 +163,28 @@ class RatingBadge extends StatelessWidget {
 
 按「本次已要改动的页面优先」原则分批接入，避免一次性重构 8 个文件带来的视觉回归风险：
 
-| 批次 | 文件 | 理由 |
-|:--|:--|:--|
-| 第 1 批 | `phone_library_screen.dart`（2 处内联卡） | Phase 1 的库卡文案与 Phase 2 的筛选/评分角标都要改这里 |
-| 第 1 批 | `tv_search_overlay.dart:281`、`tv_home_screen.dart:750,1111` | 修复 §2.4 的图片损坏 |
-| 第 2 批 | `home_tab.dart`（2 处） | 首页是主入口，改动需单独回归 |
-| 第 3 批 | `series_detail_screen.dart`、`media_detail_screen.dart`、`episode_detail_screen.dart` | 详情页布局特殊（海报与 hero 重叠），风险最高，最后动 |
+| 批次 | 文件 | 理由 | 状态 |
+|:--|:--|:--|:--|
+| 第 1 批 | `phone_library_screen.dart`（2 处内联卡） | Phase 1 的库卡文案与 Phase 2 的筛选/评分角标都要改这里 | ✅ 完成 |
+| 第 1 批 | `tv_search_overlay.dart:281`、`tv_home_screen.dart:750,1111` | 修复 §2.4 的图片损坏 | ✅ 完成（改为补请求头，未换成 MediaCard：TV 卡片是焦点导航专用，形状不同） |
+| 第 2 批 | `home_tab.dart`（2 处） | 首页是主入口，改动需单独回归 | ✅ 完成：删掉 `_HomeItemCard`（141 行 MediaCard 手写副本，还少了 hover 抬升与播放钮叠层） |
+| 第 3 批 | `series_detail_screen.dart`、`media_detail_screen.dart`、`episode_detail_screen.dart` | 详情页布局特殊，风险最高，最后动 | ⚠️ 部分完成，且**原定范围不成立**（见下） |
 
-**同时清理我自己引入的重复**：第二轮实现搜索时在 `home_tab.dart` 内联写了 `_SearchResultTile`，而 `SearchHintCard` 就在同一组件库里无人使用。两者布局不同（列表行 vs 海报卡），需判断是合并还是各自保留——若保留，应抽出共享的缩略图与类型标签原子，而不是各写一份。
+**第 3 批的范围修正**：核查后发现详情页并没有「MediaCard 形状的海报卡」可换 —— 它们用的是 hero 背景图、单集行、演职员头像卡。真正的重复是另外两组：
+
+| 重复项 | 位置 | 规模 |
+|:--|:--|:--|
+| `_EpisodeTile` | `series_detail_screen.dart:896`、`media_detail_screen.dart:474` | 两份同名不同实现，约 330 行 / 190 行 |
+| 演职员卡 | `_CastMember`（series_detail）、`_CastCard`（episode_detail） | 两份圆形头像卡，约 90 行 / 80 行 |
+
+已完成的第 3 批部分是**机械且可验证**的那一半：14 处手写 `/api/images/...` 拼接统一到 `ApiClient.imageProxyUrl`，并拆掉因此失去用途、却与 `embyServerUrl` 同名并存的代理地址穿参（`episode_detail` 穿了 10 层方法签名）。剩下两组的合并属于**设计级改动**，会同时改变两个页面的观感，需实机回归后再动，见 §八。
+
+**第 2 批顺带完成的收敛**：
+- 新增 `utils/media_navigation.dart`：`detailPageFor` + `openMediaItem`，替掉 5 份「按类型选详情页再推入转场」的副本
+- 新增 `ApiClient.imageProxyUrl`（替掉无人调用、却要求传 `serverUrl`/`token` 又完全不用的 `getImageUrl`），签名与 `imageUrlBuilder` 一致可直接当 tear-off，故 `MediaCard` / `SearchHintCard` 的该参数改为可选并默认走代理
+- 新增 `MediaItem.displayTitle`：单集标题带上剧集名与集号，否则「第 3 集」在首页继续观看行里无法辨认
+
+**我自己引入的重复也已清理**：第二轮实现搜索时在 `home_tab.dart` 内联写了 `_SearchResultTile`，而 `SearchHintCard` 就在同一组件库里无人使用。已删除内联那份、搜索结果统一走 `SearchHintCard`（第 1 批提交内）。这是本轮唯一一次「一边要求收敛、一边新增重复」，记录在此以免再犯。
 
 ### 0.4 四态复用既有骨架组件
 
@@ -271,14 +287,21 @@ class RatingBadge extends StatelessWidget {
 
 ## 七、Phase 3 — P2 两项
 
-| 项 | 内容 | 文件 |
-|:--|:--|:--|
-| 跳过片头 / 缓冲段 / 错误卡片 | 有 `IntroMarker` 时进度条上方出现「跳过片头」胶囊（8s 自动淡出）；缓冲显示百分比；错误改**居中卡片** + 重试/切换画质/返回三动作（当前是底部提示条，与 OSD 抢层） | `player_page.dart` |
-| OSD 下沉到 `video_osd.dart` | 把稳定后的 `_PlayerControlsOverlay` 下沉到 `widgets/video_osd.dart`，桌面与手机共用、只换布局密度，消除两套并行实现 | `video_osd.dart`（当前 0 导入） |
+| 项 | 内容 | 文件 | 状态 |
+|:--|:--|:--|:--|
+| 缓冲段 / 错误卡片 | 缓冲显示百分比与进度条缓冲段；错误改**居中卡片** + 重试/切换画质/返回三动作（原为底部提示条，与 OSD 抢层） | `widgets/player_error_card.dart`（新）、`widgets/video_osd.dart` | ✅ 完成 |
+| 跳过片头 | 有 `IntroMarker` 时进度条上方出现「跳过片头」胶囊（8s 自动淡出） | `player_page.dart` + Go 新端点 | ⏸ 搁置（见下） |
+| OSD 下沉到 `video_osd.dart` | 把稳定后的 `_PlayerControlsOverlay` 下沉，桌面与手机共用、只换布局密度，消除两套并行实现 | `video_osd.dart`（原 0 导入） | ✅ 完成 |
 
-**顺序理由**：必须先做 Phase 2.2 把 OSD 改稳定，再下沉。若先下沉再改，会在两个文件间来回搬运。
+**顺序理由**：必须先做 Phase 2.2 把 OSD 改稳定，再下沉。若先下沉再改，会在两个文件间来回搬运。实际执行遵守了这个顺序。
 
-**跳过片头的前置条件**：Emby 的 `IntroMarkers` 需要 `getPlaybackInfo` 或独立 `/Items/{id}/IntroTimestamps` 端点，当前 Go 侧**没有**对应 handler，需先加后端支持。若不做后端，此项应降级或搁置。
+**执行中与原计划的三点不同**：
+
+1. **错误卡片被抽成独立组件** `widgets/player_error_card.dart`，而不是内联在播放页里。原因是它的高度（图标 + 标题 + 3 行文案 + 三个按钮）在强制横屏下会超出手机视口，而这类溢出 `analyze` 查不出来 —— 抽成组件后才能用 widget test 在 568×320 / 640×360 / 1280×720 三种视口下验证。测试反过来证明了担忧成立：去掉滚动层后 568×320 长文案**溢出 29px**。
+2. **缓冲百分比只有 media_kit 引擎能给**。`PlayerState.buffer` 与 `bufferingPercentage` 直接可用；原生 FFI 引擎的 C++ 侧虽然算出了 `cache-buffering-state`，但 buffering 回调的载荷是布尔值，拿不到数字。接口因此把两个属性定为可空，`null` 表示引擎不上报，UI 退化为无数字的转圈 —— 不用 0% 冒充「完全没缓冲」。另需注意缓冲期间播放位置停止前进、`positionStream` 随之停摆，只靠引擎布尔事件无法让百分比动起来，故在缓冲态下开 300ms 轮询、缓冲结束即取消。
+3. **OSD 下沉是逐字节校验过的纯机械搬运**：与 HEAD 对应片段比对，904 行中唯一差异是给公开构造函数补的 `super.key`。`player_page.dart` 从 1626 行降到 722 行。
+
+**跳过片头的前置条件（仍未满足）**：Emby 的 `IntroMarkers` 需要 `getPlaybackInfo` 或独立 `/Items/{id}/IntroTimestamps` 端点，当前 Go 侧**没有**对应 handler。按计划降级为搁置：没有真机 Emby 可验证的情况下新增后端端点 + 前端胶囊，交付的会是一个无法确认是否工作的功能。若后续要做，端点与 UI 应同批提交并在真机上确认标记数据确实存在。
 
 ---
 
@@ -287,9 +310,13 @@ class RatingBadge extends StatelessWidget {
 | 项 | 问题 | 建议 |
 |:--|:--|:--|
 | **「未看」计数** | 需 Go 侧 `GetItems` 支持 `IsPlayed` 过滤，并为每个库多发一次请求（N 库 = N 请求），拖慢首屏 | 本轮只做总数；若确需未看数，建议新增 Go 批量端点一次返回各库计数，而非 N 次请求 |
-| **`SearchHintCard` vs `_SearchResultTile`** | 一个是海报卡、一个是列表行，布局确实不同 | 倾向保留两者但抽出共享的缩略图/类型标签原子；若统一为一种布局则删掉另一个 |
-| **详情页接入共享卡片的时机** | `series_detail` / `media_detail` / `episode_detail` 的海报与 hero 存在重叠定位，接入共享卡片风险最高 | 放第 3 批，且每批单独提交 + 实机回归 |
-| **`mini_play_bar.dart` / `genre_chip.dart`** | 均为 0 导入死代码 | 需产品决策：补入口还是删除。`mini_play_bar` 与「退出播放最小化」体验相关，倾向补入口；`genre_chip` 已有 `AetherChip.genre` 在用，倾向删除 |
+| **`_EpisodeTile` 两份实现** | `series_detail_screen.dart:896`（约 330 行，带多版本、续播高亮）与 `media_detail_screen.dart:474`（约 190 行，带版本切换）同名不同实现 | 抽到 `widgets/episode_row.dart`，差异用可选参数表达。属设计级改动，会同时改变两个页面观感，**需实机回归后再动** |
+| **演职员卡两份实现** | `_CastMember`（series_detail）与 `_CastCard`（episode_detail），均为圆形头像 + 姓名 + 角色 | 同上，可与 `_EpisodeTile` 合并为一批处理 |
+| **5 个 0 导入的死组件** | `mini_play_bar.dart`、`genre_chip.dart`、`media_row.dart`、`glass_panel.dart`、`server_card.dart` | 需产品决策：补入口还是删除。`mini_play_bar` 与「退出播放最小化」体验相关，倾向补入口；`genre_chip` 已有 `AetherChip.genre` 在用、`media_row` 已有 `MediaCard` + `ListView` 组合替代，倾向删除。`video_osd.dart` 原本也在此列，已通过 OSD 下沉转为活组件 |
+| **两个同名 `TrackInfo` 类** | `services/player_engine.dart` 与 `models/playback_models.dart` 各有一个 `TrackInfo`，字段不同（后者有 `displayTitle`，前者没有）。`player_provider.dart` 靠 `hide TrackInfo` 规避，播放页曾因引错包而编译失败 | 建议重命名其一（如 `EngineTrack` / `EmbyTrack`）。属跨层改名，会影响引擎接口与 FFI 边界，故未在本轮动手 |
+| **`MediaCard` 标题重复** | 海报底部叠加标题与下方标题行显示同一个名字（现已统一为 `displayTitle`），一张卡上出现两次 | 疑似设计稿即如此（叠加标题用于海报较矮时兜底）。需对照原型确认是保留还是去掉其一；因涉及观感，未擅自改动 |
+
+**已决（原为待决）**：`SearchHintCard` vs `_SearchResultTile` —— 已删除内联的 `_SearchResultTile`，搜索结果统一用 `SearchHintCard`，不再存在两种布局之争。
 
 ---
 
@@ -340,3 +367,52 @@ class RatingBadge extends StatelessWidget {
 | 无障碍（Semantics） | `reports/OPTIMIZATION_REPORT.md` §6 已列，需设计规范配合 |
 | 侧栏导航架构重构 | 即 `TODO_UI_ISSUES.md` 问题 3，需重构 `ShellScreen` 页面栈，风险独立 |
 | 原生 C++ 引擎 FFI 重构 | 见 `reports/BUG_REPORT.md` BUG-006，本机无 libmpv 无法验证 |
+
+---
+
+## 十二、执行状态（截至 2026-09-11）
+
+### 12.1 已提交（`dev` 分支，领先 `origin/dev` 14 个提交，**尚未推送**）
+
+| 提交 | 对应阶段 |
+|:--|:--|
+| `📝 docs: 新增 UI 改造实施计划并纳入三份原型文档` | 本文档 |
+| `🐛 fix: 修复共享卡片组件图片头缺失，并补齐评分角标与进度条` | 0.1 + 0.2 |
+| `🐛 fix: 修复 TV 模式图片全部无法加载` | §2.4 |
+| `♻️ refactor: 搜索结果卡收敛到共享 SearchHintCard` | 0.3 |
+| `♻️ refactor: 媒体库改用共享 MediaCard 并启用既有骨架组件` | 0.3 第 1 批 + 0.4 |
+| `✨ feat: 剧集页主按钮改为按进度续播` | 1.1 |
+| `✨ feat: 播放器底栏补齐字幕与画质一级入口，倍速改直选` | 1.2 + 2.2 |
+| `✨ feat: 媒体库卡片显示条目数量` | 1.3 |
+| `♻️ refactor: 剧集列表去重为继续观看条，并修复单集缩略图 502` | 2.1 + 2.4 |
+| `✨ feat: 库内容页自行取数并支持筛选排序，收敛重复的网格实现` | 2.3 + 2.4 |
+| `✨ feat: 播放失败改居中错误卡片，进度条显示缓冲段与百分比` | 3 |
+| `♻️ refactor: OSD 下沉到 video_osd，消除两套并行的播放控制层实现` | 3 |
+| `♻️ refactor: 首页卡片收敛到 MediaCard，详情页跳转与图片地址各留一处实现` | 0.3 第 2 批 |
+| `♻️ refactor: 详情页图片地址统一走 imageProxyUrl，拆掉已死的代理地址穿参` | 0.3 第 3 批（机械部分） |
+
+### 12.2 自动化验证
+
+| 手段 | 计划时基线 | 现状 |
+|:--|:--|:--|
+| `flutter analyze` | 0 issues | 0 issues（每个提交后均保持） |
+| `flutter test` | 21 个用例 | **54 个**：新增「接着看」选集算法 18 个、字幕语言归并 11 个、`displayTitle` 与 `imageProxyUrl` 8 个、错误卡片横屏适配与动作 6 个、存档解析 10 个 |
+
+widget test 是本轮新引入的验证层级，专门覆盖 `analyze` 查不出来的布局问题：错误卡片在 568×320 的横屏视口下，去掉滚动层会溢出 29px —— 这个结论是测出来的，不是推测的。
+
+### 12.3 仍需实机验证（无法自动化）
+
+- **图片加载**：`MediaCard` 现在会自行判断 `X-Emby-Server` 是否就绪，但「就绪后海报确实刷出来」只能在真机确认
+- **首页卡片观感**：`_HomeItemCard` → `MediaCard` 改变了字号（13/11 → 10.9/10）、圆角与 hover 行为，属可见变化
+- **库内容页筛选与排序**：依赖真实 Emby 的 `SortBy` / `IncludeItemTypes` 响应
+- **播放页**：错误卡片三动作（重试 / 切换画质 / 返回）、缓冲段与百分比（仅 media_kit 引擎有数字）、OSD 下沉后的两行布局
+- **TV 模式**：图片修复与退出路径
+
+### 12.4 剩余未做
+
+| 项 | 状态 | 原因 |
+|:--|:--|:--|
+| 跳过片头 | ⏸ 搁置 | 需先加 Go 侧 `IntroTimestamps` 端点；无真机 Emby 可验证，见 §七 |
+| `_EpisodeTile` / 演职员卡合并 | ⏸ 待决策 | 设计级改动，需实机回归，见 §八 |
+| 5 个 0 导入死组件的去留 | ⏸ 待决策 | 补入口还是删除属产品决策，见 §八 |
+| 「未看」计数 | ⏸ 待决策 | 需 Go 批量计数端点，见 §八 |
