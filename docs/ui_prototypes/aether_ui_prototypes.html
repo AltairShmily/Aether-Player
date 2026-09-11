@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aether Player · UI 原型图 · dev 分支</title>
+<style>
+  :root {
+    --bg-deep: #0A0E14;
+    --bg-primary: #0D1520;
+    --bg-secondary: #0F1722;
+    --bg-surface: #111820;
+    --bg-hover: #1A2332;
+    --bg-elevated: #1A2332;
+    --accent: #00D4FF;
+    --accent-soft: rgba(0,212,255,0.10);
+    --accent-med: rgba(0,212,255,0.20);
+    --purple: #8B5CF6;
+    --green: #00E5A0;
+    --orange: #FF6B35;
+    --pink: #EC4899;
+    --text-1: #F0F4F8;
+    --text-2: #8892A4;
+    --text-3: #5A6577;
+    --border: rgba(255,255,255,0.06);
+    --border-2: rgba(255,255,255,0.10);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg-deep);
+    color: var(--text-1);
+    font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 40px 32px 80px;
+  }
+  .page-title {
+    text-align: center;
+    margin-bottom: 8px;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, #00D4FF, #8B5CF6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .page-sub {
+    text-align: center;
+    color: var(--text-3);
+    margin-bottom: 40px;
+    font-size: 13px;
+  }
+  .page-sub code {
+    font-family: 'SF Mono', Consolas, monospace;
+    color: var(--accent);
+    font-size: 12px;
+  }
+  .palette {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 48px;
+  }
+  .swatch {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    border: 1px solid var(--border-2);
+    position: relative;
+  }
+  .swatch span {
+    position: absolute;
+    bottom: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px;
+    color: var(--text-3);
+    white-space: nowrap;
+    font-family: monospace;
+  }
+  .palette-wrap { margin-bottom: 64px; padding-bottom: 20px; }
+
+  .section {
+    margin-bottom: 64px;
+  }
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 8px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-num {
+    font-family: monospace;
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .section-title {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .section-file {
+    font-family: monospace;
+    font-size: 11px;
+    color: var(--text-3);
+    margin-left: auto;
+  }
+  .section-desc {
+    color: var(--text-2);
+    font-size: 13px;
+    margin-bottom: 20px;
+    max-width: 720px;
+  }
+  .frame-row {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .frame-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .frame-label {
+    font-size: 12px;
+    color: var(--text-2);
+    font-weight: 500;
+  }
+  .frame-label em {
+    color: var(--text-3);
+    font-style: normal;
+    font-size: 11px;
+  }
+  svg.proto {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    display: block;
+  }
+  .nav-map {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    margin-top: 24px;
+  }
+  .nav-map h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 16px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .legend {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+    font-size: 11px;
+    color: var(--text-3);
+  }
+  .legend i {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border-radius: 3px;
+    margin-right: 6px;
+    vertical-align: -2px;
+  }
+</style>
+</head>
+<body>
+
+<h1 class="page-title">✦ Aether Player · UI 原型图</h1>
+<p class="page-sub">基于 <code>dev</code> 分支当前 Flutter 实现 · 主题 <code>Celestial Glow</code> · 布局结构还原</p>
+
+<div class="palette-wrap">
+  <div class="palette">
+    <div class="swatch" style="background:#0A0E14"><span>deepVoid</span></div>
+    <div class="swatch" style="background:#0D1520"><span>bgPrimary</span></div>
+    <div class="swatch" style="background:#111820"><span>nebula</span></div>
+    <div class="swatch" style="background:#1A2332"><span>stardust</span></div>
+    <div class="swatch" style="background:#00D4FF"><span>cyan</span></div>
+    <div class="swatch" style="background:#8B5CF6"><span>purple</span></div>
+    <div class="swatch" style="background:#00E5A0"><span>green</span></div>
+    <div class="swatch" style="background:#FF6B35"><span>orange</span></div>
+    <div class="swatch" style="background:#EC4899"><span>pink</span></div>
+    <div class="swatch" style="background:#F0F4F8"><span>text-1</span></div>
+  </div>
+</div>
+
+<!-- ═══════════ 01 服务器选择 ═══════════ -->
+<section class="section">
+  <div class="section-head">
+    <span class="section-num">01</span>
+    <span class="section-title">服务器选择页</span>
+    <span class="section-file">server_selection_screen.dart</span>
+  </div>
+  <p class="section-desc">入口页。星空粒子 + 顶部青色光晕；居中 440px 列：Logo → AETHER → 服务器列表 →「添加新服务器」。卡片可点自动登录，也可删除。</p>
+  <div class="frame-row">
+    <div class="frame-wrap">
+      <div class="frame-label">桌面 / 平板 <em>440 × 约 720</em></div>
+      <svg class="proto" width="420" height="700" viewBox="0 0 420 700">
+        <!-- bg -->
+        <rect width="420" height="700" fill="#0A0E14"/>
+        <!-- top glow -->
+        <ellipse cx="210" cy="40" rx="200" ry="120" fill="rgba(0,212,255,0.06)"/>
+        <!-- stars -->
+        <circle cx="40" cy="80" r="1" fill="#fff" opacity=".35"/>
+        <circle cx="90" cy="160" r="1.2" fill="#fff" opacity=".25"/>
+        <circle cx="360" cy="100" r="1" fill="#fff" opacity=".4"/>
+        <circle cx="320" cy="220" r="0.8" fill="#fff" opacity=".3"/>
+        <circle cx="60" cy="300" r="1" fill="#fff" opacity=".2"/>
+        <circle cx="380" cy="380" r="1.1" fill="#fff" opacity=".28"/>
+        <circle cx="50" cy="500" r="0.9" fill="#fff" opacity=".22"/>
+        <circle cx="370" cy="560" r="1" fill="#fff" opacity=".3"/>
+        <!-- content column centered -->
+        <g transform="translate(90, 140)">
+          <!-- logo -->
+          <rect x="70" y="0" width="72" height="72" rx="18" fill="url(#logoGrad01)"/>
+          <polygon points="94,26 94,46 114,36" fill="#0A0E14"/>
+          <defs>
+            <linearGradient id="logoGrad01" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#00D4FF"/><stop offset="100%" stop-color="#8B5CF6"/>
+            </linearGradient>
+          </defs>
+          <!-- title -->
+          <text x="106" y="112" text-anchor="middle" fill="#F0F4F8" font-size="32" font-weight="800" letter-spacing="8">AETHER</text>
+          <text x="106" y="138" text-anchor="middle" fill="#5A6577" font-size="13">选择一个已保存的服务器或添加新服务器</text>
+          <!-- server card 1 -->
+          <rect x="0" y="180" width="240" height="72" rx="16" fill="#111820" stroke="rgba(255,255,255,0.06)"/>
+          <rect x="18" y="28" width="44" height="44" rx="12" fill="rgba(0,212,255,0.10)" transform="translate(0,180)"/>
+          <text x="40" y="212" text-anchor="middle" fill="#00D4FF" font-size="16">◈</text>
+          <text x="78" y="208" fill="#F0F4F8" font-size="14" font-weight="600">Home Media</text>
+          <text x="78" y="226" fill="#8892A4" font-size="11" font-family="monospace">http://192.168.1.10:8096</text>
+          <text x="218" y="218" fill="#EF4444" font-size="14" text-anchor="middle">🗑</text>
+          <!-- server card 2 -->
+          <rect x="0" y="264" width="240" height="72" rx="16" fill="#111820" stroke="rgba(255,255,255,0.06)"/>
+          <rect x="18" y="28" width="44" height="44" rx="12" fill="rgba(0,212,255,0.10)" transform="translate(0,264)"/>
+          <text x="40" y="296" text-anchor="middle" fill="#00D4FF" font-size="16">◈</text>
+          <text x="78" y="292" fill="#F0F4F8" font-size="14" font-weight="600">NAS-Emby</text>
+          <text x="78" y="310" fill="#8892A4" font-size="11" font-family="monospace">http://nas.local:8096</text>
+          <text x="218" y="302" fill="#EF4444" font-size="14" text-anchor="middle">🗑</text>
+          <!-- add button -->
+          <rect x="0" y="372" width="240" height="48" rx="12" fill="url(#btnGrad01)"/>
+          <text x="120" y="402" text-anchor="middle" fill="#0A0E14" font-size="15" font-weight="600">＋ 添加新服务器</text>
+        </g>
+        <text x="210" y="680" text-anchor="middle" fill="#5A6577" font-size="10">进入时自动尝试登录 · 成功则直接进入主壳</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 02 登录 ═══════════ -->
+<section class="section">
+  <div class="section-head">
+    <span class="section-num">02</span>
+    <span class="section-title">登录页</span>
+    <span class="section-file">login_screen.dart</span>
+  </div>
+  <p class="section-desc">两阶段表单：先「连接」服务器地址，成功后展开用户名/密码与「登录」。左对齐 420px 卡片，顶部径向光晕。</p>
+  <div class="frame-row">
+    <!-- Stage A -->
+    <div class="frame-wrap">
+      <div class="frame-label">阶段 A · 未连接 <em>输入地址 → 连接</em></div>
+      <svg class="proto" width="400" height="520" viewBox="0 0 400 520">
+        <rect width="400" height="520" fill="#0D1520"/>
+        <ellipse cx="200" cy="20" rx="180" ry="100" fill="rgba(0,212,255,0.05)"/>
+        <g transform="translate(60, 60)">
+          <!-- brand -->
+          <rect x="0" y="0" width="44" height="44" rx="12" fill="url(#logoGrad02)"/>
+          <polygon points="15,16 15,28 28,22" fill="#0A0E14"/>
+          <text x="58" y="30" fill="#F0F4F8" font-size="22" font-weight="800" letter-spacing="4">AETHER</text>
+          <text x="0" y="72" fill="#8892A4" font-size="14">连接你的媒体服务器</text>
+          <!-- field label -->
+          <text x="0" y="130" fill="#8892A4" font-size="12" font-weight="500">服务器地址</text>
+          <rect x="0" y="142" width="280" height="48" rx="12" fill="#111820" stroke="rgba(255,255,255,0.10)"/>
+          <text x="16" y="172" fill="#5A6577" font-size="13">◈  http://your-server:8096</text>
+          <text x="256" y="172" fill="#00D4FF" font-size="16" text-anchor="middle">→</text>
+          <!-- connect btn -->
+          <rect x="0" y="210" width="280" height="48" rx="12" fill="url(#btnGrad02)"/>
+          <text x="140" y="240" text-anchor="middle" fill="#0A0E14" font-size="15" font-weight="600">⚡ 连接</text>
+          <defs>
+            <linearGradient id="logoGrad02" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#00D4FF"/><stop offset="100%" stop-color="#8B5CF6"/>
+            </linearGradient>
+            <linearGradient id="btnGrad02" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#00D4FF"/><stop offset="100%" stop-color="#8B5CF6"/>
+            </linearGradient>
+            <linearGradient id="btnGrad01" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#00D4FF"/><stop offset="100%" stop-color="#8B5CF6"/>
+            </linearGradient>
+          </defs>
+        </g>
+      </svg>
+    </div>
+    <!-- Stage B -->
+    <div class="frame-wrap">
+      <div class="frame-label">阶段 B · 已连接 <em>展开账号密码</em></div>
+      <svg class="proto" width="400" height="620" viewBox="0 0 400 620">
+        <rect width="400" height="620" fill="#0D1520"/>
+        <ellipse cx="200" cy="20" rx="180" ry="100" fill="rgba(0,212,255,0.05)"/>
+        <g transform="translate(60, 40)">
+          <rect x="0" y="0" width="44" height="44" rx="12" fill="url(#logoGrad02)"/>
+          <polygon points="15,16 15,28 28,22" fill="#0A0E14"/>
+          <text x="58" y="30" fill="#F0F4F8" font-size="22" font-weight="800" letter-spacing="4">AETHER</text>
+          <text x="0" y="68" fill="#8892A4" font-size="14">连接你的媒体服务器</text>
+          <!-- connected server card -->
+          <rect x="0" y="100" width="280" height="52" rx="12" fill="#111820" stroke="rgba(0,229,160,0.25)"/>
+          <circle cx="20" cy="126" r="4" fill="#00E5A0"/>
+          <text x="34" y="130" fill="#F0F4F8" font-size="14" font-weight="600">Home Media</text>
+          <text x="240" y="130" fill="#5A6577" font-size="11" font-family="monospace">v4.8</text>
+          <text x="268" y="130" fill="#8892A4" font-size="12" text-anchor="middle">✎</text>
+          <!-- username -->
+          <text x="0" y="190" fill="#8892A4" font-size="12" font-weight="500">用户名</text>
+          <rect x="0" y="202" width="280" height="48" rx="12" fill="#111820" stroke="rgba(255,255,255,0.10)"/>
+          <text x="16" y="232" fill="#5A6577" font-size="13">👤  请输入用户名</text>
+          <!-- password -->
+          <text x="0" y="282" fill="#8892A4" font-size="12" font-weight="500">密码</text>
+          <rect x="0" y="294" width="280" height="48" rx="12" fill="#111820" stroke="rgba(255,255,255,0.10)"/>
+          <text x="16" y="324" fill="#5A6577" font-size="13">🔒  请输入密码</text>
+          <text x="256" y="324" fill="#5A6577" font-size="13" text-anchor="middle">👁</text>
+          <!-- login -->
+          <rect x="0" y="372" width="280" height="48" rx="12" fill="url(#btnGrad02)"/>
+          <text x="140" y="402" text-anchor="middle" fill="#0A0E14" font-size="15" font-weight="600">→ 登录</text>
+        </g>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 03 主壳 ═══════════ -->
+<section class="section">
+  <div class="section-head">
+    <span class="section-num">03</span>
+    <span class="section-title">主壳 Shell · 宽屏侧边栏</span>
+    <span class="section-file">shell_screen.dart</span>
+  </div>
+  <p class="section-desc">断点 ≥720px：72px 侧边栏（Logo / 首页 / 媒体库着色钮 / 搜索 / TV模式 / 服务器切换 / 设置）+ 右侧内容 Navigator。&lt;720px 切换为底部四栏导航。</p>
+  <div class="frame-row">
+    <div class="frame-wrap">
+      <div class="frame-label">宽屏 Shell 骨架 <em>侧栏 72 + 内容</em></div>
+      <svg class="proto" width="720" height="420" viewBox="0 0 720 420">
+        <rect width="720" height="420" fill="#0D1520"/>
+        <!-- sidebar -->
+        <rect x="0" y="0" width="72" height="420" fill="#111820"/>
+        <line x1="72" y1="0" x2="72" y2="420" stroke="rgba(255,255,255,0.06)"/>
+        <!-- logo -->
+        <rect x="16" y="16" width="40" height="40" rx="10" fill="url(#logoGrad03)"/>
+        <polygon points="30,28 30,44 46,36" fill="#0A0E14"/>
+        <!-- home active -->
+        <rect x="14" y="72" width="44" height="44" rx="12" fill="rgba(0,212,255,0.10)"/>
+        <text x="36" y="100" text-anchor="middle" fill="#00D4FF" font-size="18">⌂</text>
+        <!-- divider -->
+        <rect x="22" y="128" width="28" height="1" fill="rgba(255,255,255,0.06)"/>
+        <!-- libs -->
+        <rect x="14" y="140" width="44" height="44" rx="12" fill="transparent"/>
+        <text x="36" y="168" text-anchor="middle" fill="#00E5A0" font-size="16">▶</text>
+        <rect x="14" y="188" width="44" height="44" rx="12" fill="transparent"/>
+        <text x="36" y="216" text-anchor="middle" fill="#8B5CF6" font-size="16">📺</text>
+        <rect x="14" y="236" width="44" height="44" rx="12" fill="transparent"/>
+        <text x="36" y="264" text-anchor="middle" fill="#EC4899" font-size="16">♫</text>
+        <!-- search / tv -->
+        <rect x="14" y="292" width="44" height="44" rx="12" fill="transparent"/>
+        <text x="36" y="320" text-anchor="middle" fill="#5A6577" font-size="16">⌕</text>
+        <rect x="14" y="336" width="44" height="44" rx="12" fill="transparent"/>
+        <text x="36" y="364" text-anchor="middle" fill="#5A6577" font-size="14">TV</text>
+        <!-- bottom: server avatar + settings -->
+        <circle cx="36" cy="392" r="16" fill="url(#logoGrad03)"/>
+        <text x="36" y="397" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">H</text>
+        <!-- main content -->
+        <rect x="88" y="24" width="200" height="18" rx="4" fill="rgba(255,255,255,0.08)"/>
+        <text x="88" y="70" fill="#F0F4F8" font-size="22" font-weight="700">欢迎，cuihao</text>
+        <!-- hero -->
+        <rect x="88" y="90" width="600" height="140" rx="16" fill="#1A2332"/>
+        <rect x="88" y="90" width="600" height="140" rx="16" fill="url(#heroFade)"/>
+        <text x="120" y="170" fill="#F0F4F8" font-size="18" font-weight="700">沙丘2</text>
+        <rect x="120" y="186" width="88" height="28" rx="8" fill="url(#btnGrad03)"/>
+        <text x="164" y="204" text-anchor="middle" fill="#0A0E14" font-size="11" font-weight="600">继续播放</text>
+        <!-- section: continue -->
+        <text x="88" y="260" fill="#00D4FF" font-size="13" font-weight="600">▶  继续观看</text>
+        <text x="660" y="260" fill="#5A6577" font-size="11" text-anchor="end">查看全部 →</text>
+        <!-- cards -->
+        <g>
+          <rect x="88" y="272" width="88" height="132" rx="8" fill="#1A2332"/>
+          <rect x="88" y="390" width="88" height="14" fill="#0D1520" opacity=".0"/>
+          <rect x="92" y="392" width="40" height="3" rx="1.5" fill="#00D4FF"/>
+          <rect x="184" y="272" width="88" height="132" rx="8" fill="#1A2332"/>
+          <rect x="280" y="272" width="88" height="132" rx="8" fill="#1A2332"/>
+          <rect x="376" y="272" width="88" height="132" rx="8" fill="#1A2332"/>
+          <rect x="472" y="272" width="88" height="132" rx="8" fill="#1A2332"/>
+        </g>
+        <defs>
+          <linearGradient id="logoGrad03" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#00D4FF"/><stop offset="100%" stop-color="#8B5CF6"/>
+          </linearGradient>
+          <linearGradient id="btnGrad03" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#00D4FF"/><stop offset="100%" stop-color="#8B5CF6"/>
+          </linearGradient>
+          <linearGradient id="heroFade" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#0A0E14" stop-opacity="0.85"/>
+            <stop offset="55%" stop-color="#0A0E14" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+
+    <div class="frame-wrap">
+      <div class="frame-label">紧凑布局 <em>&lt;720px 底部导航</em></div>
+      <svg class="proto" width="280" height="420" viewBox="0 0 280 420">
+        <rect width="280" height="420" fill="#0D1520"/>
+        <!-- content abbreviated -->
+        <text x="20" y="36" fill="#F0F4F8" font-size="16" font-weight="700">欢迎，cuihao</text>
+        <rect x="20" y="52" width="240" height="100" rx="12" fill="#1A2332"/>
+        <rect x="32" y="120" width="72" height="22" rx="6" fill="url(#btnGrad03)"/>
+        <text x="68" y="135" text-anchor="middle" fill="#0A0E14" font-size="10" font-weight="600">继续播放</text>
+        <text x="20" y="180" fill="#00D4FF" font-size="12" font-weight="600">继续观看</text>
+        <rect x="20" y="192" width="70" height="105" rx="8" fill="#1A2332"/>
+        <rect x="100" y="192" width="70" height="105" rx="8" fill="#1A2332"/>
+        <rect x="180" y="192" width="70" height="105" rx="8" fill="#1A2332"/>
+        <!-- mini play bar -->
+        <rect x="16" y="318" width="248" height="48" rx="12" fill="#1A2332" stroke="rgba(0,212,255,0.10)"/>
+        <rect x="26" y="328" width="28" height="28" rx="6" fill="url(#btnGrad03)"/>
+        <text x="64" y="338" fill="#F0F4F8" font-size="11">沙丘2 · E01</text>
+        <text x="64" y="352" fill="#5A6577" font-size="9">未在播放</text>
+        <circle cx="230" cy="342" r="12" fill="rgba(0,212,255,0.10)"/>
+        <text x="230" y="346" text-anchor="middle" fill="#00D4FF" font-size="10">▶</text>
+        <!-- bottom nav -->
+        <rect x="0" y="378" width="280" height="42" fill="#0D1520" stroke="rgba(255,255,255,0.06)"/>
+        <text x="40" y="402" text-anchor="middle" fill="#00D4FF" font-size="11">⌂ 首页</text>
+        <text x="104" y="402" text-anchor="middle" fill="#5A6577" font-size="11">▦ 媒体库</text>
+        <text x="176" y="402" text-anchor="middle" fill="#5A6577" font-size="11">⌕ 搜索</text>
+        <text x="240" y="402" text-anchor="middle" fill="#5A6577" font-size="11">⚙ 设置</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 04 首页 ═══════════ -->
+<section class="section">
+  <div class="section-head">
+    <span class="section-num">04</span>
+    <span class="section-title">首页 HomeTab</span>
+    <span class="section-file">home_tab.dart</span>
+  </div>
+  <p class="section-desc">双层径向光晕背景 + CustomScrollView。自上而下：App Bar（Logo/搜索/刷新）→ 欢迎语 → Hero 轮播（继续观看）→ 继续观看横滑 → 媒体库快捷 → 分类 Chip → 各库横滑 → 账户卡片。</p>
+  <div class="frame-row">
+    <div class="frame-wrap">
+      <div class="frame-label">桌面首页 <em>内容区示意</em></div>
+      <svg class="proto" width="760" height="640" viewBox="0 0 760 640">
+        <rect width="760" height="640" fill="#0D1520"/>
+        <ellipse cx="120" cy="0" rx="200" ry="140" fill="rgba(0,212,255,0.035)"/>
+        <ellipse cx="680" cy="640" rx="180" ry="120" fill="rgba(139,92,246,0.03)"/>
+        <rect x="16" y="12" width="32" height="32" rx="8" fill="url(#lg04)"/>
+        <polygon points="26,22 26,36 40,29" fill="#0A0E14"/>
+        <text x="56" y="32" fill="#F0F4F8" font-size="13" font-weight="800" letter-spacing="2">AETHER</text>
+        <text x="700" y="32" fill="#5A6577" font-size="14">⌕</text>
+        <text x="730" y="32" fill="#5A6577" font-size="14">⟳</text>
+        <text x="24" y="80" fill="#F0F4F8" font-size="24" font-weight="700">欢迎，cuihao</text>
+        <rect x="24" y="96" width="712" height="220" rx="20" fill="#1A2332"/>
+        <rect x="24" y="96" width="420" height="220" rx="20" fill="#0A0E14" opacity=".55"/>
+        <text x="48" y="190" fill="#00D4FF" font-size="11" font-weight="600">剧集  ·  2024  ·  ★8.7</text>
+        <text x="48" y="230" fill="#F0F4F8" font-size="26" font-weight="800">沙丘：预言</text>
+        <text x="48" y="254" fill="#8892A4" font-size="12">S01E03  ·  姐妹会的远见</text>
+        <rect x="48" y="270" width="100" height="32" rx="10" fill="url(#bg04)"/>
+        <text x="98" y="290" text-anchor="middle" fill="#0A0E14" font-size="12" font-weight="600">▶ 继续播放</text>
+        <rect x="350" y="326" width="16" height="6" rx="3" fill="#00D4FF"/>
+        <circle cx="380" cy="329" r="3" fill="#5A6577"/>
+        <circle cx="396" cy="329" r="3" fill="#5A6577"/>
+        <circle cx="412" cy="329" r="3" fill="#5A6577"/>
+        <text x="24" y="368" fill="#00D4FF" font-size="13" font-weight="600">▶  继续观看</text>
+        <text x="736" y="368" fill="#5A6577" font-size="11" text-anchor="end">查看全部 →</text>
+        <rect x="24" y="380" width="100" height="150" rx="10" fill="#1A2332"/>
+        <rect x="30" y="518" width="48" height="3" rx="1.5" fill="#00D4FF"/>
+        <circle cx="112" cy="392" r="10" fill="rgba(0,212,255,0.85)"/>
+        <text x="112" y="396" text-anchor="middle" fill="#0A0E14" font-size="8" font-weight="700">8.9</text>
+        <text x="28" y="540" fill="#F0F4F8" font-size="11">沙丘2</text>
+        <text x="28" y="554" fill="#5A6577" font-size="10" font-family="monospace">2024</text>
+        <rect x="136" y="380" width="100" height="150" rx="10" fill="#1A2332"/>
+        <text x="140" y="540" fill="#F0F4F8" font-size="11">三体</text>
+        <text x="140" y="554" fill="#5A6577" font-size="10" font-family="monospace">2024</text>
+        <rect x="248" y="380" width="100" height="150" rx="10" fill="#1A2332"/>
+        <text x="252" y="540" fill="#F0F4F8" font-size="11">奥本海默</text>
+        <text x="252" y="554" fill="#5A6577" font-size="10" font-family="monospace">2023</text>
+        <rect x="360" y="380" width="100" height="150" rx="10" fill="#1A2332"/>
+        <text x="364" y="540" fill="#F0F4F8" font-size="11">星际穿越</text>
+        <text x="364" y="554" fill="#5A6577" font-size="10" font-family="monospace">2014</text>
+        <rect x="472" y="380" width="100" height="150" rx="10" fill="#1A2332"/>
+        <text x="476" y="540" fill="#F0F4F8" font-size="11">银翼2049</text>
+        <text x="476" y="554" fill="#5A6577" font-size="10" font-family="monospace">2017</text>
+        <rect x="584" y="380" width="100" height="150" rx="10" fill="#1A2332"/>
+        <text x="588" y="540" fill="#F0F4F8" font-size="11">降临</text>
+        <text x="588" y="554" fill="#5A6577" font-size="10" font-family="monospace">2016</text>
+        <text x="24" y="592" fill="#00D4FF" font-size="13" font-weight="600">▦  媒体库</text>
+        <rect x="24" y="604" width="160" height="28" rx="8" fill="#111820" stroke="rgba(255,255,255,0.06)"/>
+        <text x="40" y="622" fill="#00E5A0" font-size="12">▶</text>
+        <text x="60" y="622" fill="#F0F4F8" font-size="11">电影</text>
+        <rect x="196" y="604" width="160" height="28" rx="8" fill="#111820" stroke="rgba(255,255,255,0.06)"/>
+        <text x="212" y="622" fill="#8B5CF6" font-size="12">📺</text>
+        <text x="232" y="622" fill="#F0F4F8" font-size="11">电视剧</text>
+        <rect x="368" y="604" width="160" height="28" rx="8" fill="#111820" stroke="rgba(255,255,255,0.06)"/>
+        <text x="384" y="622" fill="#EC4899" font-size="12">♫</text>
+        <text x="404" y="622" fill="#F0F4F8" font-size="11">音乐</text>
+        <defs>
+          <linearGradient id="lg04" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#00D4FF"/><stop offset="100%" stop-color="#8B5CF6"/></linearGradient>
+          <linearGradient id="bg04" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#00D4FF"/><stop offset="100%" stop-color="#8B5CF6"/></linearGradient>
+        </defs>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 05 媒体库 ═══════════ -->
+<section class="section">
+  <div class="section-head">
+    <span class="section-num">05</span>
+    <span class="section-title">媒体库</span>
+    <span class="section-file">phone_library_screen.dart</span>
+  </div>
+  <p class="section-desc">两层结构：库网格（16:10 卡，自适应列，最大块宽 300）→ 点击进入库内容页（2:3 海报网格，最大块宽 150，带返回栏）。</p>
+  <div class="frame-row">
+    <div class="frame-wrap">
+      <div class="frame-label">库网格视图</div>
+      <svg class="proto" width="520" height="280" viewBox="0 0 520 280">
+        <rect width="520" height="280" fill="#0D1520"/>
+        <text x="24" y="40" fill="#F0F4F8" font-size="20" font-weight="700">媒体库</text>
+        <rect x="24" y="60" width="148" height="92" rx="12" fill="#1A2332"/>
+        <rect x="24" y="110" width="148" height="42" rx="12" fill="#0A0E14" opacity=".4"/>
+        <text x="40" y="118" fill="#00E5A0" font-size="16">▶</text>
+        <text x="40" y="136" fill="#F0F4F8" font-size="13" font-weight="700">电影</text>
+        <text x="40" y="148" fill="#5A6577" font-size="10">点击查看</text>
+        <rect x="186" y="60" width="148" height="92" rx="12" fill="#1A2332"/>
+        <rect x="186" y="110" width="148" height="42" rx="12" fill="#0A0E14" opacity=".4"/>
+        <text x="202" y="118" fill="#8B5CF6" font-size="16">📺</text>
+        <text x="202" y="136" fill="#F0F4F8" font-size="13" font-weight="700">电视剧</text>
+        <text x="202" y="148" fill="#5A6577" font-size="10">点击查看</text>
+        <rect x="348" y="60" width="148" height="92" rx="12" fill="#1A2332"/>
+        <rect x="348" y="110" width="148" height="42" rx="12" fill="#0A0E14" opacity=".4"/>
+        <text x="364" y="118" fill="#EC4899" font-size="16">♫</text>
+        <text x="364" y="136" fill="#F0F4F8" font-size="13" font-weight="700">音乐</text>
+        <text x="364" y="148" fill="#5A6577" font-size="10">点击查看</text>
+        <rect x="24" y="166" width="148" height="92" rx="12" fill="#1A2332"/>
+        <rect x="186" y="166" width="148" height="92" rx="12" fill="#1A2332"/>
+        <rect x="348" y="166" width="148" height="92" rx="12" fill="#1A2332"/>
+      </svg>
+    </div>
+    <div class="frame-wrap">
+      <div class="frame-label">库内容页 · 海报网格</div>
+      <svg class="proto" width="380" height="400" viewBox="0 0 380 400">
+        <rect width="380" height="400" fill="#0A0E14"/>
+        <text x="20" y="32" fill="#F0F4F8" font-size="16">←</text>
+        <text x="48" y="32" fill="#F0F4F8" font-size="16" font-weight="600">电影</text>
+        <rect x="20" y="56" width="80" height="120" rx="8" fill="#1A2332"/>
+        <rect x="20" y="152" width="80" height="24" fill="#0A0E14" opacity=".5"/>
+        <text x="26" y="168" fill="#F0F4F8" font-size="9">沙丘2</text>
+        <rect x="112" y="56" width="80" height="120" rx="8" fill="#1A2332"/>
+        <rect x="204" y="56" width="80" height="120" rx="8" fill="#1A2332"/>
+        <rect x="296" y="56" width="80" height="120" rx="8" fill="#1A2332"/>
+        <rect x="20" y="188" width="80" height="120" rx="8" fill="#1A2332"/>
+        <rect x="112" y="188" width="80" height="120" rx="8" fill="#1A2332"/>
+        <rect x="204" y="188" width="80" height="120" rx="8" fill="#1A2332"/>
+        <rect x="296" y="188" width="80" height="120" rx="8" fill="#1A2332"/>
+        <rect x="20" y="320" width="80" height="70" rx="8" fill="#1A2332"/>
+        <rect x="112" y="320" width="80" height="70" rx="8" fill="#1A2332"/>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 06 剧集详情 ═══════════ -->
+<section class="section">
+  <div class="section-head">
+    <span class="section-num">06</span>
+    <span class="section-title">剧集总览 SeriesDetail</span>
+    <span class="section-file">series_detail_screen.dart</span>
+  </div>
+  <p class="section-desc">Aether 风格：300px Backdrop Hero + 170×255 海报上移 70 压住 Hero → 菱形徽章/标题/状态 → Meta/类型 → 播放 Pill → 简介 → 季 Tab → 横向集预览 + 纵向集列表 → 演员横滑。</p>
+  <div class="frame-row">
+    <div class="frame-wrap">
+      <div class="frame-label">桌面剧集详情</div>
+      <svg class="proto" width="680" height="760" viewBox="0 0 680 760">
+        <rect width="680" height="760" fill="#0D1520"/>
+        <rect x="16" y="16" width="648" height="260" rx="20" fill="#1A2332"/>
+        <rect x="16" y="16" width="648" height="260" rx="20" fill="url(#hl06)"/>
+        <rect x="16" y="16" width="648" height="260" rx="20" fill="url(#hb06)"/>
+        <circle cx="40" cy="40" r="16" fill="rgba(10,14,20,0.7)"/>
+        <text x="40" y="45" text-anchor="middle" fill="#F0F4F8" font-size="14">←</text>
+        <rect x="32" y="206" width="130" height="195" rx="14" fill="#1A2332" stroke="#00D4FF" stroke-opacity="0.25" stroke-width="2"/>
+        <polygon points="200,220 212,232 200,244 188,232" fill="rgba(0,212,255,0.15)" stroke="#00D4FF" stroke-width="1"/>
+        <text x="200" y="236" text-anchor="middle" fill="#00D4FF" font-size="8" font-weight="700">2季</text>
+        <text x="224" y="240" fill="#F0F4F8" font-size="24" font-weight="700">沙丘：预言</text>
+        <rect x="420" y="226" width="52" height="18" rx="6" fill="rgba(0,229,160,0.12)"/>
+        <text x="446" y="239" text-anchor="middle" fill="#00E5A0" font-size="10">连载中</text>
+        <text x="180" y="274" fill="#8892A4" font-size="12">2024  ·  ★8.7  ·  TV-14</text>
+        <rect x="180" y="288" width="44" height="20" rx="6" fill="#111820" stroke="rgba(255,255,255,0.06)"/>
+        <text x="202" y="302" text-anchor="middle" fill="#8892A4" font-size="10">科幻</text>
+        <rect x="232" y="288" width="44" height="20" rx="6" fill="#111820" stroke="rgba(255,255,255,0.06)"/>
+        <text x="254" y="302" text-anchor="middle" fill="#8892A4" font-size="10">剧情</text>
+        <rect x="180" y="322" width="90" height="34" rx="17" fill="#00E5A0"/>
+        <text x="225" y="344" text-anchor="middle" fill="#0A0E14" font-size="13" font-weight="700">▶ 播放</text>
+        <text x="32" y="440" fill="#F0F4F8" font-size="14" font-weight="600">简介</text>
+        <text x="32" y="462" fill="#8892A4" font-size="12">一万年前，贝尼·杰瑟里特姐妹会悄然崛起。她们以远见与权谋，在帝国的裂缝中播下种子……</text>
+        <line x1="32" y1="490" x2="648" y2="490" stroke="rgba(255,255,255,0.06)"/>
+        <text x="48" y="512" fill="#00D4FF" font-size="13" font-weight="600">第 1 季</text>
+        <rect x="36" y="518" width="50" height="2" fill="url(#tg06)"/>
+        <text x="120" y="512" fill="#5A6577" font-size="13">第 2 季</text>
+        <text x="32" y="556" fill="#8892A4" font-size="12">▤  第 1 季  ·  6集</text>
+        <rect x="32" y="568" width="120" height="68" rx="8" fill="#1A2332"/>
+        <rect x="32" y="622" width="48" height="3" rx="1.5" fill="#00E5A0"/>
+        <rect x="164" y="568" width="120" height="68" rx="8" fill="#1A2332"/>
+        <rect x="296" y="568" width="120" height="68" rx="8" fill="#1A2332"/>
+        <rect x="428" y="568" width="120" height="68" rx="8" fill="#1A2332"/>
+        <rect x="560" y="568" width="88" height="68" rx="8" fill="#1A2332"/>
+        <rect x="32" y="656" width="120" height="68" rx="8" fill="#1A2332"/>
+        <text x="164" y="676" fill="#F0F4F8" font-size="13" font-weight="500">01  隐藏的刀锋</text>
+        <text x="164" y="696" fill="#5A6577" font-size="11">姐妹会成员抵达卡拉丹，一场关于命运的棋局悄然开始……</text>
+        <text x="648" y="676" fill="#5A6577" font-size="11" font-family="monospace" text-anchor="end">54m</text>
+        <rect x="32" y="732" width="120" height="20" rx="8" fill="#1A2332" opacity=".6"/>
+        <text x="164" y="746" fill="#5A6577" font-size="12">02  预言之子</text>
+        <defs>
+          <linearGradient id="hl06" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#0A0E14" stop-opacity="0.75"/><stop offset="55%" stop-color="#0A0E14" stop-opacity="0"/>
+          </linearGradient>
+          <linearGradient id="hb06" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="40%" stop-color="#0D1520" stop-opacity="0"/><stop offset="100%" stop-color="#0D1520" stop-opacity="1"/>
+          </linearGradient>
+          <linearGradient id="tg06" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#00D4FF"/><stop offset="100%" stop-color="#8B5CF6"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 07 单集详情 ═══════════ -->
+<section class="section">
+  <div class="section-head">
+    <span class="section-num">07</span>
+    <span class="section-title">单集详情 EpisodeDetail</span>
+    <span class="section-file">episode_detail_screen.dart</span>
+  </div>
+  <p class="section-desc">≥1200px 双栏：左侧 16:9 封面 + 面包屑/标题/简介/演职/进度；右侧 360px 固定控制面板（媒体源 / 音频 / 字幕 / 全宽播放按钮）。&lt;1200 单栏堆叠。</p>
+  <div class="frame-row">
+    <div class="frame-wrap">
+      <div class="frame-label">桌面双栏布局</div>
+      <svg class="proto" width="760" height="500" viewBox="0 0 760 500">
+        <rect width="760" height="500" fill="#0D1520"/>
+        <rect x="24" y="24" width="360" height="200" rx="14" fill="#1A2332"/>
+        <circle cx="204" cy="124" r="28" fill="rgba(0,212,255,0.20)" stroke="#00D4FF" stroke-width="2"/>
+        <polygon points="198,112 198,136 220,124" fill="#00D4FF"/>
+        <rect x="36" y="190" width="48" height="22" rx="6" fill="rgba(0,212,255,0.15)"/>
+        <text x="60" y="205" text-anchor="middle" fill="#00D4FF" font-size="9" font-weight="700">沙丘</text>
+        <text x="24" y="250" fill="#5A6577" font-size="11">沙丘：预言 · S01 · <tspan fill="#00D4FF">E03</tspan></text>
+        <text x="24" y="280" fill="#F0F4F8" font-size="20" font-weight="700">隐藏的刀锋</text>
+        <text x="24" y="300" fill="#8892A4" font-size="12">沙丘：预言 · 第 1 季</text>
+        <text x="24" y="326" fill="#8892A4" font-size="11">2024  ·  ★8.9  ·  TV-14  ·  54m</text>
+        <rect x="24" y="344" width="360" height="56" rx="12" fill="#111820" stroke="rgba(255,255,255,0.06)"/>
+        <rect x="36" y="354" width="36" height="36" rx="8" fill="#1A2332"/>
+        <text x="86" y="366" fill="#5A6577" font-size="10">所属剧集</text>
+        <text x="86" y="384" fill="#F0F4F8" font-size="13" font-weight="500">沙丘：预言 · S01E03</text>
+        <text x="364" y="376" fill="#5A6577" font-size="12" text-anchor="end">→</text>
+        <text x="24" y="430" fill="#F0F4F8" font-size="13" font-weight="600">简介</text>
+        <text x="24" y="452" fill="#8892A4" font-size="12">姐妹会成员抵达卡拉丹，一场关于命运的棋局悄然开始……</text>
+        <text x="24" y="474" fill="#00D4FF" font-size="11">展开全部</text>
+        <rect x="410" y="24" width="326" height="452" rx="16" fill="#111820" stroke="rgba(255,255,255,0.06)"/>
+        <text x="434" y="58" fill="#5A6577" font-size="10" font-weight="600" letter-spacing="1">媒体源</text>
+        <rect x="434" y="70" width="278" height="40" rx="8" fill="#1A2332" stroke="rgba(255,255,255,0.10)"/>
+        <text x="448" y="95" fill="#F0F4F8" font-size="13">原始画质 · 1080p</text>
+        <text x="690" y="95" fill="#5A6577" font-size="12" text-anchor="end">⌄</text>
+        <text x="434" y="140" fill="#5A6577" font-size="10" font-weight="600" letter-spacing="1">音频</text>
+        <rect x="434" y="152" width="278" height="40" rx="8" fill="#1A2332" stroke="rgba(255,255,255,0.10)"/>
+        <text x="448" y="177" fill="#F0F4F8" font-size="13">中文 · AC3 5.1</text>
+        <text x="690" y="177" fill="#5A6577" font-size="12" text-anchor="end">⌄</text>
+        <text x="434" y="222" fill="#5A6577" font-size="10" font-weight="600" letter-spacing="1">字幕</text>
+        <rect x="434" y="234" width="278" height="40" rx="8" fill="#1A2332" stroke="rgba(255,255,255,0.10)"/>
+        <text x="448" y="259" fill="#F0F4F8" font-size="13">简体中文</text>
+        <text x="690" y="259" fill="#5A6577" font-size="12" text-anchor="end">⌄</text>
+        <rect x="434" y="300" width="278" height="48" rx="12" fill="url(#pg07)"/>
+        <text x="573" y="330" text-anchor="middle" fill="#0A0E14" font-size="15" font-weight="700">▶  播放</text>
+        <rect x="434" y="372" width="278" height="72" rx="12" fill="#1A2332"/>
+        <text x="454" y="398" fill="#F0F4F8" font-size="13" font-weight="500">已观看</text>
+        <rect x="454" y="414" width="238" height="4" rx="2" fill="#2A3444"/>
+        <rect x="454" y="414" width="160" height="4" rx="2" fill="url(#pg07)"/>
+        <text x="454" y="436" fill="#5A6577" font-size="11">67%</text>
+        <defs>
+          <linearGradient id="pg07" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#00D4FF"/><stop offset="100%" stop-color="#8B5CF6"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 08 视频播放器 ═══════════ -->
+<section class="section">
+  <div class="section-head">
+    <span class="section-num">08</span>
+    <span class="section-title">视频播放器 PlayerPage</span>
+    <span class="section-file">player_page.dart</span>
+  </div>
+  <p class="section-desc">横屏全屏。单击显隐 OSD；双击左右 1/3 快退/进 10s，中间播放/暂停。顶栏高 100（返回/标题/设置）；底栏：进度条 + 快退10/播放52/快进30/下一集 | 音量/倍速/调参。暂停时中央 72px 大播放钮。右上 Direct Play / Transcode 角标。</p>
+  <div class="frame-row">
+    <div class="frame-wrap">
+      <div class="frame-label">播放中 · OSD 显示</div>
+      <svg class="proto" width="720" height="405" viewBox="0 0 720 405">
+        <rect width="720" height="405" fill="#0A0E14"/>
+        <!-- video surface -->
+        <rect width="720" height="405" fill="#111820"/>
+        <text x="360" y="200" text-anchor="middle" fill="#2A3444" font-size="14">[ Video Surface / libmpv ]</text>
+        <!-- top bar -->
+        <rect x="0" y="0" width="720" height="80" fill="url(#topFade)"/>
+        <text x="20" y="40" fill="#F0F4F8" font-size="18">←</text>
+        <text x="52" y="40" fill="#F0F4F8" font-size="14" font-weight="600">沙丘2</text>
+        <text x="688" y="40" fill="rgba(255,255,255,0.7)" font-size="16" text-anchor="end">⚙</text>
+        <!-- mode badge -->
+        <rect x="620" y="56" width="72" height="18" rx="6" fill="rgba(0,229,160,0.15)"/>
+        <text x="656" y="69" text-anchor="middle" fill="#00E5A0" font-size="10">Direct Play</text>
+        <!-- bottom bar -->
+        <rect x="0" y="280" width="720" height="125" fill="url(#botFade)"/>
+        <!-- progress -->
+        <text x="24" y="330" fill="#8892A4" font-size="11" font-family="monospace">01:12:30</text>
+        <rect x="90" y="324" width="540" height="3" rx="1.5" fill="#2A3444"/>
+        <rect x="90" y="324" width="320" height="3" rx="1.5" fill="#00D4FF"/>
+        <circle cx="410" cy="325.5" r="6" fill="#00D4FF"/>
+        <text x="660" y="330" fill="#5A6577" font-size="11" font-family="monospace" text-anchor="end">02:46:00</text>
+        <!-- controls left -->
+        <text x="40" y="378" fill="#F0F4F8" font-size="18">↺10</text>
+        <circle cx="110" cy="372" r="26" fill="#00D4FF"/>
+        <text x="110" y="379" text-anchor="middle" fill="#0A0E14" font-size="18">⏸</text>
+        <text x="160" y="378" fill="#F0F4F8" font-size="18">30↻</text>
+        <text x="210" y="378" fill="#F0F4F8" font-size="18">⏭</text>
+        <!-- controls right -->
+        <text x="480" y="378" fill="#8892A4" font-size="14">🔊</text>
+        <rect x="504" y="372" width="70" height="2" rx="1" fill="#2A3444"/>
+        <rect x="504" y="372" width="42" height="2" rx="1" fill="#00D4FF"/>
+        <rect x="590" y="360" width="40" height="22" rx="6" fill="#1A2332"/>
+        <text x="610" y="375" text-anchor="middle" fill="#F0F4F8" font-size="11" font-family="monospace">1.0x</text>
+        <text x="670" y="378" fill="rgba(255,255,255,0.7)" font-size="16">🎛</text>
+        <defs>
+          <linearGradient id="topFade" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#000" stop-opacity="0.75"/><stop offset="100%" stop-color="#000" stop-opacity="0"/>
+          </linearGradient>
+          <linearGradient id="botFade" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stop-color="#000" stop-opacity="0.85"/><stop offset="100%" stop-color="#000" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+    <div class="frame-wrap">
+      <div class="frame-label">设置底部弹窗</div>
+      <svg class="proto" width="360" height="380" viewBox="0 0 360 380">
+        <rect width="360" height="380" fill="#1A2332"/>
+        <rect x="162" y="12" width="36" height="4" rx="2" fill="rgba(255,255,255,0.24)"/>
+        <text x="180" y="44" text-anchor="middle" fill="#F0F4F8" font-size="16" font-weight="600">设置</text>
+        <text x="24" y="80" fill="#00D4FF" font-size="12" font-weight="600">🎬 倍速</text>
+        <rect x="24" y="92" width="52" height="28" rx="8" fill="rgba(0,212,255,0.15)" stroke="#00D4FF"/>
+        <text x="50" y="110" text-anchor="middle" fill="#00D4FF" font-size="11" font-family="monospace">1.0x</text>
+        <rect x="84" y="92" width="52" height="28" rx="8" fill="#111820"/>
+        <text x="110" y="110" text-anchor="middle" fill="#8892A4" font-size="11" font-family="monospace">1.25x</text>
+        <rect x="144" y="92" width="52" height="28" rx="8" fill="#111820"/>
+        <text x="170" y="110" text-anchor="middle" fill="#8892A4" font-size="11" font-family="monospace">1.5x</text>
+        <rect x="204" y="92" width="52" height="28" rx="8" fill="#111820"/>
+        <text x="230" y="110" text-anchor="middle" fill="#8892A4" font-size="11" font-family="monospace">2.0x</text>
+        <text x="24" y="156" fill="#00D4FF" font-size="12" font-weight="600">🎵 音轨</text>
+        <rect x="24" y="168" width="312" height="36" rx="8" fill="#111820"/>
+        <text x="40" y="190" fill="#00D4FF" font-size="12">✓  中文 · AC3 5.1</text>
+        <rect x="24" y="212" width="312" height="36" rx="8" fill="#111820"/>
+        <text x="40" y="234" fill="#8892A4" font-size="12">    English · AAC 2.0</text>
+        <text x="24" y="278" fill="#00D4FF" font-size="12" font-weight="600">📝 字幕</text>
+        <rect x="24" y="290" width="312" height="36" rx="8" fill="#111820"/>
+        <text x="40" y="312" fill="#00D4FF" font-size="12">✓  简体中文</text>
+        <rect x="24" y="334" width="312" height="36" rx="8" fill="#111820"/>
+        <text x="40" y="356" fill="#8892A4" font-size="12">    关闭字幕</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 09 音频播放器 ═══════════ -->
+<section class="section">
+  <div class="section-head">
+    <span class="section-num">09</span>
+    <span class="section-title">音频播放器 AudioPlayer</span>
+    <span class="section-file">audio_player_page.dart</span>
+  </div>
+  <p class="section-desc">竖屏全屏。紫色径向光晕背景；顶部收起/「正在播放」/收藏；中央 280×280 旋转专辑封面；曲名/歌手；AetherProgress；控制行 shuffle / 上一首 / 64 渐变播放钮 / 下一首 / 循环。</p>
+  <div class="frame-row">
+    <div class="frame-wrap">
+      <div class="frame-label">音频全屏页</div>
+      <svg class="proto" width="320" height="560" viewBox="0 0 320 560">
+        <rect width="320" height="560" fill="#0A0E14"/>
+        <circle cx="80" cy="100" r="160" fill="rgba(139,92,246,0.15)"/>
+        <text x="20" y="36" fill="#F0F4F8" font-size="22">⌄</text>
+        <text x="160" y="28" text-anchor="middle" fill="#5A6577" font-size="10" letter-spacing="1">正在播放</text>
+        <text x="160" y="44" text-anchor="middle" fill="#8892A4" font-size="11">沙丘2 OST</text>
+        <text x="300" y="36" fill="#EC4899" font-size="16" text-anchor="end">♡</text>
+        <!-- album art -->
+        <rect x="50" y="100" width="220" height="220" rx="18" fill="#1A2332"/>
+        <rect x="50" y="100" width="220" height="220" rx="18" fill="url(#artG)"/>
+        <circle cx="160" cy="210" r="28" fill="#0D1520"/>
+        <circle cx="160" cy="210" r="8" fill="#00D4FF"/>
+        <!-- title -->
+        <text x="160" y="370" text-anchor="middle" fill="#F0F4F8" font-size="20" font-weight="700">Dream of Arrakis</text>
+        <text x="160" y="394" text-anchor="middle" fill="#8892A4" font-size="13">Hans Zimmer</text>
+        <!-- progress -->
+        <text x="32" y="430" fill="#8892A4" font-size="11" font-family="monospace">1:24</text>
+        <rect x="64" y="424" width="192" height="4" rx="2" fill="#2A3444"/>
+        <rect x="64" y="424" width="110" height="4" rx="2" fill="url(#prG)"/>
+        <text x="288" y="430" fill="#5A6577" font-size="11" font-family="monospace" text-anchor="end">3:42</text>
+        <!-- controls -->
+        <text x="40" y="490" fill="#8892A4" font-size="16">⇄</text>
+        <text x="80" y="492" fill="#F0F4F8" font-size="22">⏮</text>
+        <circle cx="160" cy="484" r="32" fill="url(#prG)"/>
+        <text x="160" y="492" text-anchor="middle" fill="#0A0E14" font-size="22">▶</text>
+        <text x="240" y="492" fill="#F0F4F8" font-size="22">⏭</text>
+        <text x="280" y="490" fill="#8892A4" font-size="16">↻</text>
+        <defs>
+          <linearGradient id="artG" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#1A0A2E"/><stop offset="100%" stop-color="#8B5CF6" stop-opacity="0.6"/>
+          </linearGradient>
+          <linearGradient id="prG" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#00D4FF"/><stop offset="100%" stop-color="#8B5CF6"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 10 搜索 ═══════════ -->
+<section class="section">
+  <div class="section-head">
+    <span class="section-num">10</span>
+    <span class="section-title">搜索</span>
+    <span class="section-file">search_overlay.dart · tv_search_overlay.dart</span>
+  </div>
+  <p class="section-desc">桌面/手机 Ctrl+K：毛玻璃遮罩 + 居中 560px 搜索面板（仅输入提交，无结果列表）。TV：全屏 87% 黑遮罩 + 560 搜索框 + 6 列 2:3 结果网格，遥控器聚焦放大。</p>
+  <div class="frame-row">
+    <div class="frame-wrap">
+      <div class="frame-label">全局搜索 Ctrl+K</div>
+      <svg class="proto" width="480" height="280" viewBox="0 0 480 280">
+        <rect width="480" height="280" fill="#0A0E14"/>
+        <rect width="480" height="280" fill="#000" opacity=".55"/>
+        <rect x="60" y="60" width="360" height="100" rx="16" fill="#1A2332" stroke="rgba(255,255,255,0.10)"/>
+        <text x="84" y="100" fill="#00D4FF" font-size="18">⌕</text>
+        <text x="112" y="100" fill="#5A6577" font-size="13">搜索电影、电视剧、演员...</text>
+        <line x1="60" y1="128" x2="420" y2="128" stroke="rgba(255,255,255,0.06)"/>
+        <text x="240" y="150" text-anchor="middle" fill="#5A6577" font-size="11">输入关键词搜索，或按 Esc 关闭</text>
+      </svg>
+    </div>
+    <div class="frame-wrap">
+      <div class="frame-label">TV 全屏搜索 · 结果网格</div>
+      <svg class="proto" width="520" height="320" viewBox="0 0 520 320">
+        <rect width="520" height="320" fill="#0A0E14"/>
+        <rect x="40" y="28" width="440" height="48" rx="14" fill="#1A2332" stroke="rgba(255,255,255,0.10)"/>
+        <text x="60" y="58" fill="#00D4FF" font-size="16">⌕</text>
+        <text x="88" y="58" fill="#F0F4F8" font-size="14">沙丘</text>
+        <text x="460" y="58" fill="#5A6577" font-size="14" text-anchor="end">×</text>
+        <!-- 6-col grid -->
+        <rect x="40" y="100" width="64" height="96" rx="8" fill="#1A2332"/>
+        <rect x="40" y="166" width="64" height="30" fill="#0A0E14" opacity=".5"/>
+        <text x="46" y="186" fill="#F0F4F8" font-size="9">沙丘2</text>
+        <rect x="116" y="100" width="64" height="96" rx="8" fill="#1A2332"/>
+        <rect x="192" y="100" width="64" height="96" rx="8" fill="#1A2332"/>
+        <rect x="268" y="100" width="64" height="96" rx="8" fill="#1A2332"/>
+        <rect x="344" y="100" width="64" height="96" rx="8" fill="#1A2332"/>
+        <rect x="420" y="100" width="64" height="96" rx="8" fill="#1A2332"/>
+        <rect x="40" y="208" width="64" height="96" rx="8" fill="#1A2332"/>
+        <rect x="116" y="208" width="64" height="96" rx="8" fill="#1A2332"/>
+        <rect x="192" y="208" width="64" height="96" rx="8" fill="#1A2332"/>
+        <rect x="268" y="208" width="64" height="96" rx="8" fill="#1A2332"/>
+        <rect x="344" y="208" width="64" height="96" rx="8" fill="#1A2332"/>
+        <rect x="420" y="208" width="64" height="96" rx="8" fill="#1A2332"/>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 11 设置 ═══════════ -->
+<section class="section">
+  <div class="section-head">
+    <span class="section-num">11</span>
+    <span class="section-title">设置</span>
+    <span class="section-file">settings_modal.dart · settings_tab.dart · tv_home_screen.dart</span>
+  </div>
+  <p class="section-desc">Shell 实际使用精简弹窗 SettingsModal（520 宽）：播放 / 外观 / 网络。另有完整 SettingsTab（账户卡 + 播放/外观/语言/网络/服务器管理/关于/登出）。TV 设置为大屏分组页。</p>
+  <div class="frame-row">
+    <div class="frame-wrap">
+      <div class="frame-label">设置弹窗 SettingsModal</div>
+      <svg class="proto" width="360" height="420" viewBox="0 0 360 420">
+        <rect width="360" height="420" fill="#0F1722"/>
+        <text x="24" y="36" fill="#F0F4F8" font-size="16" font-weight="600">设置</text>
+        <rect x="312" y="18" width="28" height="28" rx="8" fill="#111820"/>
+        <text x="326" y="37" text-anchor="middle" fill="#8892A4" font-size="12">×</text>
+        <line x1="0" y1="56" x2="360" y2="56" stroke="rgba(255,255,255,0.06)"/>
+        <text x="24" y="84" fill="#00D4FF" font-size="10" font-weight="600" letter-spacing="1">播放</text>
+        <text x="24" y="112" fill="#F0F4F8" font-size="13">自动播放下一集</text>
+        <text x="24" y="128" fill="#5A6577" font-size="10">当前集结束后自动播放下一集</text>
+        <rect x="280" y="106" width="40" height="22" rx="11" fill="#00D4FF"/>
+        <circle cx="308" cy="117" r="8" fill="#0A0E14"/>
+        <text x="24" y="164" fill="#F0F4F8" font-size="13">硬件加速</text>
+        <text x="24" y="180" fill="#5A6577" font-size="10">使用 GPU 进行视频解码</text>
+        <rect x="280" y="158" width="40" height="22" rx="11" fill="#00D4FF"/>
+        <circle cx="308" cy="169" r="8" fill="#0A0E14"/>
+        <text x="24" y="216" fill="#00D4FF" font-size="10" font-weight="600" letter-spacing="1">外观</text>
+        <text x="24" y="244" fill="#F0F4F8" font-size="13">深色模式</text>
+        <text x="320" y="244" fill="#8892A4" font-size="12" text-anchor="end">深色</text>
+        <text x="24" y="280" fill="#F0F4F8" font-size="13">噪点纹理</text>
+        <rect x="280" y="268" width="40" height="22" rx="11" fill="#00D4FF"/>
+        <circle cx="308" cy="279" r="8" fill="#0A0E14"/>
+        <text x="24" y="316" fill="#00D4FF" font-size="10" font-weight="600" letter-spacing="1">网络</text>
+        <text x="24" y="344" fill="#F0F4F8" font-size="13">远程访问</text>
+        <rect x="280" y="332" width="40" height="22" rx="11" fill="#1A2332"/>
+        <circle cx="292" cy="343" r="8" fill="#5A6577"/>
+        <text x="24" y="380" fill="#F0F4F8" font-size="13">带宽限制</text>
+        <text x="320" y="380" fill="#8892A4" font-size="12" text-anchor="end">自动</text>
+      </svg>
+    </div>
+    <div class="frame-wrap">
+      <div class="frame-label">TV 设置 Tab</div>
+      <svg class="proto" width="420" height="360" viewBox="0 0 420 360">
+        <rect width="420" height="360" fill="#0A0E14"/>
+        <text x="40" y="44" fill="#F0F4F8" font-size="22" font-weight="700">设置</text>
+        <text x="40" y="76" fill="#00D4FF" font-size="10" font-weight="600" letter-spacing="1">播放</text>
+        <rect x="40" y="88" width="340" height="56" rx="12" fill="#111820"/>
+        <text x="56" y="112" fill="#F0F4F8" font-size="13">自动播放下一集</text>
+        <text x="56" y="130" fill="#5A6577" font-size="10">当前集结束后自动播放下一集</text>
+        <rect x="320" y="106" width="40" height="22" rx="11" fill="#00D4FF"/>
+        <circle cx="348" cy="117" r="8" fill="#0A0E14"/>
+        <text x="40" y="176" fill="#00D4FF" font-size="10" font-weight="600" letter-spacing="1">关于</text>
+        <rect x="40" y="188" width="340" height="48" rx="12" fill="#111820"/>
+        <text x="56" y="210" fill="#F0F4F8" font-size="13">版本</text>
+        <text x="364" y="210" fill="#8892A4" font-size="12" font-family="monospace" text-anchor="end">v1.0.0-dev</text>
+        <text x="56" y="228" fill="#5A6577" font-size="10">架构 Flutter + Go + MPV</text>
+        <rect x="40" y="260" width="340" height="48" rx="12" fill="#111820" stroke="#00D4FF" stroke-width="2"/>
+        <text x="56" y="284" fill="#00D4FF" font-size="14" font-weight="600">退出 TV 模式</text>
+        <text x="56" y="300" fill="#5A6577" font-size="10">返回标准界面（也可按 Esc 或遥控器返回键）</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 12 TV 主页 ═══════════ -->
+<section class="section">
+  <div class="section-head">
+    <span class="section-num">12</span>
+    <span class="section-title">TV 模式主页</span>
+    <span class="section-file">tv_home_screen.dart</span>
+  </div>
+  <p class="section-desc">D-Pad 焦点导航，左右边距 56。顶栏 80 高（渐变 Logo + 主页/电影/剧集/动漫/设置 + 搜索 + 时钟）。推荐横幅 21:9 聚焦 scale 1.01 + 青 3px 边；媒体卡 190 宽聚焦 scale 1.08；库卡 260×146。</p>
+  <div class="frame-row">
+    <div class="frame-wrap">
+      <div class="frame-label">TV 首页</div>
+      <svg class="proto" width="720" height="480" viewBox="0 0 720 480">
+        <rect width="720" height="480" fill="#0A0E14"/>
+        <!-- top nav -->
+        <text x="40" y="36" fill="#00D4FF" font-size="16" font-weight="800" letter-spacing="2">AETHER</text>
+        <rect x="160" y="18" width="56" height="28" rx="14" fill="url(#tvGrad)"/>
+        <text x="188" y="36" text-anchor="middle" fill="#0A0E14" font-size="11" font-weight="600">主页</text>
+        <text x="240" y="36" fill="#8892A4" font-size="11">电影</text>
+        <text x="284" y="36" fill="#8892A4" font-size="11">剧集</text>
+        <text x="328" y="36" fill="#8892A4" font-size="11">动漫</text>
+        <text x="372" y="36" fill="#8892A4" font-size="11">设置</text>
+        <circle cx="640" cy="32" r="16" fill="none" stroke="rgba(255,255,255,0.10)"/>
+        <text x="640" y="37" text-anchor="middle" fill="#8892A4" font-size="12">⌕</text>
+        <text x="680" y="36" fill="#8892A4" font-size="11" font-family="monospace">21:40</text>
+        <!-- featured banner -->
+        <rect x="40" y="64" width="640" height="180" rx="20" fill="#1A2332" stroke="#00D4FF" stroke-width="3"/>
+        <rect x="40" y="64" width="360" height="180" rx="20" fill="#0A0E14" opacity=".7"/>
+        <rect x="72" y="100" width="72" height="18" rx="9" fill="rgba(0,212,255,0.12)" stroke="rgba(0,212,255,0.3)"/>
+        <text x="108" y="113" text-anchor="middle" fill="#00D4FF" font-size="10" font-weight="600">推荐观看</text>
+        <text x="72" y="150" fill="#F0F4F8" font-size="24" font-weight="800">沙丘：预言</text>
+        <text x="72" y="176" fill="#8892A4" font-size="11">一万年前，姐妹会在帝国裂缝中播下种子……</text>
+        <rect x="72" y="196" width="110" height="30" rx="15" fill="url(#tvGrad)"/>
+        <text x="127" y="216" text-anchor="middle" fill="#0A0E14" font-size="11" font-weight="700">▶ 立即播放</text>
+        <!-- section: recent -->
+        <rect x="40" y="268" width="3" height="16" fill="url(#tvGrad)"/>
+        <text x="52" y="280" fill="#F0F4F8" font-size="14" font-weight="700">最近更新</text>
+        <!-- media cards -->
+        <rect x="40" y="292" width="100" height="150" rx="12" fill="#1A2332"/>
+        <rect x="40" y="292" width="100" height="150" rx="12" fill="none" stroke="#00D4FF" stroke-width="3"/>
+        <text x="48" y="450" fill="#F0F4F8" font-size="10">沙丘2</text>
+        <text x="48" y="464" fill="#5A6577" font-size="9" font-family="monospace">2024</text>
+        <rect x="156" y="292" width="100" height="150" rx="12" fill="#1A2332"/>
+        <text x="164" y="450" fill="#F0F4F8" font-size="10">三体</text>
+        <rect x="272" y="292" width="100" height="150" rx="12" fill="#1A2332"/>
+        <rect x="388" y="292" width="100" height="150" rx="12" fill="#1A2332"/>
+        <rect x="504" y="292" width="100" height="150" rx="12" fill="#1A2332"/>
+        <rect x="620" y="292" width="60" height="150" rx="12" fill="#1A2332" opacity=".5"/>
+        <defs>
+          <linearGradient id="tvGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#00D4FF"/><stop offset="100%" stop-color="#8B5CF6"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 导航关系 ═══════════ -->
+<section class="section">
+  <div class="section-head">
+    <span class="section-num">13</span>
+    <span class="section-title">页面导航关系</span>
+    <span class="section-file">dev 分支路由流</span>
+  </div>
+  <div class="nav-map">
+    <h3>导航流程</h3>
+    <svg class="proto" width="920" height="420" viewBox="0 0 920 420" style="background:transparent;border:none">
+      <!-- nodes -->
+      <rect x="20" y="20" width="140" height="48" rx="10" fill="#111820" stroke="#00D4FF"/>
+      <text x="90" y="48" text-anchor="middle" fill="#00D4FF" font-size="12" font-weight="600">服务器选择</text>
+
+      <rect x="200" y="20" width="120" height="48" rx="10" fill="#111820" stroke="rgba(255,255,255,0.10)"/>
+      <text x="260" y="48" text-anchor="middle" fill="#F0F4F8" font-size="12">登录</text>
+
+      <rect x="360" y="20" width="100" height="48" rx="10" fill="#111820" stroke="rgba(255,255,255,0.10)"/>
+      <text x="410" y="48" text-anchor="middle" fill="#F0F4F8" font-size="12">Shell</text>
+
+      <rect x="500" y="20" width="100" height="48" rx="10" fill="#1A2332" stroke="#00D4FF"/>
+      <text x="550" y="48" text-anchor="middle" fill="#00D4FF" font-size="12">首页</text>
+
+      <rect x="640" y="20" width="100" height="48" rx="10" fill="#1A2332" stroke="#00D4FF"/>
+      <text x="690" y="48" text-anchor="middle" fill="#00D4FF" font-size="12">媒体库</text>
+
+      <rect x="780" y="20" width="100" height="48" rx="10" fill="#1A2332" stroke="rgba(255,255,255,0.10)"/>
+      <text x="830" y="48" text-anchor="middle" fill="#F0F4F8" font-size="12">搜索</text>
+
+      <!-- row 2 -->
+      <rect x="500" y="120" width="140" height="48" rx="10" fill="#111820" stroke="#8B5CF6"/>
+      <text x="570" y="148" text-anchor="middle" fill="#8B5CF6" font-size="12">剧集详情</text>
+
+      <rect x="680" y="120" width="140" height="48" rx="10" fill="#111820" stroke="#8B5CF6"/>
+      <text x="750" y="148" text-anchor="middle" fill="#8B5CF6" font-size="12">电影详情</text>
+
+      <rect x="500" y="210" width="140" height="48" rx="10" fill="#111820" stroke="#EC4899"/>
+      <text x="570" y="238" text-anchor="middle" fill="#EC4899" font-size="12">单集详情</text>
+
+      <rect x="680" y="210" width="140" height="48" rx="10" fill="#111820" stroke="#EC4899"/>
+      <text x="750" y="238" text-anchor="middle" fill="#EC4899" font-size="12">音频页</text>
+
+      <rect x="500" y="300" width="140" height="48" rx="10" fill="#111820" stroke="#00E5A0"/>
+      <text x="570" y="328" text-anchor="middle" fill="#00E5A0" font-size="12">视频播放器</text>
+
+      <rect x="20" y="120" width="140" height="48" rx="10" fill="#111820" stroke="#FF6B35"/>
+      <text x="90" y="148" text-anchor="middle" fill="#FF6B35" font-size="12">设置弹窗</text>
+
+      <rect x="20" y="210" width="140" height="48" rx="10" fill="#111820" stroke="#FF6B35"/>
+      <text x="90" y="238" text-anchor="middle" fill="#FF6B35" font-size="12">TV 模式</text>
+
+      <rect x="20" y="300" width="140" height="48" rx="10" fill="#111820" stroke="#5A6577"/>
+      <text x="90" y="328" text-anchor="middle" fill="#8892A4" font-size="12">MiniPlayBar</text>
+
+      <!-- arrows -->
+      <defs>
+        <marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6" fill="none" stroke="#5A6577" stroke-width="1"/>
+        </marker>
+      </defs>
+      <line x1="160" y1="44" x2="198" y2="44" stroke="#5A6577" marker-end="url(#ar)"/>
+      <line x1="320" y1="44" x2="358" y2="44" stroke="#5A6577" marker-end="url(#ar)"/>
+      <line x1="460" y1="44" x2="498" y2="44" stroke="#5A6577" marker-end="url(#ar)"/>
+      <line x1="600" y1="44" x2="638" y2="44" stroke="#5A6577" marker-end="url(#ar)"/>
+      <line x1="550" y1="68" x2="550" y2="118" stroke="#5A6577" marker-end="url(#ar)"/>
+      <line x1="570" y1="168" x2="570" y2="208" stroke="#5A6577" marker-end="url(#ar)"/>
+      <line x1="570" y1="258" x2="570" y2="298" stroke="#5A6577" marker-end="url(#ar)"/>
+      <line x1="410" y1="68" x2="410" y2="144" stroke="#5A6577" stroke-dasharray="3 3"/>
+      <line x1="90" y1="68" x2="90" y2="118" stroke="#5A6577" marker-end="url(#ar)"/>
+      <line x1="410" y1="144" x2="162" y2="144" stroke="#5A6577" stroke-dasharray="3 3" marker-end="url(#ar)"/>
+      <line x1="410" y1="144" x2="162" y2="234" stroke="#5A6577" stroke-dasharray="3 3" marker-end="url(#ar)"/>
+
+      <text x="460" y="380" fill="#5A6577" font-size="11">实线 = 主导航　虚线 = Shell 内快捷入口　电视/音频页自播放列表或媒体类型进入</text>
+    </svg>
+    <div class="legend">
+      <span><i style="background:#00D4FF"></i>主内容流</span>
+      <span><i style="background:#8B5CF6"></i>详情层</span>
+      <span><i style="background:#EC4899"></i>单集/音频</span>
+      <span><i style="background:#00E5A0"></i>播放器</span>
+      <span><i style="background:#FF6B35"></i>设置 / TV</span>
+    </div>
+  </div>
+</section>
+
+<footer style="text-align:center;color:#5A6577;font-size:11px;margin-top:48px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.06)">
+  Aether Player · UI 原型还原自 <code style="color:#00D4FF">dev</code> 分支 Flutter 实现 · Celestial Glow · 仅供参考，非像素级 UI 稿
+</footer>
+
+</body>
+</html>

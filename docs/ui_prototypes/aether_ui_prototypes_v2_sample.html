@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aether UI 原型 · 优化示例 v2</title>
+<style>
+:root{
+  --deep:#0A0E14; --primary:#0D1520; --surface:#111820; --elevated:#1A2332;
+  --cyan:#00D4FF; --purple:#8B5CF6; --green:#00E5A0; --pink:#EC4899; --orange:#FF6B35;
+  --t1:#F0F4F8; --t2:#8892A4; --t3:#5A6577;
+  --line:rgba(255,255,255,0.06); --line2:rgba(255,255,255,0.10);
+  --r6:6px; --r8:8px; --r12:12px; --r16:16px; --r24:24px;
+  --mono:'SF Mono','Cascadia Code',Consolas,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:var(--deep); color:var(--t1);
+  font:14px/1.55 -apple-system,'PingFang SC','Microsoft YaHei',system-ui,sans-serif;
+  padding:36px 28px 72px;
+}
+.wrap{max-width:1100px;margin:0 auto}
+h1{
+  font-size:26px;font-weight:800;letter-spacing:-.03em;margin-bottom:6px;
+  background:linear-gradient(135deg,var(--cyan),var(--purple));
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+}
+.sub{color:var(--t3);font-size:13px;margin-bottom:28px}
+.sub code{color:var(--cyan);font-family:var(--mono);font-size:12px}
+
+/* ── 优化清单 ── */
+.issues{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:40px}
+.issue{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r16);
+  padding:16px 18px;
+}
+.issue .tag{
+  display:inline-block;font-size:10px;font-weight:700;letter-spacing:.08em;
+  padding:3px 8px;border-radius:var(--r6);margin-bottom:10px;
+}
+.tag.p0{background:rgba(239,68,68,.15);color:#EF4444}
+.tag.p1{background:rgba(255,107,53,.15);color:#FF6B35}
+.tag.p2{background:rgba(0,212,255,.12);color:var(--cyan)}
+.issue h3{font-size:14px;font-weight:600;margin-bottom:6px}
+.issue p{font-size:12px;color:var(--t2);line-height:1.6}
+.issue p b{color:var(--t1);font-weight:500}
+
+/* ── 区块 ── */
+.sec{margin:48px 0 20px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.sec h2{font-size:18px;font-weight:700;letter-spacing:-.02em}
+.sec .num{color:var(--cyan);font-family:var(--mono);font-size:12px;margin-right:10px}
+.sec .note{color:var(--t3);font-size:12px;margin-top:8px;max-width:720px}
+
+/* ── 帧 ── */
+.frames{display:flex;gap:20px;flex-wrap:wrap;margin-top:18px;align-items:flex-start}
+.frame-lab{font-size:12px;color:var(--t2);font-weight:500;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.frame-lab em{font-style:normal;color:var(--t3);font-size:11px;font-family:var(--mono)}
+.badge{
+  font-size:10px;padding:2px 7px;border-radius:99px;font-weight:600;
+}
+.badge.hover{background:rgba(0,212,255,.15);color:var(--cyan)}
+.badge.empty{background:rgba(139,92,246,.15);color:var(--purple)}
+.badge.err{background:rgba(239,68,68,.15);color:#EF4444}
+.badge.load{background:rgba(255,107,53,.15);color:var(--orange)}
+.badge.ok{background:rgba(0,229,160,.15);color:var(--green)}
+
+.phone,.desk,.tv,.panel{
+  background:var(--primary);border:1px solid var(--line);border-radius:var(--r16);
+  overflow:hidden;position:relative;
+}
+.phone{width:300px;height:540px}
+.desk{width:720px;height:430px}
+.tv{width:720px;height:420px}
+.panel{width:320px;height:380px;padding:0}
+
+/* ── 共享 UI 原语（比纯灰块更接近实现） ── */
+.poster{
+  border-radius:var(--r12);background:
+    linear-gradient(180deg,transparent 55%,rgba(10,14,20,.75)),
+    linear-gradient(135deg,#1A0A2E,#8B5CF6 50%,#0D1520);
+  position:relative;
+}
+.poster.g2{background:
+  linear-gradient(180deg,transparent 55%,rgba(10,14,20,.75)),
+  linear-gradient(135deg,#0A1628,#00D4FF 55%,#0D1520)}
+.poster.g3{background:
+  linear-gradient(180deg,transparent 55%,rgba(10,14,20,.75)),
+  linear-gradient(135deg,#1A0A0A,#FF6B35 55%,#0A0E14)}
+.poster.g4{background:
+  linear-gradient(180deg,transparent 55%,rgba(10,14,20,.75)),
+  linear-gradient(135deg,#051A12,#00E5A0 55%,#0A0E14)}
+.card{
+  width:132px;flex:0 0 132px;cursor:pointer;
+  transition:transform .35s cubic-bezier(.4,0,.2,1),filter .35s;
+}
+.card .poster{aspect-ratio:2/3;height:198px}
+.card .meta{padding:8px 2px 0}
+.card .t{font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .y{font-size:10px;color:var(--t3);font-family:var(--mono);margin-top:2px}
+.card .score{
+  position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:50%;
+  background:rgba(0,212,255,.88);color:#0A0E14;font-size:10px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;font-family:var(--mono);
+}
+.card .prog{position:absolute;left:8px;right:8px;bottom:10px;height:3px;border-radius:2px;background:rgba(255,255,255,.15)}
+.card .prog i{display:block;height:100%;width:62%;border-radius:2px;background:linear-gradient(90deg,var(--cyan),var(--purple))}
+.card .play{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  opacity:0;transition:opacity .25s,transform .3s cubic-bezier(.34,1.56,.64,1);
+  background:rgba(10,14,20,.35);border-radius:var(--r12);
+}
+.card .play span{
+  width:40px;height:40px;border-radius:50%;background:rgba(0,212,255,.9);
+  color:#0A0E14;display:flex;align-items:center;justify-content:center;font-size:16px;
+  box-shadow:0 4px 20px rgba(0,212,255,.3);transform:scale(.8);
+}
+.card:hover{transform:translateY(-6px) scale(1.03);filter:drop-shadow(0 12px 24px rgba(0,0,0,.45))}
+.card:hover .play{opacity:1}
+.card:hover .play span{transform:scale(1)}
+.card:hover .poster{box-shadow:0 0 0 1px rgba(0,212,255,.15),0 0 20px rgba(0,212,255,.08)}
+
+.pill{
+  display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 16px;
+  border-radius:17px;font-size:12px;font-weight:600;border:0;cursor:pointer;
+  background:linear-gradient(135deg,var(--cyan),var(--purple));color:#0A0E14;
+}
+.pill.ghost{background:transparent;color:var(--t2);border:1px solid var(--line2)}
+.toggle{width:44px;height:24px;border-radius:12px;background:var(--elevated);border:2px solid var(--line2);position:relative}
+.toggle.on{background:var(--cyan);border-color:var(--cyan)}
+.toggle i{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--t3)}
+.toggle.on i{left:22px;background:#0A0E14}
+
+/* 尺寸标注 */
+.dim{
+  position:absolute;font-family:var(--mono);font-size:10px;color:var(--cyan);
+  background:rgba(10,14,20,.85);padding:2px 6px;border-radius:4px;
+  border:1px solid rgba(0,212,255,.35);pointer-events:none;z-index:5;white-space:nowrap;
+}
+.dim::before{content:'';position:absolute;background:rgba(0,212,255,.35)}
+
+/* 热区 */
+.hot{
+  position:absolute;border:1.5px dashed var(--orange);border-radius:6px;
+  pointer-events:none;z-index:4;
+}
+.hot span{
+  position:absolute;top:-14px;left:0;font-size:9px;font-family:var(--mono);
+  color:var(--orange);background:rgba(10,14,20,.9);padding:0 4px;border-radius:3px;
+}
+
+/* 状态矩阵 */
+.states{display:flex;gap:12px;flex-wrap:wrap}
+.state{
+  width:200px;height:160px;background:var(--primary);border:1px solid var(--line);
+  border-radius:var(--r12);display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:8px;padding:16px;text-align:center;
+}
+.state .icon{font-size:22px}
+.state .lb{font-size:12px;font-weight:600}
+.state .ds{font-size:11px;color:var(--t3);line-height:1.5}
+.state.load .icon{color:var(--orange)}
+.state.empty .icon{color:var(--purple)}
+.state.err .icon{color:#EF4444}
+.state.ok .icon{color:var(--green)}
+
+/* 组件图例 */
+.legend-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}
+.lg{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r12);
+  padding:16px;display:flex;flex-direction:column;gap:12px;min-height:120px;
+}
+.lg .demo{flex:1;display:flex;align-items:center;justify-content:center}
+.lg .name{font-size:11px;color:var(--t2)}
+.lg .name code{color:var(--cyan);font-family:var(--mono);font-size:10px;display:block;margin-top:2px}
+
+/* 对照表 */
+table.cmp{width:100%;border-collapse:collapse;font-size:12px;margin-top:12px}
+table.cmp th,table.cmp td{
+  padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);
+}
+table.cmp th{color:var(--t3);font-weight:600;font-size:11px;letter-spacing:.04em}
+table.cmp td:first-child{color:var(--t1);font-weight:500}
+table.cmp td{color:var(--t2)}
+table.cmp code{font-family:var(--mono);color:var(--cyan);font-size:11px}
+
+footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);color:var(--t3);font-size:11px;text-align:center}
+
+@media (prefers-reduced-motion: reduce){
+  .card,.card .play,.card .play span{transition:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>✦ UI 原型优化方案 · 示例 v2</h1>
+<p class="sub">对 <code>docs/ui_prototypes/aether_ui_prototypes.html</code> 的结构批评与可落地改进 · 仍对齐 Celestial Glow 令牌</p>
+
+<!-- ═════ 问题诊断 ═════ -->
+<div class="issues">
+  <div class="issue">
+    <span class="tag p0">P0 · 可用性</span>
+    <h3>只有 happy path</h3>
+    <p>现有 12 页几乎全是「有内容」态。<b>空态 / 加载骨架 / 错误重试</b>才是实现时最先分叉的路径，原型必须成组出现。</p>
+  </div>
+  <div class="issue">
+    <span class="tag p0">P0 · 保真</span>
+    <h3>灰块占位信息量不足</h3>
+    <p>海报是纯 <code>#1A2332</code> 矩形，看不出 2:3 比例、底部渐变、评分角标、进度条——这些恰是 MediaCard 的识别特征。</p>
+  </div>
+  <div class="issue">
+    <span class="tag p1">P1 · 标注</span>
+    <h3>无尺寸 / Token / 热区</h3>
+    <p>实现同学无法从原型直接读到「侧栏 72 / 卡宽 152 / 圆角 12 / 点击进详情」。缺少标注层等于只有一张画。</p>
+  </div>
+  <div class="issue">
+    <span class="tag p1">P1 · 对照</span>
+    <h3>三端未并排</h3>
+    <p>Desktop / Phone / TV 分散在不同 section，难以对比同一信息架构在不同断点下的折叠策略（720 断点、56 TV 边距）。</p>
+  </div>
+  <div class="issue">
+    <span class="tag p1">P1 · 交互</span>
+    <h3>静止，无状态演示</h3>
+    <p>Hover 播放钮、聚焦 TV 焦点环、Toggle 开关是 Celestial Glow 的招牌交互，静帧无法传达。</p>
+  </div>
+  <div class="issue">
+    <span class="tag p2">P2 · 维护</span>
+    <h3>手绘 SVG 易漂移</h3>
+    <p>每页独立手绘，源码改间距后原型不同步。应抽成 <b>组件图例 + 模板复用</b>，并写明「与源码对齐的锚点文件」。</p>
+  </div>
+</div>
+
+<!-- ═════ 优化 1：组件图例 ═════ -->
+<section>
+  <div class="sec">
+    <h2><span class="num">OPT-01</span>组件图例（先建词典，再画页面）</h2>
+    <p class="note">原型第一页应是可复用原子：MediaCard / PillButton / Toggle / 评分角标 / 进度条。页面原型只负责「怎么摆」，不再重复定义「长什么样」。</p>
+  </div>
+  <div class="legend-grid">
+    <div class="lg">
+      <div class="demo">
+        <div class="card" style="width:100px;flex:0 0 100px">
+          <div class="poster" style="height:150px">
+            <div class="score">8.9</div>
+            <div class="prog"><i></i></div>
+            <div class="play"><span>▶</span></div>
+          </div>
+          <div class="meta"><div class="t">沙丘2</div><div class="y">2024</div></div>
+        </div>
+      </div>
+      <div class="name">媒体卡片 <code>media_card.dart · w152 hover@350ms</code></div>
+    </div>
+    <div class="lg">
+      <div class="demo"><button class="pill">▶ 继续播放</button></div>
+      <div class="name">主按钮 <code>PillButton / AetherButton.primary</code></div>
+    </div>
+    <div class="lg">
+      <div class="demo" style="gap:12px">
+        <div class="toggle on"><i></i></div>
+        <div class="toggle"><i></i></div>
+      </div>
+      <div class="name">开关 <code>44×24 · r12 · 滑块16</code></div>
+    </div>
+    <div class="lg">
+      <div class="demo">
+        <div style="width:160px">
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--t2);margin-bottom:6px;font-family:var(--mono)">
+            <span>01:12</span><span>-1:34</span>
+          </div>
+          <div style="height:4px;border-radius:2px;background:#2A3444;overflow:hidden">
+            <div style="width:58%;height:100%;background:linear-gradient(90deg,var(--cyan),var(--purple))"></div>
+          </div>
+        </div>
+      </div>
+      <div class="name">进度条 <code>AetherProgress.video · h4 hover→6</code></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════ 优化 2：高保真 + 尺寸标注 + 热区 ═════ -->
+<section>
+  <div class="sec">
+    <h2><span class="num">OPT-02</span>首页 · 高保真骨架 + 尺寸/热区标注</h2>
+    <p class="note">灰块换成带渐变/评分/进度的卡片；关键尺寸用青色标注；点击目标用橙色虚线热区（编号对应导航表）。把鼠标停在卡片上可看 Hover 播放钮——这是实现里最重要的微交互之一。</p>
+  </div>
+  <div class="frames">
+    <div>
+      <div class="frame-lab">桌面首页 · 内容区 <em>可 hover 卡片</em> <span class="badge hover">交互演示</span></div>
+      <div class="desk" style="padding:20px 24px;overflow:auto">
+        <!-- app bar -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--cyan),var(--purple))"></div>
+            <b style="font-size:12px;letter-spacing:2px">AETHER</b>
+          </div>
+          <div style="color:var(--t3);font-size:12px">⌕　⟳</div>
+        </div>
+        <!-- welcome + dim -->
+        <div style="position:relative;margin-bottom:14px">
+          <div style="font-size:22px;font-weight:700">欢迎，cuihao</div>
+          <span class="dim" style="right:0;top:4">26px · w700</span>
+        </div>
+        <!-- hero -->
+        <div style="position:relative;height:200px;border-radius:20px;margin-bottom:22px;
+          background:
+            linear-gradient(90deg,rgba(10,14,20,.88) 0%,rgba(10,14,20,.2) 55%,transparent 75%),
+            linear-gradient(180deg,transparent 40%,var(--primary) 100%),
+            linear-gradient(135deg,#0A1628,#00D4FF 40%,#8B5CF6);
+          display:flex;flex-direction:column;justify-content:flex-end;padding:24px">
+          <span class="dim" style="left:0;top:-24px">Hero · h320(桌面)/260/180 · viewport 0.92</span>
+          <div style="font-size:11px;color:var(--cyan);font-weight:600;margin-bottom:8px">剧集 · 2024 · ★8.7</div>
+          <div style="font-size:24px;font-weight:800;margin-bottom:4px">沙丘：预言</div>
+          <div style="font-size:12px;color:var(--t2);margin-bottom:12px">S01E03 · 姐妹会的远见</div>
+          <button class="pill" style="height:30px;padding:0 14px;font-size:11px">▶ 继续播放</button>
+          <span class="hot" style="left:24px;right:24px;top:20px;bottom:20px"><span>热区 A → SeriesDetail</span></span>
+        </div>
+        <!-- section head -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-size:12px;font-weight:600;color:var(--cyan)">▶　继续观看</div>
+          <div style="font-size:11px;color:var(--t3)">查看全部 →</div>
+        </div>
+        <!-- cards -->
+        <div style="display:flex;gap:14px;position:relative;padding-bottom:8px">
+          <span class="dim" style="left:0;top:-8px">gap 14 · card w152</span>
+          <div class="card">
+            <div class="poster">
+              <div class="score">8.9</div>
+              <div class="prog"><i></i></div>
+              <div class="play"><span>▶</span></div>
+            </div>
+            <div class="meta"><div class="t">沙丘2</div><div class="y">2024</div></div>
+          </div>
+          <div class="card">
+            <div class="poster g2">
+              <div class="score">8.4</div>
+              <div class="play"><span>▶</span></div>
+            </div>
+            <div class="meta"><div class="t">三体</div><div class="y">2024</div></div>
+          </div>
+          <div class="card">
+            <div class="poster g3">
+              <div class="score">8.6</div>
+              <div class="prog"><i style="width:30%"></i></div>
+              <div class="play"><span>▶</span></div>
+            </div>
+            <div class="meta"><div class="t">奥本海默</div><div class="y">2023</div></div>
+          </div>
+          <div class="card">
+            <div class="poster g4">
+              <div class="score">9.1</div>
+              <div class="play"><span>▶</span></div>
+            </div>
+            <div class="meta"><div class="t">星际穿越</div><div class="y">2014</div></div>
+          </div>
+          <div class="card">
+            <div class="poster">
+              <div class="score">8.0</div>
+              <div class="play"><span>▶</span></div>
+            </div>
+            <div class="meta"><div class="t">银翼2049</div><div class="y">2017</div></div>
+          </div>
+          <span class="hot" style="left:0;right:0;top:0;bottom:0"><span>热区 B → 详情（按类型分流）</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════ 优化 3：状态矩阵 ═════ -->
+<section>
+  <div class="sec">
+    <h2><span class="num">OPT-03</span>状态矩阵 · 与 happy path 成组交付</h2>
+    <p class="note">每一个会拉取数据的界面，原型至少四态。文案必须可执行（说明怎么恢复），不用「加载失败」这种空话。</p>
+  </div>
+  <div class="states">
+    <div class="state ok">
+      <div class="icon">✓</div>
+      <div class="lb">有内容</div>
+      <div class="ds">海报网格 / 继续观看行<br>现有 v1 已覆盖</div>
+    </div>
+    <div class="state load">
+      <div class="icon">◌</div>
+      <div class="lb">加载中</div>
+      <div class="ds">骨架块：卡位 152×228<br>圆角同 MediaCard，微光扫过</div>
+    </div>
+    <div class="state empty">
+      <div class="icon">▢</div>
+      <div class="lb">空媒体库</div>
+      <div class="ds">「还没有内容」<br>+「刷新」Ghost 按钮</div>
+    </div>
+    <div class="state err">
+      <div class="icon">!</div>
+      <div class="lb">代理不可达</div>
+      <div class="ds">「无法连接本地代理」<br>+「重试」· 检查 aether-server</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════ 优化 4：三端对照 ═════ -->
+<section>
+  <div class="sec">
+    <h2><span class="num">OPT-04</span>三端并排 · 用表格锁断点行为</h2>
+    <p class="note">同一功能不要拆到三个互不相关的章节。下表是 Shell 布局的「单一事实来源」，画图前先定表。</p>
+  </div>
+  <table class="cmp">
+    <thead>
+      <tr><th>维度</th><th>Phone &lt;720</th><th>Desktop ≥720</th><th>TV（焦点）</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>主导航</td>
+        <td>底部 4 项（首页/媒体库/搜索/设置）</td>
+        <td>左侧栏 <code>72px</code>，图标钮 44×44</td>
+        <td>顶栏 <code>80px</code>，胶囊 Tab + 时钟</td>
+      </tr>
+      <tr>
+        <td>内容边距</td>
+        <td><code>pagePadding 16</code></td>
+        <td><code>32–48</code>（wide）</td>
+        <td>左右 <code>56</code></td>
+      </tr>
+      <tr>
+        <td>媒体卡</td>
+        <td>宽 120–132，按压 scale 0.96</td>
+        <td>宽 152，hover Y-6 scale 1.03</td>
+        <td>宽 190，焦点 scale 1.08 + 3px 青边</td>
+      </tr>
+      <tr>
+        <td>播放入口</td>
+        <td>MiniPlayBar + 详情全宽钮</td>
+        <td>Hero / 卡片 hover 播放钮</td>
+        <td>推荐横幅「立即播放」渐变胶囊</td>
+      </tr>
+      <tr>
+        <td>搜索</td>
+        <td>底栏入口 → Overlay</td>
+        <td><code>Ctrl+K</code> 居中面板 560</td>
+        <td>全屏遮罩 + 6 列结果网格</td>
+      </tr>
+      <tr>
+        <td>设置</td>
+        <td>底栏 → SettingsModal 520</td>
+        <td>侧栏齿轮 → 同 Modal</td>
+        <td>Tab 内嵌分组，支持 D-Pad</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═════ 优化 5：电话首页对照 + 焦点演示 ═════ -->
+<section>
+  <div class="sec">
+    <h2><span class="num">OPT-05</span>Phone / TV 状态示例</h2>
+    <p class="note">Phone：底部导航 + MiniPlayBar 必须出现在同一帧。TV：画出「焦点卡片」而不是普通卡片——放大 + 青边是产品识别码。</p>
+  </div>
+  <div class="frames">
+    <!-- Phone -->
+    <div>
+      <div class="frame-lab">Phone 首页 <em>300×540</em> <span class="badge ok">含 MiniBar</span></div>
+      <div class="phone" style="padding:16px 16px 0;display:flex;flex-direction:column">
+        <div style="font-size:16px;font-weight:700;margin-bottom:10px">欢迎，cuihao</div>
+        <div style="height:120px;border-radius:14px;margin-bottom:14px;
+          background:
+            linear-gradient(90deg,rgba(10,14,20,.85),transparent 70%),
+            linear-gradient(180deg,transparent 50%,var(--primary)),
+            linear-gradient(135deg,#1A0A2E,#8B5CF6);
+          display:flex;flex-direction:column;justify-content:flex-end;padding:14px">
+          <div style="font-size:14px;font-weight:700">沙丘：预言</div>
+          <button class="pill" style="height:26px;padding:0 12px;font-size:10px;margin-top:8px;align-self:flex-start">▶ 继续播放</button>
+        </div>
+        <div style="font-size:12px;font-weight:600;color:var(--cyan);margin-bottom:8px">继续观看</div>
+        <div style="display:flex;gap:10px;overflow:hidden">
+          <div class="card" style="width:100px;flex:0 0 100px">
+            <div class="poster" style="height:150px">
+              <div class="prog"><i></i></div>
+            </div>
+            <div class="meta"><div class="t" style="font-size:10px">沙丘2</div></div>
+          </div>
+          <div class="card" style="width:100px;flex:0 0 100px">
+            <div class="poster g2" style="height:150px"></div>
+            <div class="meta"><div class="t" style="font-size:10px">三体</div></div>
+          </div>
+          <div class="card" style="width:100px;flex:0 0 100px">
+            <div class="poster g3" style="height:150px"></div>
+            <div class="meta"><div class="t" style="font-size:10px">奥本海默</div></div>
+          </div>
+        </div>
+        <div style="flex:1"></div>
+        <!-- mini play bar -->
+        <div style="margin:0 0 8px;height:48px;border-radius:12px;background:var(--elevated);
+          border:1px solid rgba(0,212,255,.1);display:flex;align-items:center;gap:10px;padding:0 12px">
+          <div style="width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,var(--cyan),var(--purple))"></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">沙丘2 · E01</div>
+            <div style="font-size:10px;color:var(--t3)">未在播放</div>
+          </div>
+          <div style="width:32px;height:32px;border-radius:50%;background:rgba(0,212,255,.12);color:var(--cyan);display:flex;align-items:center;justify-content:center;font-size:12px">▶</div>
+        </div>
+        <!-- bottom nav -->
+        <div style="height:52px;margin:0 -16px;background:rgba(13,21,32,.95);border-top:1px solid var(--line);
+          display:flex;align-items:center;justify-content:space-around;font-size:10px">
+          <span style="color:var(--cyan)">⌂ 首页</span>
+          <span style="color:var(--t3)">▦ 媒体库</span>
+          <span style="color:var(--t3)">⌕ 搜索</span>
+          <span style="color:var(--t3)">⚙ 设置</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TV focus -->
+    <div>
+      <div class="frame-lab">TV 媒体卡 · 焦点态 <em>scale 1.08 + 3px</em> <span class="badge hover">焦点环</span></div>
+      <div style="background:var(--primary);border:1px solid var(--line);border-radius:var(--r16);
+        width:520px;height:320px;padding:28px;display:flex;gap:18px;align-items:flex-start">
+        <div class="card" style="width:150px;flex:0 0 150px;transform:scale(1.08);transform-origin:top left;
+          filter:drop-shadow(0 0 24px rgba(0,212,255,.12))">
+          <div class="poster" style="height:225px;box-shadow:0 0 0 3px var(--cyan)">
+            <div style="position:absolute;top:10px;right:10px;font-size:10px;color:var(--cyan);
+              background:rgba(10,14,20,.7);padding:3px 8px;border-radius:6px">剧集</div>
+          </div>
+          <div class="meta"><div class="t">沙丘：预言</div><div class="y">2024</div></div>
+        </div>
+        <div class="card" style="width:150px;flex:0 0 150px;margin-left:18px">
+          <div class="poster g2" style="height:225px"></div>
+          <div class="meta"><div class="t">三体</div><div class="y">2024</div></div>
+        </div>
+        <div class="card" style="width:150px;flex:0 0 150px">
+          <div class="poster g4" style="height:225px"></div>
+          <div class="meta"><div class="t">进击的巨人</div><div class="y">2023</div></div>
+        </div>
+        <span class="dim" style="left:28px;bottom:20px">焦点：scale(1.08) · box-shadow 0 0 0 3px #00D4FF · glow</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════ 优化 6：错误条规范 ═════ -->
+<section>
+  <div class="sec">
+    <h2><span class="num">OPT-06</span>错误/空态文案规范（写进原型，不写在代码注释里）</h2>
+    <p class="note">原型应固定「界面自己的声音」：说明出了什么、下一步做什么。避免「加载失败」「出了点问题」。</p>
+  </div>
+  <table class="cmp">
+    <thead><tr><th>场景</th><th>不推荐</th><th>推荐（写入原型）</th><th>动作</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>本地代理未起</td>
+        <td>加载失败</td>
+        <td>无法连接本地代理服务。请确认 aether-server 与程序同目录。</td>
+        <td><button class="pill ghost" style="height:28px;font-size:11px">重试</button></td>
+      </tr>
+      <tr>
+        <td>Emby 401</td>
+        <td>登录失败</td>
+        <td>用户名或密码不正确，或该账号无权访问此服务器。</td>
+        <td>焦点回到密码框</td>
+      </tr>
+      <tr>
+        <td>空媒体库</td>
+        <td>暂无内容（单独一行）</td>
+        <td>这个媒体库里还没有可播放的项目。</td>
+        <td>Ghost「刷新」</td>
+      </tr>
+      <tr>
+        <td>播放轨道为空</td>
+        <td>（隐藏菜单）</td>
+        <td>没有可选字幕轨道。</td>
+        <td>禁用行，保留标题</td>
+      </tr>
+      <tr>
+        <td>搜索无结果</td>
+        <td>未找到相关结果</td>
+        <td>没有找到「{keyword}」。试试更短的关键词。</td>
+        <td>保持输入框焦点</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═════ 落地节奏 ═════ -->
+<section>
+  <div class="sec">
+    <h2><span class="num">OPT-07</span>建议落地节奏</h2>
+  </div>
+  <table class="cmp">
+    <thead><tr><th>阶段</th><th>交付物</th><th>验收</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>第 1 步 · 词典</td>
+        <td>组件图例页（Card / Pill / Toggle / Progress / Badge / 错误条）</td>
+        <td>与 <code>widgets/</code> 源码一一对应，有尺寸注释</td>
+      </tr>
+      <tr>
+        <td>第 2 步 · 主路径精修</td>
+        <td>Shell + 首页 + 剧集详情 + 集详情 + 播放器（5 页）高保真 + 热区</td>
+        <td>每页含 2+ 状态；桌面/手机成对</td>
+      </tr>
+      <tr>
+        <td>第 3 步 · 补全</td>
+        <td>登录两阶段、设置弹窗、TV 焦点流、搜索双实现</td>
+        <td>三端对照表无空行</td>
+      </tr>
+      <tr>
+        <td>第 4 步 · 维护机制</td>
+        <td>原型页脚标注「对齐 commit / 源文件」；改 UI 先改图例再改页面</td>
+        <td>与 <code>docs/ui_gap_analysis.md</code> 联动更新</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<footer>
+  优化示例 v2 · 仍使用 Celestial Glow 令牌（#0A0E14 / #00D4FF / #8B5CF6 / r6–r24）· 对齐 dev 分支实现
+</footer>
+
+</div>
+</body>
+</html>
